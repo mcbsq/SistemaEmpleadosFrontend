@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/qa/webempleados/static/css/main.e1401fff.css",
+    "main.js": "/qa/webempleados/static/js/main.3b503b7c.js",
+    "index.html": "/qa/webempleados/index.html",
+    "main.e1401fff.css.map": "/qa/webempleados/static/css/main.e1401fff.css.map",
+    "main.3b503b7c.js.map": "/qa/webempleados/static/js/main.3b503b7c.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e1401fff.css",
+    "static/js/main.3b503b7c.js"
+  ]
+}

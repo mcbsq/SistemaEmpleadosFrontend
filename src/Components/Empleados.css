@@ -1,0 +1,437 @@
+/* ============================================================
+   CRUD EMPLEADOS – Liquid Glass Command Center (2026)
+   ============================================================ */
+
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.01);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --accent-blue: #0071e3;
+  --accent-cyan: #00d2ff;
+  --danger-red: #ff3b30;
+  --success-green: #34c759;
+  --excel-green: #1d6f42;
+  --apple-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --row-spacing: 16px;
+  --text-main: #f5f5f7;
+  --text-muted: #86868b;
+}
+
+/* --- 1. CONTENEDOR BASE --- */
+.empleados {
+  background: none !important;
+  min-height: 100vh;
+  padding: 5vh 3vw;
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+}
+
+.CRUDS {
+  max-width: 1600px;
+  margin: 0 auto;
+  background: rgba(10, 10, 10, 0.25);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 40px;
+  padding: 3.5rem;
+  box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.6);
+  animation: slideInUp 1s var(--apple-ease);
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(30px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* --- 2. HEADER & SEARCH BAR --- */
+.Agregar-Emp {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  margin-bottom: 4rem;
+}
+
+.Agregar-Emp .btn-primary {
+  min-width: 60px;
+  height: 60px;
+  font-size: 1.2rem;
+  border-radius: 20px !important;
+  background: var(--accent-blue) !important;
+  border: none !important;
+  box-shadow: 0 10px 25px rgba(0, 113, 227, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s var(--apple-ease);
+}
+
+/* --- BOTÓN EXCEL --- */
+.Agregar-Emp .btn-info {
+  min-width: 60px;
+  height: 60px;
+  border-radius: 20px !important;
+  background: rgba(29, 111, 66, 0.1) !important;
+  border: 1px solid rgba(29, 111, 66, 0.3) !important;
+  color: var(--success-green) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  transition: all 0.4s var(--apple-ease);
+}
+
+.Agregar-Emp .btn-info:hover {
+  background: var(--excel-green) !important;
+  color: #fff !important;
+  box-shadow: 0 10px 25px rgba(29, 111, 66, 0.4);
+  transform: translateY(-3px);
+}
+
+.inputEmpleados {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid var(--glass-border) !important;
+  padding: 1.2rem 2rem;
+  border-radius: 20px;
+  color: #fff !important;
+  font-size: 1.05rem;
+  transition: all 0.5s var(--apple-ease);
+}
+
+.inputEmpleados:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--accent-blue) !important;
+  box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.15);
+}
+
+/* --- 3. TABS --- */
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 3rem;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 18px;
+  width: fit-content;
+  border: 1px solid var(--glass-border);
+}
+
+.tabs button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 10px 24px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 13px;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: #fff;
+  color: #000;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* --- 4. TABLA --- */
+.table {
+  width: 100%;
+  border-collapse: separate !important;
+  border-spacing: 0 var(--row-spacing) !important;
+}
+
+.table th {
+  padding: 0 1.5rem 1rem 1.5rem !important;
+  color: var(--text-muted) !important;
+  font-size: 0.75rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1.5px;
+  border: none !important;
+}
+
+.table tbody tr {
+  background: rgba(255, 255, 255, 0.02) !important;
+  transition: all 0.4s var(--apple-ease) !important;
+}
+
+.table td {
+  padding: 1.5rem !important;
+  color: var(--text-main) !important;
+  border-top: 1px solid var(--glass-border) !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+}
+
+.table td:first-child { border-left: 1px solid var(--glass-border) !important; border-radius: 20px 0 0 20px !important; }
+.table td:last-child { border-right: 1px solid var(--glass-border) !important; border-radius: 0 20px 20px 0 !important; }
+
+.table img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--accent-blue);
+}
+
+/* Botones de acción tabla - MEJORADOS */
+.table .btn {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 14px !important; /* Estilo iOS App Icon */
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  margin: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  backdrop-filter: blur(5px);
+}
+
+.table .btn-info { color: var(--accent-cyan) !important; }
+.table .btn-info:hover { background: var(--accent-cyan) !important; color: #000 !important; transform: scale(1.1); box-shadow: 0 0 20px rgba(0, 210, 255, 0.4); }
+
+.table .btn-danger { color: var(--danger-red) !important; }
+.table .btn-danger:hover { background: var(--danger-red) !important; color: #fff !important; transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 59, 48, 0.4); }
+
+.table .btn-primary { color: var(--accent-blue) !important; }
+.table .btn-primary:hover { background: var(--accent-blue) !important; color: #fff !important; transform: scale(1.1); box-shadow: 0 0 20px rgba(0, 113, 227, 0.4); }
+
+/* --- 5. NAVEGACIÓN --- */
+.navegacion-emp {
+  display: flex; justify-content: center; align-items: center; gap: 2rem; margin-top: 3rem;
+}
+
+.btn-nav {
+  background: none; border: 1px solid var(--glass-border); color: #fff;
+  border-radius: 50%; width: 45px; height: 45px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* --- 6. EL POP-UP INTERACTIVO (SOLUCIÓN FIX POSICIÓN) --- */
+
+/* Forzar que el modal sea un overlay real sobre toda la pantalla */
+.modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important; /* Encima de absolutamente todo */
+  overflow: hidden !important;
+}
+
+/* Backdrop ultra oscuro con blur */
+.modal-backdrop {
+  position: fixed !important;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background-color: #000 !important;
+  opacity: 0.85 !important;
+  backdrop-filter: blur(15px) !important;
+  -webkit-backdrop-filter: blur(15px) !important;
+  z-index: 9998 !important;
+}
+
+/* Diálogo centrado */
+.modal-dialog {
+  margin: auto !important;
+  max-width: 550px !important; 
+  width: 100% !important;
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
+/* Tarjeta del Pop-up */
+.modal-content {
+  background: rgba(20, 20, 20, 0.8) !important;
+  backdrop-filter: blur(60px) saturate(210%) !important;
+  -webkit-backdrop-filter: blur(60px) saturate(210%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 40px !important;
+  padding: 3rem !important; /* Mucho aire */
+  box-shadow: 0 50px 120px rgba(0, 0, 0, 1) !important;
+  animation: popupFly 0.5s var(--apple-ease);
+  color: #fff !important;
+  position: relative; /* Para la X de cierre */
+}
+
+@keyframes popupFly {
+  from { opacity: 0; transform: scale(0.8) translateY(50px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* BOTÓN CERRAR MODAL (X) - ESTILIZADO */
+.modal-header .btn-close {
+  position: absolute !important;
+  top: 2rem;
+  right: 2rem;
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 50% !important;
+  padding: 0.8rem !important;
+  margin: 0 !important;
+  filter: invert(1) brightness(200%);
+  opacity: 0.5;
+  transition: all 0.3s var(--apple-ease);
+  z-index: 10;
+}
+
+.modal-header .btn-close:hover {
+  opacity: 1;
+  background-color: var(--danger-red) !important;
+  transform: rotate(90deg);
+}
+
+/* BOTÓN CARGAR ARCHIVO - ESTILIZADO */
+.btn-outline-info {
+  border: 2px dashed rgba(0, 210, 255, 0.3) !important;
+  background: rgba(0, 210, 255, 0.02) !important;
+  color: var(--accent-cyan) !important;
+  padding: 1.5rem !important;
+  border-radius: 20px !important;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  transition: all 0.4s var(--apple-ease) !important;
+}
+
+.btn-outline-info:hover {
+  background: rgba(0, 210, 255, 0.08) !important;
+  border-color: var(--accent-cyan) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 210, 255, 0.1);
+}
+
+/* Espaciado de campos internos */
+.modal-body {
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 2.2rem; /* ESPACIO ENTRE INPUTS */
+}
+
+/* Filas internas dentro del modal */
+.modal-body .row {
+  margin: 0 !important;
+  gap: 1.5rem 0;
+}
+
+.form-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--accent-blue);
+  margin-bottom: 0.9rem !important;
+  display: block;
+}
+
+.form-control {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 18px !important;
+  color: #fff !important;
+  padding: 1.2rem 1.5rem !important;
+  font-size: 1rem;
+}
+
+.form-control:focus {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--accent-blue) !important;
+  box-shadow: 0 0 25px rgba(0, 113, 227, 0.2) !important;
+  transform: translateY(-2px);
+}
+
+/* Header/Footer */
+.modal-header {
+  border: none !important;
+  padding: 0 0 3rem 0 !important;
+  justify-content: center !important;
+}
+
+.modal-title {
+  font-size: 1.8rem !important;
+  font-weight: 800 !important;
+  text-align: center;
+  width: 100%;
+}
+
+
+.modal-footer {
+  border: none !important;
+  padding: 3rem 0 0 0 !important;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.modal-footer .btn {
+  flex: 1;
+  height: 55px;
+  border-radius: 20px !important;
+  font-weight: 700 !important;
+  font-size: 1rem;
+}
+
+.modal-footer .btn-primary {
+  background: var(--accent-blue) !important;
+  box-shadow: 0 10px 25px rgba(0, 113, 227, 0.3);
+  border: none !important;
+}
+
+/* --- ESTILO ESPECÍFICO BOTÓN CERRAR (X) --- */
+.modal-header .close {
+  position: absolute !important;
+  top: 2rem;
+  right: 2rem;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 50% !important;
+  width: 40px;
+  height: 40px;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff !important;
+  font-size: 1.5rem;
+  line-height: 1;
+  text-shadow: none;
+  opacity: 0.5;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+  outline: none !important;
+  z-index: 10;
+}
+
+.modal-header .close span {
+  display: block;
+  margin-top: -4px; /* Ajuste fino para centrar la '×' visualmente */
+}
+
+.modal-header .close:hover {
+  opacity: 1;
+  background: #ff3b30 !important; /* danger-red */
+  border-color: #ff3b30 !important;
+  transform: rotate(90deg);
+  color: #fff !important;
+}
+
+.modal-header .close:focus {
+  outline: none !important;
+}
+
+/* --- 7. RESPONSIVE --- */
+@media (max-width: 768px) {
+  .modal-dialog { max-width: 92% !important; }
+  .modal-content { padding: 2rem !important; }
+  .table thead { display: none; }
+}

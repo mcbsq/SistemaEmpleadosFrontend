@@ -1,0 +1,112 @@
+/* ============================================================
+   ORGANIGRAMA – Circuit Schema Edition (Sutil & Minimal)
+   ============================================================ */
+
+.organigrama-section {
+  padding: 80px 4%;
+  background: none; /* Eliminamos fondo sólido para integración total */
+  min-height: 100vh;
+}
+
+.section-header h2 {
+  font-size: 2.5rem;
+  font-weight: bolder; /* Más ligero para estilo Apple */
+  text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 2px;
+  margin-bottom: 30px;
+}
+
+/* --- CONDUCTORES (Líneas del Circuito) --- */
+.rd3t-link {
+  stroke: rgba(255, 255, 255, 0.1) !important; /* Líneas muy sutiles */
+  stroke-width: 1.5px !important;
+  transition: all 0.5s var(--apple-ease);
+}
+
+/* Efecto activo al interactuar */
+.node__branch .rd3t-link, .node__leaf .rd3t-link {
+  stroke: var(--accent-blue) !important;
+  stroke-opacity: 0.5;
+}
+
+/* --- NODOS (Transistores Sutiles) --- */
+.node-card {
+  background: none; /* Quitamos el look de botón gigante */
+  border: none;
+  backdrop-filter: none;
+  padding: 5px 10px;
+  text-align: left; /* Alineación tipo etiqueta técnica */
+  cursor: pointer;
+  transition: all 0.3s var(--apple-ease);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Línea de acento sutil al lado del nombre */
+.node-card::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 0%;
+  background: var(--accent-blue);
+  transition: height 0.3s ease;
+}
+
+.node-card:hover::before {
+  height: 80%;
+}
+
+.node-card:hover {
+  transform: translateX(5px); /* Desplazamiento sutil */
+}
+
+.node-name {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.node-role {
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+/* --- PUNTOS DE CONEXIÓN (Componentes) --- */
+circle {
+  transition: all 0.4s var(--apple-ease);
+  stroke: rgba(255, 255, 255, 0.2) !important;
+  fill: #050505 !important; /* Centro oscuro tipo transistor */
+}
+
+/* Estilo para Áreas (Nodos de control) */
+g .area-node-dot {
+  fill: var(--accent-blue) !important;
+  filter: drop-shadow(0 0 5px var(--accent-blue));
+}
+
+g:hover circle {
+  r: 8;
+  stroke: var(--accent-blue) !important;
+  fill: var(--accent-blue) !important;
+  filter: drop-shadow(0 0 10px var(--accent-blue));
+}
+
+/* Contenedor del árbol */
+.tree-wrapper {
+  mask-image: linear-gradient(to bottom, 
+    transparent, 
+    black 10%, 
+    black 90%, 
+    transparent
+  ); /* Suaviza bordes superior/inferior del árbol */
+}

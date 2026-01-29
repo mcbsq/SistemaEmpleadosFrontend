@@ -1,0 +1,221 @@
+/* --- FUNDAMENTOS Y VARIABLES --- */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+
+:root {
+  --bg-main: #050505;
+  --accent-blue: #0071e3;
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1a6;
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --apple-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-premium: all 0.5s var(--apple-ease);
+}
+
+* {
+  margin: 0; padding: 0; box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  overflow-x: hidden;
+  background-image: radial-gradient(circle at 50% -10%, rgba(0, 113, 227, 0.12), transparent 40%);
+  background-attachment: fixed;
+}
+
+.noise-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: url('https://grainy-gradients.vercel.app/noise.svg');
+  opacity: 0.03; pointer-events: none; z-index: 10000;
+}
+
+/* --- HEADER ESTRUCTURAL --- */
+.header {
+  height: 80px;
+  width: 100%;
+  position: fixed;
+  top: 0; left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6%;
+  background: rgba(5, 5, 5, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 9999;
+  transition: var(--transition-premium);
+}
+
+/* --- LA CÁPSULA (Lógica Desktop) --- */
+.header.scrolled-capsule {
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 1100px;
+  height: 60px;
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  padding: 0 30px;
+}
+
+.logo {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #fff;
+  text-decoration: none;
+  letter-spacing: -1px;
+  z-index: 10002;
+  transition: var(--transition-premium);
+}
+
+/* --- NAVBAR DESKTOP --- */
+.navbar {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.navbar button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.navbar button:hover { color: #fff; }
+
+.btn-logout {
+  padding: 8px 20px;
+  background: #fff !important;
+  color: #000 !important;
+  border-radius: 50px;
+  font-weight: 700;
+}
+
+/* --- MENU TOGGLE --- */
+.menu-toggle {
+  display: none;
+  width: 44px; height: 44px;
+  background: transparent; border: none;
+  position: relative; z-index: 10002;
+  cursor: pointer;
+}
+
+.menu-toggle span, .menu-toggle span::before, .menu-toggle span::after {
+  content: ''; position: absolute; width: 24px; height: 2px;
+  background: #fff; transition: 0.3s var(--apple-ease);
+  right: 10px;
+}
+
+.menu-toggle span::before { top: -8px; width: 16px; right: 0; }
+.menu-toggle span::after { top: 8px; width: 24px; right: 0; opacity: 1; }
+
+.menu-toggle span.open { background: transparent; }
+.menu-toggle span.open::before { transform: rotate(45deg); top: 0; width: 24px; }
+.menu-toggle span.open::after { transform: rotate(-45deg); top: 0; width: 24px; }
+
+/* --- BREAKPOINT MÓVIL (UX/UI PROFESIONAL) --- */
+@media (max-width: 992px) {
+  .header {
+    top: 12px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 92% !important;
+    height: 58px !important;
+    border-radius: 30px !important;
+    padding: 0 20px !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* PANEL DE MENÚ ABIERTO */
+  .header.menu-is-open {
+    top: 0 !important; width: 100% !important; height: 100vh !important;
+    border-radius: 0 !important; background: #000 !important;
+    border: none !important; transform: translateX(-50%) scale(1) !important;
+    align-items: flex-start; /* Alinea contenido al inicio superior */
+    padding-top: 40px !important;
+  }
+
+  /* Reposicionamos el logo al estar el menú abierto */
+  .header.menu-is-open .logo {
+    position: absolute;
+    top: 45px;
+    left: 15%;
+    font-size: 1.8rem;
+  }
+
+  .menu-toggle { display: flex; align-items: center; justify-content: center; }
+
+  .navbar {
+    position: absolute;
+    top: 120px; /* Espacio para que el logo respire arriba */
+    left: 0; width: 100%; height: auto;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 40px 15%;
+    gap: 2rem;
+    opacity: 0; visibility: hidden;
+    transition: 0.3s ease;
+  }
+
+  .navbar.active {
+    opacity: 1; visibility: visible;
+  }
+
+  .navbar button {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #fff;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  .navbar.active button {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Delays para efecto cascada */
+  .navbar.active button:nth-child(1) { transition: 0.4s var(--apple-ease) 0.1s; }
+  .navbar.active button:nth-child(2) { transition: 0.4s var(--apple-ease) 0.2s; }
+  .navbar.active button:nth-child(3) { transition: 0.4s var(--apple-ease) 0.3s; }
+  .navbar.active button:nth-child(4) { transition: 0.4s var(--apple-ease) 0.4s; }
+
+  .btn-logout {
+    margin-top: 1rem;
+    background: var(--accent-blue) !important;
+    color: #fff !important;
+    font-size: 1.2rem !important;
+    padding: 12px 30px;
+  }
+}
+
+/* SECCIONES */
+.vertical-landing section {
+  min-height: 100vh;
+  padding: 100px 6%;
+}
+
+.fade-in-page {
+  animation: appleShow 1s var(--apple-ease) forwards;
+}
+
+@keyframes appleShow {
+  from { opacity: 0; transform: translateY(30px); filter: blur(10px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.footer {
+  padding: 3rem; text-align: center;
+  color: var(--text-secondary); font-size: 0.8rem;
+  border-top: 1px solid var(--glass-border);
+}

@@ -1,0 +1,309 @@
+/* ============================================================
+   ESTILOS HOME – Liquid Glass 3D Carousel (Cibercom 2026)
+   ============================================================ */
+
+:root {
+  --anim-duration: 0.85s;
+  --apple-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --glass-white: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --accent-blue: #0071e3;
+  --text-secondary: #a1a1a6;
+}
+
+/* ----------------------------------------------------
+   1. HOME ESTRUCTURAL 🎯
+   ---------------------------------------------------- */
+.home {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 2000px;
+  overflow: hidden; /* Evita scrolls accidentales por la rotación 3D */
+}
+
+.home-content {
+  width: 100%;
+  max-width: 1600px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 40px;
+}
+
+/* ----------------------------------------------------
+   2. CARRUSEL 3D ✨
+   ---------------------------------------------------- */
+.carousel-container {
+  width: 100%;
+  height: 600px;
+  perspective: 3000px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  cursor: grab;
+}
+
+.carousel-container:active {
+  cursor: grabbing;
+}
+
+.gallery-container {
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.box {
+  width: 240px;
+  height: 320px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: none; 
+}
+
+.box.is-navigating {
+  transition: transform var(--anim-duration) var(--apple-ease);
+}
+
+/* TARJETAS DEL CARRUSEL */
+.card {
+  position: absolute;
+  width: 240px;
+  height: 320px;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+  transition: all 0.6s var(--apple-ease);
+}
+
+/* Efecto Profundidad: Cartas al fondo */
+.card:not(:hover) {
+  filter: brightness(0.6) blur(1px);
+}
+
+
+.card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 20px;
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  pointer-events: none; /* Evita interferencia con el drag */
+}
+
+.card-info {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.card-name {
+  color: white;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: -0.5px;
+  margin-bottom: 12px;
+}
+
+.card .btn-direction {
+  padding: 12px;
+  background: white !important;
+  color: black !important;
+  border-radius: 50px;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: block;
+  transition: all 0.3s ease;
+}
+
+.card .btn-direction:hover {
+  transform: scale(1.05);
+  box-shadow: 0 10px 20px rgba(255, 255, 255, 0.2);
+}
+
+/* ----------------------------------------------------
+   3. INFO CARD OVERLAY (UX Apple Style) 📄
+   ---------------------------------------------------- */
+.info-card-overlay {
+  position: fixed;
+  top: 100px;
+  right: 4%;
+  z-index: 10005;
+  pointer-events: auto; /* Activado para permitir scroll e interacción */
+}
+
+.info-card-content {
+  background: rgba(15, 15, 15, 0.7);
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 35px;
+  padding: 30px;
+  width: 320px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6);
+  animation: appleSlideIn 0.8s var(--apple-ease);
+  position: relative;
+}
+
+.info-card-content h4 {
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+.info-card-content hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--glass-border), transparent);
+  margin-bottom: 15px;
+}
+
+.info-card-content p {
+  margin: 12px 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.info-card-content p strong {
+  color: #fff;
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+/* Botón cerrar para Mobile UX */
+.close-info {
+  display: none;
+}
+
+@keyframes appleSlideIn {
+  from { opacity: 0; transform: translateX(50px) scale(0.95); filter: blur(10px); }
+  to { opacity: 1; transform: translateX(0) scale(1); filter: blur(0); }
+}
+
+/* ----------------------------------------------------
+   4. BOTONES DE NAVEGACIÓN (Desktop Only) ⬇️
+   ---------------------------------------------------- */
+.button-container {
+  display: flex;
+  gap: 20px;
+  margin-top: -40px;
+  z-index: 10;
+}
+
+.button {
+  width: 55px; height: 55px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.4s var(--apple-ease);
+}
+
+.button:hover {
+  background: #fff;
+  transform: scale(1.1);
+}
+
+.button::before {
+  content: "";
+  width: 10px; height: 10px;
+  border-top: 2px solid white;
+  border-right: 2px solid white;
+  transition: border-color 0.3s ease;
+}
+
+.button:hover::before { border-color: #000; }
+
+.button.prev::before { transform: rotate(-135deg) translate(2px, 0); }
+.button.next::before { transform: rotate(45deg) translate(-2px, 0); }
+
+/* ----------------------------------------------------
+   5. RESPONSIVE UX EXPERT 📱
+   ---------------------------------------------------- */
+
+@media (max-width: 992px) {
+  /* Ocultamos botones físicos para forzar uso de Gestos */
+  .button-container {
+    display: none;
+  }
+
+  .carousel-container { 
+    height: 500px; 
+    perspective: 1500px;
+  }
+
+  .box { width: 180px; height: 260px; }
+  .card { 
+    width: 180px; 
+    height: 260px; 
+    border-radius: 20px;
+    filter: brightness(0.5) scale(0.9); /* Más profundidad en móvil */
+  }
+  .card img { height: 130px; }
+  
+  /* UX Móvil para la tarjeta de info */
+  .info-card-overlay {
+    top: auto;
+    bottom: 40px;
+    right: 50%;
+    transform: translateX(50%);
+    width: 92%;
+    pointer-events: auto;
+  }
+  
+  .info-card-content { 
+    width: 100%; 
+    padding: 25px;
+    background: rgba(10, 10, 10, 0.95);
+    border-radius: 30px;
+  }
+
+  .close-info {
+    display: flex;
+    position: absolute;
+    top: -15px;
+    right: 15px;
+    width: 35px;
+    height: 35px;
+    background: #fff;
+    color: #000;
+    border: none;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+    z-index: 10006;
+  }
+}
+
+@media (max-width: 480px) {
+  .carousel-container { height: 400px; perspective: 1000px; }
+  .card { width: 150px; height: 220px; }
+  .card img { height: 110px; }
+  .card-name { font-size: 0.9rem; }
+}

@@ -1,0 +1,315 @@
+/* --- CYBER-SYSTEM CORE (Personal & Login) --- */
+
+:root {
+  --login-bg: #050507;
+  --card-bg: rgba(10, 10, 15, 0.85);
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --accent-blue: #0071e3;
+  --accent-cyan: #64ffda;
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-main: #f5f5f7;
+  --text-muted: #86868b;
+  --apple-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --glow-blue: 0 0 20px rgba(0, 113, 227, 0.4);
+  --glow-cyan: 0 0 15px rgba(100, 255, 218, 0.5);
+  --island-bg: rgba(10, 10, 12, 0.9);
+}
+
+/* --- CONTENEDOR PRINCIPAL CON FONDO DINÁMICO --- */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: 
+    radial-gradient(circle at 15% 15%, rgba(0, 113, 227, 0.12), transparent 35%),
+    radial-gradient(circle at 85% 85%, rgba(100, 255, 218, 0.08), transparent 35%),
+    var(--login-bg);
+  padding: 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Partículas Estelares Animadas */
+.login-page::before {
+  content: '';
+  position: absolute;
+  width: 200%; height: 200%;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: bgMove 120s linear infinite;
+  z-index: 0;
+}
+
+/* --- HEADER CON EFECTO REVEAL --- */
+.login-header {
+  text-align: center;
+  margin-bottom: 40px;
+  animation: fadeInDown 1.2s var(--apple-ease);
+  position: relative;
+  z-index: 1;
+}
+
+.login-header h1 {
+  font-size: 2.8rem;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  background: linear-gradient(135deg, #fff 30%, var(--accent-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 5px;
+}
+
+.login-header h3 {
+  color: var(--accent-cyan);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 5px;
+  opacity: 0.7;
+  animation: pulseOpacity 3s infinite ease-in-out;
+}
+
+/* --- CARD DE ACCESO (GLASSMORPHISM) --- */
+.login-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid var(--glass-border);
+  border-radius: 35px;
+  padding: 50px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
+  position: relative;
+  z-index: 2;
+  animation: slideInUp 0.9s var(--apple-ease);
+}
+
+.login-card h2 {
+  color: #fff;
+  font-size: 1.6rem;
+  margin-bottom: 35px;
+  text-align: center;
+  font-weight: 300;
+  letter-spacing: 1px;
+}
+
+/* --- FORMULARIOS E INPUTS MODERNOS --- */
+.form-group { margin-bottom: 25px; }
+
+.form-group label {
+  color: var(--accent-cyan);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+  display: block;
+  font-weight: 700;
+}
+
+.login-card input, 
+.modal-content input {
+  width: 100%;
+  background: var(--input-bg) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 16px;
+  padding: 15px 20px;
+  color: #fff !important;
+  font-size: 1rem;
+  transition: all 0.4s var(--apple-ease);
+}
+
+.login-card input:focus, 
+.modal-content input:focus {
+  outline: none;
+  border-color: var(--accent-blue) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: var(--glow-blue);
+  transform: translateY(-2px);
+}
+
+/* Password Visibility Toggle */
+.password-wrapper { position: relative; }
+
+.password-toggle-btn {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: 0.3s;
+}
+
+.password-toggle-btn:hover { color: var(--accent-cyan); text-shadow: var(--glow-cyan); }
+
+/* --- BOTONES DE ACCIÓN --- */
+.btn-login-submit {
+  width: 100%;
+  padding: 18px;
+  border-radius: 18px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent-blue), #004fb0);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.4s var(--apple-ease);
+  box-shadow: var(--glow-blue);
+}
+
+.btn-login-submit:hover {
+  transform: translateY(-4px) scale(1.02);
+  filter: brightness(1.1);
+  box-shadow: 0 15px 30px rgba(0, 113, 227, 0.5);
+}
+
+.divider {
+  text-align: center;
+  margin: 25px 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  position: relative;
+}
+
+.btn-register-trigger {
+  width: 100%;
+  background: transparent;
+  color: var(--accent-cyan);
+  border: 1px solid rgba(100, 255, 218, 0.3);
+  padding: 15px;
+  border-radius: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.4s var(--apple-ease);
+}
+
+.btn-register-trigger:hover {
+  background: rgba(100, 255, 218, 0.08);
+  border-color: var(--accent-cyan);
+  box-shadow: var(--glow-cyan);
+  transform: translateY(-2px);
+}
+
+/* --- BOTÓN DE CARGA CIRCULAR (SOLO ICONO) --- */
+.upload-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.btn-upload-circle {
+  position: relative;
+  width: 75px;
+  height: 75px;
+  background: rgba(100, 255, 218, 0.05);
+  border: 1px solid rgba(100, 255, 218, 0.3);
+  border-radius: 50%;
+  color: var(--accent-cyan);
+  font-size: 1.6rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.5s var(--apple-ease);
+}
+
+.btn-upload-ring {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--accent-cyan);
+  border-bottom-color: var(--accent-blue);
+  opacity: 0;
+  transition: opacity 0.4s;
+  animation: spin 3s linear infinite;
+}
+
+.btn-upload-circle:hover {
+  background: rgba(100, 255, 218, 0.12);
+  transform: scale(1.1);
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-upload-circle:hover .btn-upload-ring { opacity: 1; }
+
+.btn-upload-circle:hover i {
+  animation: arrowJump 0.6s infinite alternate;
+}
+
+/* --- MODALES DE REGISTRO --- */
+.modal-content {
+  background: var(--island-bg) !important;
+  backdrop-filter: blur(50px) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 32px !important;
+  color: #fff !important;
+  animation: modalScaleUp 0.5s var(--apple-ease);
+}
+
+.modal-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding: 30px !important;
+}
+
+.glass-modal-body { padding: 40px !important; }
+
+/* Miniatura de Imagen Cargada */
+.rounded-circle {
+  border: 2px solid var(--accent-cyan);
+  box-shadow: var(--glow-cyan);
+  transition: 0.4s var(--apple-ease);
+  background: #000;
+}
+
+.rounded-circle:hover {
+  transform: scale(1.4) rotate(8deg);
+  z-index: 100;
+}
+
+/* --- KEYFRAMES --- */
+@keyframes bgMove {
+  from { transform: translate(0, 0) rotate(0deg); }
+  to { transform: translate(-10%, -10%) rotate(5deg); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(60px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modalScaleUp {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes arrowJump {
+  from { transform: translateY(0); }
+  to { transform: translateY(-10px); }
+}
+
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; text-shadow: 0 0 10px var(--accent-cyan); }
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 576px) {
+  .login-card { padding: 35px 25px; }
+  .login-header h1 { font-size: 2.1rem; }
+}

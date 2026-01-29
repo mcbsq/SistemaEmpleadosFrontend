@@ -1,0 +1,270 @@
+/* --- PERSONAL.CSS - ARCHITECTURE 2026: CYBER-PORTFOLIO STYLE --- */
+
+:root {
+  --accent-blue: #0071e3;
+  --accent-cyan: #64ffda;
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --island-bg: rgba(10, 10, 12, 0.85);
+  --text-main: #f5f5f7;
+  --text-muted: #86868b;
+  --apple-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --glow: 0 0 25px rgba(0, 113, 227, 0.5);
+  --neon-cyan: 0 0 15px rgba(100, 255, 218, 0.6);
+}
+
+.Perfil {
+  padding: 100px 5% 60px;
+  background: none;
+  min-height: 100vh;
+}
+
+/* --- AVATAR CON ANILLOS ORBITALES DINÁMICOS --- */
+.about-img {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.about-img img {
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  object-fit: cover;
+  z-index: 10;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.5s var(--apple-ease);
+}
+
+/* Glow de fondo para profundidad */
+.about-img-bg {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(0, 113, 227, 0.25) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: 1;
+}
+
+/* Anillo Interno: Pulso y Rotación Rápida */
+.about-img::before {
+  content: '';
+  position: absolute;
+  width: 215px;
+  height: 215px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: var(--accent-cyan);
+  border-bottom-color: var(--accent-cyan);
+  filter: drop-shadow(var(--neon-cyan));
+  animation: orbit-rotate 3s linear infinite;
+  z-index: 5;
+}
+
+/* Anillo Externo: Segmentado (Dashed) y Rotación Lenta Inversa */
+.about-img::after {
+  content: '';
+  position: absolute;
+  width: 245px;
+  height: 245px;
+  border-radius: 50%;
+  border: 2px dashed var(--accent-blue);
+  filter: drop-shadow(var(--glow));
+  animation: orbit-rotate 10s linear infinite reverse;
+  z-index: 4;
+}
+
+.about-img:hover img {
+  transform: scale(1.08);
+  box-shadow: var(--glow);
+}
+
+/* --- GRID DE ISLAS (ESTILO FACEBOOK/DASHBOARD) --- */
+.about-content {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.section-card {
+  background: var(--island-bg);
+  backdrop-filter: blur(35px);
+  -webkit-backdrop-filter: blur(35px);
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  padding: 35px;
+  margin-bottom: 25px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  transition: all 0.4s var(--apple-ease);
+  position: relative;
+  overflow: hidden;
+  animation: slideInUp 0.8s var(--apple-ease) backwards;
+}
+
+/* Brillo que atraviesa la isla en hover */
+.section-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  transition: 0.6s;
+}
+
+.section-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(100, 255, 218, 0.3);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+}
+
+.section-card:hover::before {
+  left: 100%;
+}
+
+/* --- TIPOGRAFÍA Y CONTENIDO --- */
+.section-card h3, .section-card .title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+label {
+  color: var(--accent-cyan);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 800;
+  display: block;
+  margin-top: 20px;
+}
+
+p, .data-text {
+  font-size: 1.05rem;
+  color: #e2e2e7;
+  line-height: 1.6;
+}
+
+/* --- TIMELINE DE EDUCACIÓN/EXPERIENCIA --- */
+.education-content {
+  border-left: 2px solid rgba(0, 113, 227, 0.3);
+  padding-left: 30px;
+  margin-bottom: 30px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.education-content::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  background: var(--island-bg);
+  border: 2px solid var(--accent-blue);
+  border-radius: 50%;
+  transition: 0.3s;
+}
+
+.education-content:hover {
+  border-left-color: var(--accent-cyan);
+}
+
+.education-content:hover::before {
+  background: var(--accent-cyan);
+  box-shadow: var(--neon-cyan);
+  transform: scale(1.4);
+}
+
+/* --- BOTONES DE ACCIÓN --- */
+.actions-section {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.btn-edit, .btn-save {
+  flex: 1;
+  padding: 16px 30px;
+  border-radius: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s var(--apple-ease);
+  border: none;
+}
+
+.btn-edit {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  border: 1px solid var(--glass-border);
+}
+
+.btn-edit:hover {
+  background: var(--accent-blue);
+  box-shadow: var(--glow);
+  transform: translateY(-3px);
+}
+
+.btn-save {
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+  color: #000;
+}
+
+/* --- MODO EDICIÓN (FORMS) --- */
+input, textarea, select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 12px;
+  color: white !important;
+  padding: 12px 16px;
+  margin-top: 8px;
+  transition: all 0.3s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent-cyan) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 0 15px rgba(100, 255, 218, 0.1);
+}
+
+/* --- ANIMACIONES KEYFRAMES --- */
+@keyframes orbit-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Delays para efecto cascada en las islas */
+.section-card:nth-child(1) { animation-delay: 0.1s; }
+.section-card:nth-child(2) { animation-delay: 0.2s; }
+.section-card:nth-child(3) { animation-delay: 0.3s; }
+
+/* RESPONSIVO */
+@media (max-width: 1100px) {
+  .about-content {
+    grid-template-columns: 1fr;
+  }
+  .about-img {
+    width: 200px; height: 200px;
+  }
+}
