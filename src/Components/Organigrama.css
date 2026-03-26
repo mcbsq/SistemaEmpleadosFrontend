@@ -1,112 +1,275 @@
-/* ============================================================
-   ORGANIGRAMA – Circuit Schema Edition (Sutil & Minimal)
-   ============================================================ */
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ORGANIGRAMA.CSS — Cyber Network Edition 2026
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
+:root {
+  --accent-blue:   #0071e3;
+  --accent-cyan:   #64ffda;
+  --glass-border:  rgba(255, 255, 255, 0.1);
+  --text-secondary: #86868b;
+  --apple-ease:    cubic-bezier(0.23, 1, 0.32, 1);
+  --node-bg:       rgba(12, 12, 18, 0.88);
+  --node-border:   rgba(255, 255, 255, 0.08);
+}
+
+/* ── Sección ─────────────────────────────────────────────────────────────────── */
 .organigrama-section {
-  padding: 80px 4%;
-  background: none; /* Eliminamos fondo sólido para integración total */
+  padding: 80px 4% 60px;
   min-height: 100vh;
+  background: none;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 8px;
 }
 
 .section-header h2 {
-  font-size: 2.5rem;
-  font-weight: bolder; /* Más ligero para estilo Apple */
-  text-align: center;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
   letter-spacing: 2px;
-  margin-bottom: 30px;
+  margin-bottom: 8px;
 }
 
-/* --- CONDUCTORES (Líneas del Circuito) --- */
-.rd3t-link {
-  stroke: rgba(255, 255, 255, 0.1) !important; /* Líneas muy sutiles */
-  stroke-width: 1.5px !important;
-  transition: all 0.5s var(--apple-ease);
+.org-scope-label {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.72rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
 }
 
-/* Efecto activo al interactuar */
-.node__branch .rd3t-link, .node__leaf .rd3t-link {
-  stroke: var(--accent-blue) !important;
-  stroke-opacity: 0.5;
-}
-
-/* --- NODOS (Transistores Sutiles) --- */
-.node-card {
-  background: none; /* Quitamos el look de botón gigante */
-  border: none;
-  backdrop-filter: none;
-  padding: 5px 10px;
-  text-align: left; /* Alineación tipo etiqueta técnica */
-  cursor: pointer;
-  transition: all 0.3s var(--apple-ease);
+/* ── Loading ─────────────────────────────────────────────────────────────────── */
+.org-loading {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.88rem;
+  letter-spacing: 1px;
+}
+.org-loading-ring {
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: orgSpin 0.9s linear infinite;
+}
+@keyframes orgSpin { to { transform: rotate(360deg); } }
+
+/* ── Contenedor del árbol ────────────────────────────────────────────────────── */
+.tree-wrapper {
+  cursor: grab;
+  border-radius: 24px;
+  overflow: hidden;
+  /* Fade suave en los bordes */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+}
+.tree-wrapper:active { cursor: grabbing; }
+
+/* ── Líneas del árbol ────────────────────────────────────────────────────────── */
+.rd3t-link {
+  stroke: rgba(255, 255, 255, 0.07) !important;
+  stroke-width: 1px !important;
+  transition: stroke 0.4s ease, stroke-opacity 0.4s ease;
 }
 
-/* Línea de acento sutil al lado del nombre */
+/* ── Círculos de conexión ────────────────────────────────────────────────────── */
+.rd3t-leaf-node circle,
+.rd3t-branch-node circle,
+circle {
+  fill: #050507 !important;
+  stroke: rgba(255, 255, 255, 0.15) !important;
+  stroke-width: 1.5px !important;
+  transition: all 0.35s var(--apple-ease);
+  r: 8;
+}
+
+/* Nodo de área (raíz / agrupadores) */
+.area-node-dot {
+  fill: rgba(0, 113, 227, 0.25) !important;
+  stroke: var(--accent-blue) !important;
+  stroke-width: 1.5px !important;
+  filter: drop-shadow(0 0 6px rgba(0, 113, 227, 0.5));
+}
+
+/* Nodo de empleado */
+.employee-node-dot {
+  fill: rgba(100, 255, 218, 0.08) !important;
+  stroke: rgba(100, 255, 218, 0.4) !important;
+  stroke-width: 1px !important;
+}
+
+/* ── Cards de nodo ───────────────────────────────────────────────────────────── */
+.node-card {
+  position: relative;
+  padding: 10px 14px;
+  background: var(--node-bg);
+  border: 1px solid var(--node-border);
+  border-radius: 12px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  cursor: pointer;
+  transition: all 0.3s var(--apple-ease);
+  overflow: hidden;
+  /* Shimmer line */
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+/* Línea de acento izquierda */
 .node-card::before {
   content: '';
   position: absolute;
-  left: -10px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 0;
+  top: 20%;
   width: 2px;
   height: 0%;
-  background: var(--accent-blue);
-  transition: height 0.3s ease;
+  background: linear-gradient(to bottom, transparent, var(--accent-blue), transparent);
+  border-radius: 2px;
+  transition: height 0.35s var(--apple-ease), top 0.35s var(--apple-ease);
 }
 
-.node-card:hover::before {
-  height: 80%;
+/* Brillo en hover */
+.node-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
 }
 
 .node-card:hover {
-  transform: translateX(5px); /* Desplazamiento sutil */
+  border-color: rgba(0, 113, 227, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 113, 227, 0.15);
+  transform: translateY(-2px);
+}
+.node-card:hover::before {
+  height: 60%;
+  top: 20%;
+}
+.node-card:hover::after {
+  left: 100%;
 }
 
-.node-name {
-  color: #fff;
+/* Nodo de empleado — versión con foto */
+.node-card.employee-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  min-width: 160px;
+}
+
+/* Avatar del empleado dentro del nodo */
+.node-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(100, 255, 218, 0.3);
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.05);
+}
+
+.node-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 113, 227, 0.15);
+  border: 1px solid rgba(0, 113, 227, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
   font-weight: 600;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  color: var(--accent-blue);
+}
+
+.node-text { flex: 1; min-width: 0; }
+
+.node-name {
+  color: #f0f0f5;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .node-role {
   color: var(--text-secondary);
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.2px;
   opacity: 0.7;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* --- PUNTOS DE CONEXIÓN (Componentes) --- */
-circle {
-  transition: all 0.4s var(--apple-ease);
-  stroke: rgba(255, 255, 255, 0.2) !important;
-  fill: #050505 !important; /* Centro oscuro tipo transistor */
+/* Nodo de área — estilo distinto */
+.node-card.area-node {
+  background: rgba(0, 113, 227, 0.06);
+  border-color: rgba(0, 113, 227, 0.2);
+  text-align: center;
+  justify-content: center;
+}
+.node-card.area-node .node-name {
+  color: rgba(150, 200, 255, 0.9);
+  font-size: 0.78rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.node-card.area-node:hover {
+  border-color: rgba(0, 113, 227, 0.5);
+  background: rgba(0, 113, 227, 0.1);
 }
 
-/* Estilo para Áreas (Nodos de control) */
-g .area-node-dot {
-  fill: var(--accent-blue) !important;
-  filter: drop-shadow(0 0 5px var(--accent-blue));
+/* Indicador de "ir al perfil" al hacer hover en empleado */
+.node-profile-hint {
+  font-size: 0.58rem;
+  color: var(--accent-cyan);
+  letter-spacing: 1px;
+  opacity: 0;
+  margin-top: 3px;
+  transition: opacity 0.25s ease;
+  text-transform: uppercase;
+}
+.node-card:hover .node-profile-hint {
+  opacity: 0.7;
 }
 
-g:hover circle {
-  r: 8;
-  stroke: var(--accent-blue) !important;
-  fill: var(--accent-blue) !important;
-  filter: drop-shadow(0 0 10px var(--accent-blue));
-}
-
-/* Contenedor del árbol */
-.tree-wrapper {
-  mask-image: linear-gradient(to bottom, 
-    transparent, 
-    black 10%, 
-    black 90%, 
-    transparent
-  ); /* Suaviza bordes superior/inferior del árbol */
+/* ── Error ───────────────────────────────────────────────────────────────────── */
+.error-text {
+  text-align: center;
+  color: var(--text-secondary);
+  margin-top: 60px;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
 }

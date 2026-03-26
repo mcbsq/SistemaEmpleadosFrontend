@@ -1,76 +1,198 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Organigrama.css";
 import Tree from "react-d3-tree";
+import { rhService }       from "../services/rhService";
+import { authService }     from "../services/authService";
+import { empleadoService } from "../services/empleadoService";
 
-// --- CONFIGURACIÓN DINÁMICA DE LA API ---
-const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const apiurl = isLocal ? "http://localhost:5001" : "http://51.79.18.52:5001";
+// ─── Filtrado de árbol por empleado ──────────────────────────────────────────
+const filtrarArbolPorEmpleado = (nodo, empleadoId, path = []) => {
+  const esteNodo   = { ...nodo, children: [] };
+  const rutaActual = [...path, esteNodo];
 
+  if (nodo.attributes?.Id === empleadoId) {
+    esteNodo.children = nodo.children ?? [];
+    return construirCadena(rutaActual);
+  }
+  for (const hijo of nodo.children ?? []) {
+    const resultado = filtrarArbolPorEmpleado(hijo, empleadoId, rutaActual);
+    if (resultado) return resultado;
+  }
+  return null;
+};
+
+const construirCadena = (path) => {
+  if (!path.length) return null;
+  const raiz = { ...path[0] };
+  let actual = raiz;
+  for (let i = 1; i < path.length; i++) {
+    const nodo = { ...path[i] };
+    actual.children = [nodo];
+    actual = nodo;
+  }
+  return raiz;
+};
+
+// ─── Nodo personalizado ───────────────────────────────────────────────────────
+const RenderNode = ({ nodeDatum, onNodeClick, fotosMap }) => {
+  const isArea     = !nodeDatum.attributes?.Id;
+  const empleadoId = nodeDatum.attributes?.Id;
+  const foto       = fotosMap?.[empleadoId];
+
+  // Iniciales para el placeholder del avatar
+  const iniciales = nodeDatum.name
+    ?.split(" ")
+    .slice(0, 2)
+    .map(w => w[0])
+    .join("")
+    .toUpperCase() || "?";
+
+  return (
+    <g>
+      <circle
+        r="8"
+        className={isArea ? "area-node-dot" : "employee-node-dot"}
+      />
+
+      <foreignObject x="-90" y="18" width="180" height={isArea ? 50 : 72}>
+        <div
+          xmlns="http://www.w3.org/1999/xhtml"
+          className={`node-card ${isArea ? "area-node" : "employee-node"}`}
+          onClick={() => !isArea && onNodeClick(empleadoId)}
+          title={!isArea ? "Ver perfil" : undefined}
+        >
+          {/* Nodo de empleado: avatar + texto */}
+          {!isArea && (
+            <>
+              {foto ? (
+                <img
+                  className="node-avatar"
+                  src={foto}
+                  alt={nodeDatum.name}
+                  onError={e => { e.target.style.display = "none"; }}
+                />
+              ) : (
+                <div className="node-avatar-placeholder">{iniciales}</div>
+              )}
+              <div className="node-text">
+                <div className="node-name">{nodeDatum.name}</div>
+                {nodeDatum.attributes?.Cargo && (
+                  <div className="node-role">{nodeDatum.attributes.Cargo}</div>
+                )}
+                <div className="node-profile-hint">Ver perfil →</div>
+              </div>
+            </>
+          )}
+
+          {/* Nodo de área: solo nombre */}
+          {isArea && (
+            <div className="node-name">{nodeDatum.name}</div>
+          )}
+        </div>
+      </foreignObject>
+    </g>
+  );
+};
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 function Organigrama() {
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const [jerarquia, setJerarquia] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [windowWidth,       setWindowWidth]       = useState(window.innerWidth);
+  const [jerarquiaMostrada, setJerarquiaMostrada] = useState(null);
+  const [fotosMap,          setFotosMap]          = useState({}); // { empleadoId: urlFoto }
+  const [loading,           setLoading]           = useState(true);
+  const [error,             setError]             = useState(false);
 
-  // Resize para mantener el centro del árbol
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const navigate     = useNavigate();
+  const isSuperAdmin = authService.isSuperAdmin();
+  const empleadoId   = authService.getEmpleadoId();
 
   useEffect(() => {
-    cargarJerarquia();
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const cargarJerarquia = async () => {
+  const cargarDatos = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`${apiurl}/jerarquia`);
-      const data = await response.json();
-      // Asumimos que el backend devuelve un objeto con { name: "Empresa", children: [...] }
-      setJerarquia(data.jerarquia || data); 
-      setLoading(false);
-    } catch (error) {
-      console.error("Error al cargar la jerarquía:", error);
+      // Cargar jerarquía y empleados en paralelo
+      const [jerarquiaData, todosEmpleados] = await Promise.all([
+        rhService.getJerarquia(),
+        empleadoService.getAll().catch(() => []),
+      ]);
+
+      const arbol = jerarquiaData.jerarquia || jerarquiaData;
+
+      // Construir mapa de fotos { _id: urlFoto } para los nodos
+      const mapa = {};
+      todosEmpleados.forEach(e => {
+        const foto = e.Fotografias?.[0] || e.Fotografia || null;
+        if (foto) mapa[e._id] = foto;
+      });
+      setFotosMap(mapa);
+
+      if (isSuperAdmin || !empleadoId) {
+        setJerarquiaMostrada(arbol);
+      } else {
+        const filtrado = filtrarArbolPorEmpleado(arbol, empleadoId);
+        setJerarquiaMostrada(filtrado || arbol);
+      }
+    } catch (err) {
+      console.error("Error cargando organigrama:", err);
+      setError(true);
+    } finally {
       setLoading(false);
     }
+  }, [isSuperAdmin, empleadoId]);
+
+  useEffect(() => { cargarDatos(); }, [cargarDatos]);
+
+  const handleNodeClick = (id) => {
+    if (id) navigate(`/Perfil/${id}`);
   };
 
-  // Configuración visual del árbol
-  const containerStyles = { width: "100%", height: "80vh" };
-  const translate = { x: windowWidth / 3, y: 50 };
-  
-  // Función para manejar el clic en los nodos
-  const handleNodeClick = (nodeData) => {
-    // Si el nodo tiene un ID de empleado (no es solo una etiqueta de área)
-    if (nodeData.attributes && nodeData.attributes.empleado_id) {
-      navigate(`/Perfil/${nodeData.attributes.empleado_id}`);
-    }
-  };
+  const translate = { x: windowWidth / 3, y: 60 };
+  const nodeSize  = { x: 260, y: 110 };
 
-  if (loading) return <div className="loading">Cargando Estructura Organizacional...</div>;
+  if (loading) {
+    return (
+      <section className="organigrama-section" id="organigrama-section">
+        <div className="section-header"><h2>Organigrama</h2></div>
+        <div className="org-loading">
+          <div className="org-loading-ring" />
+          <p>Cargando estructura organizacional...</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="organigrama-section" id="organigrama-section">
       <div className="section-header">
         <h2>Organigrama</h2>
+        {!isSuperAdmin && empleadoId && (
+          <p className="org-scope-label">Mostrando tu área y cadena de reporte</p>
+        )}
       </div>
 
-      <div className="tree-wrapper" style={containerStyles}>
-        {jerarquia ? (
+      <div className="tree-wrapper" style={{ width: "100%", height: "80vh" }}>
+        {jerarquiaMostrada && !error ? (
           <Tree
-            data={jerarquia}
+            data={jerarquiaMostrada}
             orientation="vertical"
-            pathFunc="step" // Hace que las líneas sean ortogonales (más limpias)
+            pathFunc="step"
             translate={translate}
-            collapsible={true}
-            onNodeClick={handleNodeClick}
-            nodeSize={{ x: 250, y: 250 }}
+            collapsible
+            nodeSize={nodeSize}
+            separation={{ siblings: 1.4, nonSiblings: 1.8 }}
             renderCustomNodeElement={(rd3tProps) => (
-              <RenderNode {...rd3tProps} onNodeClick={handleNodeClick} />
+              <RenderNode
+                {...rd3tProps}
+                onNodeClick={handleNodeClick}
+                fotosMap={fotosMap}
+              />
             )}
-            // Estilos de las líneas (links)
             rootNodeClassName="node__root"
             branchNodeClassName="node__branch"
             leafNodeClassName="node__leaf"
@@ -82,33 +204,5 @@ function Organigrama() {
     </section>
   );
 }
-
-// Componente para renderizar cada Nodo de forma personalizada
-const RenderNode = ({ nodeDatum, onNodeClick }) => {
-  const isArea = !nodeDatum.attributes?.empleado_id; // Si no tiene ID, es un nombre de Área
-  
-  return (
-    <g>
-      {/* Círculo o Rectángulo base */}
-      <circle 
-  r="10" 
-  className={isArea ? "area-node-dot" : "employee-node-dot"} 
-/>
-      
-      {/* Contenedor de texto (ForeignObject permite usar HTML/CSS dentro de SVG) */}
-      <foreignObject x="-100" y="20" width="200" height="80">
-        <div 
-          className={`node-card ${isArea ? 'area-node' : 'employee-node'}`}
-          onClick={() => onNodeClick(nodeDatum)}
-        >
-          <div className="node-name">{nodeDatum.name}</div>
-          {nodeDatum.attributes?.Cargo && (
-            <div className="node-role">{nodeDatum.attributes.Cargo}</div>
-          )}
-        </div>
-      </foreignObject>
-    </g>
-  );
-};
 
 export default Organigrama;

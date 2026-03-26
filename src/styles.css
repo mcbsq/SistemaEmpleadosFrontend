@@ -219,3 +219,23 @@ body {
   color: var(--text-secondary); font-size: 0.8rem;
   border-top: 1px solid var(--glass-border);
 }
+
+/* Pega esto en tu App.css o styles.css existente */
+
+.btn-mi-perfil {
+  background: rgba(100, 255, 218, 0.08);
+  color: #64ffda;
+  border: 1px solid rgba(100, 255, 218, 0.25);
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+.btn-mi-perfil:hover {
+  background: rgba(100, 255, 218, 0.15);
+  border-color: rgba(100, 255, 218, 0.5);
+  color: #64ffda;
+}

@@ -1,491 +1,975 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import "./Empleados.css";
 import { Link } from "react-router-dom";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Table } from "reactstrap";
-import { CiFacebook, CiLinkedin, CiYoutube, CiEdit, CiTrash, CiUser, CiSearch, CiFileOn, CiBoxList } from "react-icons/ci";
-import { FaInstagram, FaTiktok, FaPlus, FaChevronLeft, FaChevronRight, FaFileExcel } from "react-icons/fa";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "reactstrap";
+import {
+  CiFacebook, CiLinkedin, CiYoutube,
+  CiEdit, CiTrash, CiUser, CiSearch, CiFileOn, CiBoxList
+} from "react-icons/ci";
+import {
+  FaInstagram, FaTiktok, FaPlus,
+  FaChevronLeft, FaChevronRight, FaFileExcel, FaGithub
+} from "react-icons/fa";
 import { useFilePicker } from "use-file-picker";
 import * as XLSX from "xlsx";
 
-// Importación de servicios
 import { empleadoService } from "../services/empleadoService";
-import { contactoService } from "../services/contactoService";
+import { contactoService }  from "../services/contactoService";
 import { educacionService } from "../services/educacionService";
-import { usuarioService } from "../services/usuarioService";
+import { clinicoService }   from "../services/clinicoService";
+import { rhService }        from "../services/rhService";
+import { usuarioService }   from "../services/usuarioService";
 import { direccionService } from "../services/direccionService";
 
+// ─── Constantes ───────────────────────────────────────────────────────────────
+const ITEMS_PER_PAGE = 6;
+
+const TABS = [
+  { id: 1, label: "General"     },
+  { id: 2, label: "Contacto"    },
+  { id: 3, label: "Familia"     },
+  { id: 4, label: "Clínico"     },
+  { id: 5, label: "Redes"       },
+  { id: 6, label: "RH"          },
+  { id: 7, label: "Experiencia" },
+  { id: 8, label: "Educación"   },
+  { id: 9, label: "Skills"      },
+];
+
+const REDES_ICONS = {
+  facebook:  <CiFacebook />,
+  instagram: <FaInstagram />,
+  linkedin:  <CiLinkedin />,
+  youtube:   <CiYoutube />,
+  tiktok:    <FaTiktok />,
+  github:    <FaGithub />,
+};
+
+const TIPOS_SANGRE = ["A+","A-","B+","B-","AB+","AB-","O+","O-"];
+
+const EMP_INIT   = { _id:"", Nombre:"", ApelPaterno:"", ApelMaterno:"", FecNacimiento:"" };
+const USER_INIT  = { user:"", password:"" };
+const DIR_INIT   = { Calle:"", NumExterior:"", NumInterior:"", Municipio:"", Ciudad:"", CodigoP:"" };
+const DC_INIT    = { TelFijo:"", TelCelular:"", IdWhatsApp:"", IdTelegram:"", ListaCorreos:"" };
+const PC_INIT    = { parenstesco:"", nombreContacto:"", telefonoContacto:"", correoContacto:"", direccionContacto:"" };
+const CLIN_INIT  = { empleado_id:"", tipoSangre:"", Padecimientos:"", NumeroSeguroSocial:"", Segurodegastosmedicos:"" };
+const RH_INIT_F  = { empleado_id:"", Puesto:"", JefeInmediato:"", HorarioLaboral:{ HoraEntrada:"", HoraSalida:"", TiempoComida:"", DiasTrabajados:"" } };
+
+const getId = (item) => item?._id?.$oid || item?._id || "";
+
+// ─── Componente Avatar ────────────────────────────────────────────────────────
+const Avatar = ({ nombre = "", foto = null, sub = "" }) => {
+  const inicial = nombre.trim()[0]?.toUpperCase() || "?";
+  // Colores basados en inicial para variedad visual
+  const colors = ["av-a","av-b","av-c","av-d","av-e"];
+  const colorClass = colors[inicial.charCodeAt(0) % colors.length];
+  return (
+    <div className="emp-cell-avatar">
+      {foto
+        ? <img src={foto} alt={nombre} onError={e => { e.target.style.display="none"; }} />
+        : <div className={`emp-avatar-ph ${colorClass}`}>{inicial}</div>
+      }
+      <div className="emp-cell-name">
+        <span className="emp-name">{nombre}</span>
+        {sub && <span className="emp-apel">{sub}</span>}
+      </div>
+    </div>
+  );
+};
+
+// ─── Componente StatusDot ─────────────────────────────────────────────────────
+const StatusDot = ({ activo = true }) => (
+  <span className={`emp-status-dot emp-status-dot--${activo ? "on" : "off"}`}>
+    {activo ? "Activo" : "Inactivo"}
+  </span>
+);
+
+// ─── Componente Acciones ──────────────────────────────────────────────────────
+const Actions = ({ empId, onEdit, showDelete, onDelete }) => (
+  <div className="emp-actions">
+    <button className="emp-btn emp-btn--edit" title="Editar" onClick={onEdit}>
+      <CiEdit />
+    </button>
+    {showDelete && (
+      <button className="emp-btn emp-btn--delete" title="Eliminar" onClick={onDelete}>
+        <CiTrash />
+      </button>
+    )}
+    <Link to={`/Perfil/${empId}`} className="emp-btn emp-btn--profile" title="Ver perfil">
+      <CiUser />
+    </Link>
+  </div>
+);
+
+// ─── Modal confirmar eliminación ──────────────────────────────────────────────
+const ConfirmDeleteModal = ({ empleado, onConfirm, onCancel, loading }) => (
+  <Modal isOpen={!!empleado} toggle={onCancel} centered>
+    <ModalBody className="confirm-delete-body">
+      <span className="confirm-delete-icon">⚠</span>
+      <h3>Eliminar empleado</h3>
+      <p>
+        ¿Estás seguro de eliminar a{" "}
+        <strong>{empleado?.Nombre} {empleado?.ApelPaterno}</strong>?
+        Esta acción elimina todos sus datos asociados y no se puede deshacer.
+      </p>
+      <div className="confirm-delete-actions">
+        <button className="btn-confirm-cancel" onClick={onCancel} disabled={loading}>
+          Cancelar
+        </button>
+        <button className="btn-confirm-delete" onClick={onConfirm} disabled={loading}>
+          {loading ? "Eliminando..." : "Sí, eliminar"}
+        </button>
+      </div>
+    </ModalBody>
+  </Modal>
+);
+
+// ════════════════════════════════════════════════════════════════════════════════
 function Empleados() {
-  // --- ESTADOS DE DATOS ---
-  const [empleados, setEmpleados] = useState([]);
-  const [datoscontacto, setdatoscontacto] = useState([]);
-  const [personascontacto, setpersonascontacto] = useState([]);
-  const [redsocial, setredsocial] = useState([]);
-  const [educacion, seteducacion] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
 
-  // --- ESTADOS DE UI ---
-  const [activeTab, setActiveTab] = useState(1);
-  const [globalFilter, setglobalFilter] = useState("");
-  const [globalpage, setglobalpage] = useState(0);
-  const [globalnumber, setglobalnumber] = useState(1);
-  const [datosCargados, setDatosCargados] = useState(false);
-  const [modalTitulo, setModalTitulo] = useState("Agregar");
-  const [messageRegistro, setMessageRegistro] = useState("");
+  // ─── Data ─────────────────────────────────────────────────────────────────
+  const [empleados,     setEmpleados]     = useState([]);
+  const [datosContacto, setDatosContacto] = useState([]);
+  const [persContacto,  setPersContacto]  = useState([]);
+  const [redesSocial,   setRedesSocial]   = useState([]);
+  const [educacion,     setEducacion]     = useState([]);
+  const [clinico,       setClinico]       = useState([]);
+  const [rhData,        setRhData]        = useState([]);
+  const [cargado,       setCargado]       = useState(false);
 
-  // --- ESTADOS DE TODOS LOS MODALES ---
-  const [modalAgregar, setModalAgregar] = useState(false);
-  const [modalAgregarUsuario, setModalAgregarUsuario] = useState(false);
-  const [modalAgregarDireccion, setModalAgregarDireccion] = useState(false);
-  const [modalAgregarDC, setModalAgregarDC] = useState(false);
-  const [modalAgregarPC, setModalAgregarPC] = useState(false);
-  const [modalAgregarRS, setModalAgregarRS] = useState(false);
-  const [ModalAgregarExperiencia, setModalAgregarExperiencia] = useState(false);
-  const [ModalAgregarEducacion, setModalAgregarEducacion] = useState(false);
-  const [ModalAgregarHabilidades, setModalAgregarHabilidades] = useState(false);
+  // ─── UI ───────────────────────────────────────────────────────────────────
+  const [activeTab,   setActiveTab]   = useState(1);
+  const [filtro,      setFiltro]      = useState("");
+  const [pagina,      setPagina]      = useState(0);
+  const [modal,       setModal]       = useState(null);   // string | null
+  const [guardando,   setGuardando]   = useState(false);
+  const [empEliminar, setEmpEliminar] = useState(null);
+  const [eliminando,  setEliminando]  = useState(false);
 
-  // --- FORMULARIOS ---
-  const [formEmpleado, setFormEmpleado] = useState({ _id: "", Nombre: "", ApelPaterno: "", ApelMaterno: "", FecNacimiento: "", Fotografias: [] });
-  const [formUsuario, setFormUsuario] = useState({ user: "", password: "" });
-  const [formDatosContacto, setFormDatosContacto] = useState({ TelFijo: "", TelCelular: "", IdWhatsApp: "", IdTelegram: "", ListaCorreos: "" });
-  const [formDireccion, setFormDireccion] = useState({ Calle: "", NumExterior: "", NumInterior: "", Manzana: "", Lote: "", Municipio: "", Ciudad: "", CodigoP: "", Pais: "" });
-  const [formcontacto, setformcontacto] = useState({ TelFijo: "", TelCelular: "", IdWhatsApp: "", IdTelegram: "", ListaCorreos: "" });
-  const [formperscontacto, setformperscontacto] = useState({ parenstesco: "", nombreContacto: "", telefonoContacto: "", correoContacto: "", direccionContacto: "" });
-  const [formRS, setformRS] = useState([]);
-  const [formEducacion, setformEducacion] = useState({ Educacion: [] });
-  const [formExperiencia, setformExperiencia] = useState({ Experiencia: [] });
-  const [formHabilidades, setFormHabilidades] = useState({ Habilidades: { Programacion: [] } });
+  // ─── Formularios ──────────────────────────────────────────────────────────
+  const [formEmp,   setFormEmp]   = useState(EMP_INIT);
+  const [formUser,  setFormUser]  = useState(USER_INIT);
+  const [formDir,   setFormDir]   = useState(DIR_INIT);
+  const [formDC,    setFormDC]    = useState(DC_INIT);
+  const [formPC,    setFormPC]    = useState(PC_INIT);
+  const [formRS,    setFormRS]    = useState([]);
+  const [formEd,    setFormEd]    = useState({ empleado_id:"", Educacion:[] });
+  const [formExp,   setFormExp]   = useState({ empleado_id:"", Experiencia:[] });
+  const [formSkill, setFormSkill] = useState({ empleado_id:"", Habilidades:{ Programacion:[] } });
+  const [formClin,  setFormClin]  = useState(CLIN_INIT);
+  const [formRH,    setFormRH]    = useState(RH_INIT_F);
 
-  const { openFilePicker, filesContent } = useFilePicker({ readAs: "DataURL", accept: "image/*", multiple: true });
+  const { openFilePicker, filesContent } = useFilePicker({
+    readAs:"DataURL", accept:"image/*", multiple:true,
+  });
 
-  const RedSocialOptions = [
-    { label: "Facebook", value: <CiFacebook /> },
-    { label: "Instagram", value: <FaInstagram /> },
-    { label: "Linkedin", value: <CiLinkedin /> },
-    { label: "Youtube", value: <CiYoutube /> },
-    { label: "tiktok", value: <FaTiktok /> },
-  ];
-
+  // ─── Carga ────────────────────────────────────────────────────────────────
   const cargarTodo = useCallback(async () => {
     try {
-      const [emp, dc, pc, rs, ed] = await Promise.all([
+      const [emp, dc, pc, rs, ed, clin, rh] = await Promise.all([
         empleadoService.getAll(),
         contactoService.getDatos(),
         contactoService.getPersonas(),
         contactoService.getRedes(),
-        educacionService.getAll()
+        educacionService.getAll(),
+        clinicoService.getAll().catch(() => []),
+        rhService.getAll().catch(() => []),
       ]);
-      setEmpleados(Array.isArray(emp) ? emp : []);
-      setdatoscontacto(Array.isArray(dc) ? dc : []);
-      setpersonascontacto(Array.isArray(pc) ? pc : []);
-      setredsocial(Array.isArray(rs) ? rs : []);
-      seteducacion(Array.isArray(ed) ? ed : []);
-      setDatosCargados(true);
-      console.log("Carga completa. Empleados detectados:", emp.length);
-    } catch (error) { 
-      console.error("Error crítico en cargarTodo:", error); 
-      setDatosCargados(true); 
+      setEmpleados(Array.isArray(emp)  ? emp  : []);
+      setDatosContacto(Array.isArray(dc)   ? dc   : []);
+      setPersContacto(Array.isArray(pc)   ? pc   : []);
+      setRedesSocial(Array.isArray(rs)   ? rs   : []);
+      setEducacion(Array.isArray(ed)   ? ed   : []);
+      setClinico(Array.isArray(clin) ? clin : []);
+      setRhData(Array.isArray(rh)   ? rh   : []);
+    } catch (err) {
+      console.error("Error cargando datos:", err);
+    } finally {
+      setCargado(true);
     }
   }, []);
 
   useEffect(() => { cargarTodo(); }, [cargarTodo]);
 
-  // --- NAVEGACIÓN ---
-  const handleNextPage = () => { setglobalpage(prev => prev + 5); setglobalnumber(prev => prev + 1); };
-  const handlePrevPage = () => { setglobalpage(prev => Math.max(0, prev - 5)); setglobalnumber(prev => Math.max(1, prev - 1)); };
+  // ─── Cruzar empleados con su puesto (para tab General) ───────────────────
+  // Una sola pasada en memo para no recalcular en cada render
+  const empleadosConPuesto = useMemo(() => {
+    return empleados.map(emp => {
+      const id  = getId(emp);
+      const rh  = rhData.find(r => {
+        const rid = r.empleado_id?.$oid || r.empleado_id || "";
+        return rid === id;
+      });
+      return { ...emp, _puesto: rh?.Puesto || "", _jefe: rh?.JefeInmediato || "" };
+    });
+  }, [empleados, rhData]);
 
-  // --- ACCIONES ---
-  const handleEliminarEmpleado = async (id) => {
-    if (window.confirm("¿Estás seguro de eliminar este empleado y todos sus datos asociados?")) {
-      await empleadoService.deleteFull(id);
+  // ─── Source por tab ───────────────────────────────────────────────────────
+  const getSource = useCallback(() => ({
+    1: empleadosConPuesto,
+    2: datosContacto,
+    3: persContacto,
+    4: clinico,
+    5: redesSocial,
+    6: rhData,
+    7: educacion,
+    8: educacion,
+    9: educacion,
+  }[activeTab] ?? []), [activeTab, empleadosConPuesto, datosContacto, persContacto, clinico, redesSocial, rhData, educacion]);
+
+  // ─── Filtrado y paginación ────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const src = getSource();
+    if (!filtro.trim()) return src;
+    const q = filtro.toLowerCase();
+    return src.filter(item => {
+      const n = (item.Nombre || item.NombreCompleto || item.nombre || "").toLowerCase();
+      const a = (item.ApelPaterno || "").toLowerCase();
+      return n.includes(q) || a.includes(q);
+    });
+  }, [getSource, filtro]);
+
+  const totalPags = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const pageData  = filtered.slice(pagina * ITEMS_PER_PAGE, (pagina + 1) * ITEMS_PER_PAGE);
+
+  const cambiarTab = (id) => { setActiveTab(id); setPagina(0); setFiltro(""); };
+
+  // ─── Eliminación ──────────────────────────────────────────────────────────
+  const handleEliminar = async () => {
+    if (!empEliminar) return;
+    setEliminando(true);
+    try {
+      await empleadoService.deleteFull(getId(empEliminar));
+      setEmpEliminar(null);
       cargarTodo();
+    } finally {
+      setEliminando(false);
     }
   };
 
-  const ejecutarGuardarEmpleado = async () => {
-    const data = { ...formEmpleado, Fotografias: filesContent.map(f => f.content) };
-    const res = await empleadoService.create(data);
-    const newId = res._id?.$oid || res._id;
-    setFormEmpleado({ ...formEmpleado, _id: newId });
-    setModalAgregar(false);
-    setModalAgregarUsuario(true);
+  // ─── Exportar Excel ───────────────────────────────────────────────────────
+  const exportarExcel = () => {
+    const data = empleadosConPuesto.map(e => ({
+      Nombre:      e.Nombre,
+      Paterno:     e.ApelPaterno,
+      Materno:     e.ApelMaterno,
+      Nacimiento:  e.FecNacimiento,
+      Puesto:      e._puesto,
+      JefeInmediato: e._jefe,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Empleados");
+    XLSX.writeFile(wb, "Reporte_Empleados_Cibercom.xlsx");
   };
 
-  const ejecutarGuardarUsuario = async () => {
-    await usuarioService.create({ ...formUsuario, empleado_id: formEmpleado._id });
-    setModalAgregarUsuario(false);
-    setModalAgregarDireccion(true);
+  // ─── Flujo registro ───────────────────────────────────────────────────────
+  const paso1 = async () => {
+    if (!formEmp.Nombre || !formEmp.ApelPaterno) return;
+    setGuardando(true);
+    try {
+      const res   = await empleadoService.create({
+        ...formEmp,
+        Fotografias: filesContent.map(f => f.content),
+        depto_id: "Sin Asignar", Cargo: "Personal",
+      });
+      setFormEmp(p => ({ ...p, _id: getId(res) }));
+      setModal("usuario");
+    } finally { setGuardando(false); }
   };
 
-  const ejecutarGuardarDireccionYContacto = async () => {
-    await direccionService.create({ ...formDireccion, empleado_id: formEmpleado._id });
-    await contactoService.createDatos({ ...formDatosContacto, empleado_id: formEmpleado._id });
-    setModalAgregarDireccion(false);
-    cargarTodo();
+  const paso2 = async () => {
+    if (!formUser.user || !formUser.password) return;
+    setGuardando(true);
+    try {
+      await usuarioService.create({ ...formUser, role:"USER", empleado_id: formEmp._id });
+      setModal("direccion");
+    } finally { setGuardando(false); }
   };
 
-  const renderTableData = () => {
-    let source = [];
-    const tab = Number(activeTab);
-    
-    if (tab === 1) source = empleados;
-    else if (tab === 2) source = datoscontacto;
-    else if (tab === 3) source = personascontacto;
-    else if (tab === 5) source = redsocial;
-    else if (tab === 7) source = educacion; 
-    else if (tab === 8) source = educacion;
-    else if (tab === 9) source = educacion;
-
-    if (!source || !Array.isArray(source)) return [];
-
-    const filtered = source.filter((item) => {
-      if (!globalFilter || globalFilter.trim() === "") return true;
-      const target = (item.Nombre || item.NombreCompleto || item.nombre || "").toString().toLowerCase();
-      return target.includes(globalFilter.toLowerCase().trim());
-    });
-
-    return filtered.slice(globalpage, globalpage + 5);
+  const paso3 = async () => {
+    setGuardando(true);
+    try {
+      await Promise.all([
+        direccionService.create({ ...formDir, empleado_id: formEmp._id }),
+        contactoService.createDatos({ ...formDC, empleado_id: formEmp._id }),
+      ]);
+      setModal(null);
+      setFormEmp(EMP_INIT);
+      cargarTodo();
+    } finally { setGuardando(false); }
   };
 
-  if (!datosCargados) return <div className="loading"><span className="span1"></span></div>;
+  // ─── Loading ──────────────────────────────────────────────────────────────
+  if (!cargado) return (
+    <div className="empleados-loading">
+      <div className="emp-loading-ring" />
+      <p>Cargando sistema...</p>
+    </div>
+  );
 
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <section className="empleados">
+
+      <ConfirmDeleteModal
+        empleado={empEliminar}
+        onConfirm={handleEliminar}
+        onCancel={() => setEmpEliminar(null)}
+        loading={eliminando}
+      />
+
       <div className="CRUDS">
-        <div className="Agregar-Emp">
-          <button className="btn btn-primary" onClick={() => { setModalTitulo("Agregar Empleado"); setModalAgregar(true); }}>
+
+        {/* ── Toolbar ───────────────────────────────────────────────────── */}
+        <div className="emp-toolbar">
+          <button
+            className="btn-emp btn-emp--primary"
+            title="Agregar empleado"
+            onClick={() => { setFormEmp(EMP_INIT); setModal("empleado"); }}
+          >
             <FaPlus />
           </button>
-          <div className="search-container" style={{ position: "relative", flex: 1 }}>
-            <CiSearch style={{ position: "absolute", left: "20px", top: "50%", transform: "translateY(-50%)", color: "#6e6e73", fontSize: "1.2rem" }} />
-            <input 
-              type="text" 
-              className="inputEmpleados" 
-              placeholder="Buscar por nombre o apellido..." 
-              value={globalFilter} 
-              onChange={(e) => setglobalFilter(e.target.value)} 
-              style={{ paddingLeft: "55px" }}
+
+          <div className="emp-search-wrap">
+            <CiSearch className="emp-search-icon" />
+            <input
+              type="text"
+              className="emp-search-input"
+              placeholder="Buscar por nombre..."
+              value={filtro}
+              onChange={e => { setFiltro(e.target.value); setPagina(0); }}
             />
+            {filtro && (
+              <button className="emp-search-clear" onClick={() => setFiltro("")}>✕</button>
+            )}
           </div>
-          <button className="btn btn-info" onClick={() => {
-            const ws = XLSX.utils.json_to_sheet(empleados);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Empleados");
-            XLSX.writeFile(wb, "Reporte_Empleados_Cibercom.xlsx");
-          }}>
+
+          <button className="btn-emp btn-emp--excel" title="Exportar Excel" onClick={exportarExcel}>
             <FaFileExcel />
           </button>
         </div>
 
-        <div className="tabs">
-          {["General", "Contacto", "Familia", "Clínico", "Redes", "RH", "Experiencia", "Educación", "Skills"].map((name, i) => (
-            <button 
-              key={i} 
-              className={activeTab === i + 1 ? "active" : ""} 
-              onClick={() => { setActiveTab(i + 1); setglobalpage(0); setglobalnumber(1); }}
+        {/* ── Tabs ──────────────────────────────────────────────────────── */}
+        <div className="emp-tabs">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              className={`emp-tab${activeTab === t.id ? " emp-tab--active" : ""}`}
+              onClick={() => cambiarTab(t.id)}
             >
-              {name}
+              {t.label}
             </button>
           ))}
         </div>
 
-        <div className="tab-content">
-          <Table responsive className="table table-hover align-middle">
-            <thead>
-              {Number(activeTab) === 1 && <tr><th>Nombre</th><th>Apellidos</th><th>Nacimiento</th><th>Foto</th><th className="text-center">Acciones</th></tr>}
-              {Number(activeTab) === 2 && <tr><th>Nombre Completo</th><th>Tel. Fijo</th><th>Celular</th><th>WhatsApp</th><th>Correos</th><th className="text-center">Acciones</th></tr>}
-              {Number(activeTab) === 3 && <tr><th>Empleado</th><th>Parentesco</th><th>Contacto</th><th>Teléfono</th><th>Correo</th><th className="text-center">Acciones</th></tr>}
-              {Number(activeTab) === 5 && <tr><th>Nombre</th><th>Redes Sociales</th><th className="text-center">Acciones</th></tr>}
-              {Number(activeTab) === 7 && <tr><th>Nombre</th><th>Empresa/Puesto</th><th>Fecha</th><th>Descripción</th><th className="text-center">Acciones</th></tr>}
-              {Number(activeTab) === 8 && <tr><th>Nombre</th><th>Institución</th><th>Fecha</th><th>Título Obtenido</th><th className="text-center">Acciones</th></tr>}
-              {Number(activeTab) === 9 && <tr><th>Nombre</th><th>Habilidad Técnica</th><th>Nivel (%)</th><th className="text-center">Acciones</th></tr>}
-            </thead>
-            <tbody>
-              {renderTableData().map((item, idx) => {
-                const recordId = item._id?.$oid || item._id;
-                const empIdRef = item.empleado_id?.$oid || item.empleado_id || item.EmpleadoId || recordId;
-                const currentTab = Number(activeTab);
-
-                return (
-                  <tr key={recordId || idx}>
-                    {currentTab === 1 && (
-                      <>
-                        <td data-label="Nombre">{item.Nombre || item.nombre}</td>
-                        <td data-label="Apellidos">{`${item.ApelPaterno || item.apelPaterno || ""} ${item.ApelMaterno || item.apelMaterno || ""}`}</td>
-                        <td data-label="Nacimiento">{item.FecNacimiento || item.fecNacimiento}</td>
-                        <td data-label="Foto">
-                          {(item.Fotografias || item.fotografias)?.[0] ? (
-                            <img src={(item.Fotografias || item.fotografias)[0]} alt="user" />
-                          ) : <div className="no-photo" style={{ width: "50px", height: "50px", borderRadius: "50%", background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", color: "#6e6e73", border: "1px solid var(--glass-border)" }}>N/A</div>}
-                        </td>
-                        <td className="text-center">
-                          <button className="btn btn-info" onClick={() => { setFormEmpleado(item); setModalTitulo("Editar Empleado"); setModalAgregar(true); }}><CiEdit /></button>
-                          <button className="btn btn-danger" onClick={() => handleEliminarEmpleado(recordId)}><CiTrash /></button>
-                          <Link to={`/Perfil/${recordId}`} className="btn btn-primary"><CiUser /></Link>
-                        </td>
-                      </>
-                    )}
-
-                    {currentTab === 2 && (
-                      <>
-                        <td data-label="Nombre">{item.NombreCompleto || item.nombreCompleto}</td>
-                        <td data-label="Tel. Fijo">{item.TelFijo || item.telFijo || "N/A"}</td>
-                        <td data-label="Celular">{item.TelCelular || item.telCelular}</td>
-                        <td data-label="WhatsApp">{item.IdWhatsApp || item.idWhatsApp}</td>
-                        <td data-label="Correos">{item.ListaCorreos || item.listaCorreos}</td>
-                        <td className="text-center">
-                          <button className="btn btn-info" onClick={() => { setformcontacto(item); setModalAgregarDC(true); }}><CiEdit /></button>
-                          <Link to={`/Perfil/${empIdRef}`} className="btn btn-primary"><CiUser /></Link>
-                        </td>
-                      </>
-                    )}
-
-                    {currentTab === 3 && (
-                      <>
-                        <td data-label="Empleado">{item.NombreCompleto || item.nombreCompleto}</td>
-                        <td data-label="Parentesco">{item.parenstesco || item.Parentesco}</td>
-                        <td data-label="Contacto">{item.nombreContacto || item.NombreContacto}</td>
-                        <td data-label="Teléfono">{item.telefonoContacto || item.TelefonoContacto}</td>
-                        <td data-label="Correo">{item.correoContacto || item.CorreoContacto}</td>
-                        <td className="text-center">
-                          <button className="btn btn-info" onClick={() => { setformperscontacto(item); setModalAgregarPC(true); }}><CiEdit /></button>
-                          <Link to={`/Perfil/${empIdRef}`} className="btn btn-primary"><CiUser /></Link>
-                        </td>
-                      </>
-                    )}
-
-                    {currentTab === 5 && (
-                      <>
-                        <td data-label="Nombre">{item.NombreCompleto || item.nombreCompleto}</td>
-                        <td data-label="Redes">
-                          <div className="d-flex flex-wrap gap-2">
-                            {(item.RedesSociales || item.redes_sociales)?.map((r, i) => (
-                              <span key={i} className="badge bg-dark border border-secondary p-2 d-flex align-items-center gap-1" style={{ borderRadius: "10px", fontWeight: "400" }}>
-                                {RedSocialOptions.find(o => o.label.toLowerCase() === (r.redSocialSeleccionada || r.red_social || "").toLowerCase())?.value}
-                                {r.NombreRedSocial || r.nombre_usuario}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="text-center">
-                          <button className="btn btn-info" onClick={() => { setformRS(item.RedesSociales || item.redes_sociales); setModalAgregarRS(true); }}><CiEdit /></button>
-                          <Link to={`/Perfil/${empIdRef}`} className="btn btn-primary"><CiUser /></Link>
-                        </td>
-                      </>
-                    )}
-
-                    {currentTab === 7 && (
-                      <>
-                        <td data-label="Nombre">{item.NombreCompleto || item.nombreCompleto}</td>
-                        <td data-label="Puesto">{(item.Experiencia || item.experiencia)?.map((e, i) => <div key={i} className="fw-bold">{e.Titulo || e.titulo}</div>)}</td>
-                        <td data-label="Fecha">{(item.Experiencia || item.experiencia)?.map((e, i) => <div key={i}>{e.Fecha || e.fecha}</div>)}</td>
-                        <td data-label="Descripción">{(item.Experiencia || item.experiencia)?.map((e, i) => <div key={i} className="text-muted small text-truncate" style={{maxWidth: "150px"}}>{e.Descripcion || e.descripcion}</div>)}</td>
-                        <td className="text-center">
-                          <button className="btn btn-info" onClick={() => { setformExperiencia(item); setModalAgregarExperiencia(true); }}><CiEdit /></button>
-                          <Link to={`/Perfil/${empIdRef}`} className="btn btn-primary"><CiUser /></Link>
-                        </td>
-                      </>
-                    )}
-
-                    {currentTab === 8 && (
-                      <>
-                        <td data-label="Nombre">{item.NombreCompleto || item.nombreCompleto}</td>
-                        <td data-label="Institución">{(item.Educacion || item.educacion)?.map((e, i) => <div key={i}>{e.Institucion || e.institucion}</div>)}</td>
-                        <td data-label="Fecha">{(item.Educacion || item.educacion)?.map((e, i) => <div key={i}>{e.Fecha || e.fecha}</div>)}</td>
-                        <td data-label="Título">{(item.Educacion || item.educacion)?.map((e, i) => <div key={i} className="fw-bold">{e.Titulo || e.titulo}</div>)}</td>
-                        <td className="text-center">
-                          <button className="btn btn-info" onClick={() => { setformEducacion(item); setModalAgregarEducacion(true); }}><CiEdit /></button>
-                          <Link to={`/Perfil/${empIdRef}`} className="btn btn-primary"><CiUser /></Link>
-                        </td>
-                      </>
-                    )}
-
-                    {currentTab === 9 && (
-                      <>
-                        <td data-label="Nombre">{item.NombreCompleto || item.nombreCompleto}</td>
-                        <td data-label="Skill">{(item.Habilidades?.Programacion || item.habilidades?.programacion)?.map((h, i) => <div key={i}>{h.Titulo || h.titulo}</div>)}</td>
-                        <td data-label="Nivel">{(item.Habilidades?.Programacion || item.habilidades?.programacion)?.map((h, i) => (
-                          <div key={i} className="progress mt-1" style={{height: "6px", background: "rgba(255,255,255,0.05)"}}>
-                            <div className="progress-bar" role="progressbar" style={{width: `${h.Porcentaje || h.porcentaje}%`, background: "var(--accent-blue)"}}></div>
-                          </div>
-                        ))}</td>
-                        <td className="text-center">
-                          <button className="btn btn-info" onClick={() => { setFormHabilidades(item); setModalAgregarHabilidades(true); }}><CiEdit /></button>
-                          <Link to={`/Perfil/${empIdRef}`} className="btn btn-primary"><CiUser /></Link>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-          
-          {renderTableData().length === 0 && (
-            <div className="alert alert-dark text-center py-5" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed var(--glass-border)", borderRadius: "20px", color: "#6e6e73" }}>
-              <CiBoxList style={{ fontSize: "2rem", marginBottom: "10px" }} /><br />
-              No se encontraron registros en esta base de datos.
+        {/* ── Tabla ─────────────────────────────────────────────────────── */}
+        <div className="emp-table-wrap">
+          {pageData.length === 0 ? (
+            <div className="emp-empty">
+              <CiBoxList className="emp-empty-icon" />
+              <p>No se encontraron registros.</p>
             </div>
-          )}
+          ) : (
+            <table className="emp-table">
+              <thead>
+                <tr>
+                  {activeTab === 1 && <>
+                    <th>Empleado</th>
+                    <th>Puesto</th>
+                    <th>Jefe inmediato</th>
+                    <th>Estado</th>
+                    <th>Ingreso</th>
+                    <th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                  {activeTab === 2 && <>
+                    <th>Empleado</th><th>Celular</th><th>WhatsApp</th><th>Correo</th><th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                  {activeTab === 3 && <>
+                    <th>Empleado</th><th>Contacto</th><th>Parentesco</th><th>Teléfono</th><th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                  {activeTab === 4 && <>
+                    <th>Empleado</th><th>Sangre</th><th>NSS</th><th>Padecimientos</th><th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                  {activeTab === 5 && <>
+                    <th>Empleado</th><th>Redes</th><th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                  {activeTab === 6 && <>
+                    <th>Empleado</th><th>Puesto</th><th>Jefe</th><th>Horario</th><th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                  {activeTab === 7 && <>
+                    <th>Empleado</th><th>Experiencia laboral</th><th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                  {activeTab === 8 && <>
+                    <th>Empleado</th><th>Educación</th><th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                  {activeTab === 9 && <>
+                    <th>Empleado</th><th>Habilidades</th><th style={{textAlign:"center"}}>Acciones</th>
+                  </>}
+                </tr>
+              </thead>
 
-          <div className="navegacion-emp">
-            <button className="btn-nav" onClick={handlePrevPage} disabled={globalpage === 0} style={{ background: "none", border: "1px solid var(--glass-border)", color: "#fff", borderRadius: "50%", width: "45px", height: "45px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", opacity: globalpage === 0 ? 0.3 : 1 }}>
+              <tbody>
+                {pageData.map((item, idx) => {
+                  const id    = getId(item);
+                  const empId = item.empleado_id?.$oid || item.empleado_id || item.EmpleadoId || id;
+                  const nombre = item.Nombre || item.NombreCompleto || item.nombre || "—";
+                  const apel   = `${item.ApelPaterno || ""} ${item.ApelMaterno || ""}`.trim();
+                  const foto   = item.Fotografias?.[0] || item.Fotografia || null;
+
+                  return (
+                    <tr key={id || idx}>
+
+                      {/* ── TAB 1: General ── */}
+                      {activeTab === 1 && <>
+                        <td>
+                          <Avatar
+                            nombre={`${nombre} ${apel}`}
+                            foto={foto}
+                            sub={`ID: ${id.slice(-8)}`}
+                          />
+                        </td>
+                        <td>
+                          {item._puesto
+                            ? <span className="emp-chip emp-chip--blue">{item._puesto}</span>
+                            : <span className="emp-chip">Sin asignar</span>
+                          }
+                        </td>
+                        <td>
+                          <span style={{fontSize:"0.84rem", color: item._jefe ? "var(--e-text)" : "var(--e-muted)"}}>
+                            {item._jefe || "—"}
+                          </span>
+                        </td>
+                        <td><StatusDot activo={true} /></td>
+                        <td>
+                          <span style={{fontSize:"0.8rem", color:"var(--e-muted)"}}>
+                            {item.FecNacimiento || "—"}
+                          </span>
+                        </td>
+                        <td>
+                          <Actions
+                            empId={id}
+                            onEdit={() => { setFormEmp(item); setModal("empleado"); }}
+                            showDelete
+                            onDelete={() => setEmpEliminar(item)}
+                          />
+                        </td>
+                      </>}
+
+                      {/* ── TAB 2: Contacto ── */}
+                      {activeTab === 2 && <>
+                        <td><span className="emp-name">{nombre}</span></td>
+                        <td>{item.TelCelular || "—"}</td>
+                        <td>{item.IdWhatsApp  || "—"}</td>
+                        <td><span className="emp-text-truncate">{item.ListaCorreos || "—"}</span></td>
+                        <td>
+                          <Actions
+                            empId={empId}
+                            onEdit={() => { setFormDC({ ...DC_INIT, ...item, empleado_id: empId }); setModal("contacto"); }}
+                          />
+                        </td>
+                      </>}
+
+                      {/* ── TAB 3: Familia ── */}
+                      {activeTab === 3 && <>
+                        <td><span className="emp-name">{nombre}</span></td>
+                        <td>{item.nombreContacto || "—"}</td>
+                        <td>
+                          {item.parenstesco
+                            ? <span className="emp-chip emp-chip--cyan">{item.parenstesco}</span>
+                            : "—"
+                          }
+                        </td>
+                        <td>{item.telefonoContacto || "—"}</td>
+                        <td>
+                          <Actions
+                            empId={empId}
+                            onEdit={() => { setFormPC({ ...PC_INIT, ...item, empleado_id: empId }); setModal("familia"); }}
+                          />
+                        </td>
+                      </>}
+
+                      {/* ── TAB 4: Clínico ── */}
+                      {activeTab === 4 && <>
+                        <td><span className="emp-name">{nombre}</span></td>
+                        <td>
+                          {item.tipoSangre
+                            ? <span className="emp-chip emp-chip--red">{item.tipoSangre}</span>
+                            : "—"
+                          }
+                        </td>
+                        <td>{item.NumeroSeguroSocial || "—"}</td>
+                        <td>
+                          <span className="emp-text-truncate" style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>
+                            {item.Padecimientos || "—"}
+                          </span>
+                        </td>
+                        <td>
+                          <Actions
+                            empId={empId}
+                            onEdit={() => { setFormClin({ ...CLIN_INIT, ...item, empleado_id: empId }); setModal("clinico"); }}
+                          />
+                        </td>
+                      </>}
+
+                      {/* ── TAB 5: Redes ── */}
+                      {activeTab === 5 && <>
+                        <td><span className="emp-name">{nombre}</span></td>
+                        <td>
+                          <div className="emp-redes">
+                            {(item.RedesSociales || []).length === 0
+                              ? <span style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>Sin redes</span>
+                              : (item.RedesSociales || []).map((r, i) => {
+                                  const key = (r.redSocialSeleccionada || "").toLowerCase();
+                                  return (
+                                    <span key={i} className="emp-red-chip">
+                                      {REDES_ICONS[key] || null}
+                                      {r.NombreRedSocial}
+                                    </span>
+                                  );
+                                })
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          <Actions
+                            empId={empId}
+                            onEdit={() => { setFormRS(item.RedesSociales || []); setModal("redes"); }}
+                          />
+                        </td>
+                      </>}
+
+                      {/* ── TAB 6: RH ── */}
+                      {activeTab === 6 && <>
+                        <td>
+                          <Avatar nombre={nombre} sub={apel} />
+                        </td>
+                        <td>
+                          {item.Puesto
+                            ? <span className="emp-chip emp-chip--blue">{item.Puesto}</span>
+                            : <span style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>—</span>
+                          }
+                        </td>
+                        <td>
+                          <span style={{fontSize:"0.84rem", color: item.JefeInmediato ? "var(--e-text)" : "var(--e-muted)"}}>
+                            {item.JefeInmediato || "—"}
+                          </span>
+                        </td>
+                        <td>
+                          {item.HorarioLaboral?.HoraEntrada
+                            ? <span className="emp-chip">{item.HorarioLaboral.HoraEntrada} – {item.HorarioLaboral.HoraSalida}</span>
+                            : <span style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>—</span>
+                          }
+                        </td>
+                        <td>
+                          <Actions
+                            empId={empId}
+                            onEdit={() => { setFormRH({ ...RH_INIT_F, ...item, empleado_id: empId }); setModal("rh"); }}
+                          />
+                        </td>
+                      </>}
+
+                      {/* ── TAB 7: Experiencia ── */}
+                      {activeTab === 7 && <>
+                        <td><span className="emp-name">{nombre}</span></td>
+                        <td>
+                          <div className="emp-timeline-preview">
+                            {(item.Experiencia || []).length === 0
+                              ? <span style={{color:"var(--e-muted)",fontSize:"0.8rem"}}>Sin registros</span>
+                              : <>
+                                  {(item.Experiencia || []).slice(0,2).map((e,i) => (
+                                    <div key={i} className="emp-timeline-item">
+                                      <span className="emp-tl-title">{e.Titulo || e.titulo}</span>
+                                      <span className="emp-tl-date">{e.Fecha || e.fecha}</span>
+                                    </div>
+                                  ))}
+                                  {(item.Experiencia||[]).length > 2 &&
+                                    <span className="emp-more">+{item.Experiencia.length - 2} más</span>
+                                  }
+                                </>
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          <Actions
+                            empId={empId}
+                            onEdit={() => { setFormExp({ empleado_id: empId, Experiencia: item.Experiencia || [] }); setModal("experiencia"); }}
+                          />
+                        </td>
+                      </>}
+
+                      {/* ── TAB 8: Educación ── */}
+                      {activeTab === 8 && <>
+                        <td><span className="emp-name">{nombre}</span></td>
+                        <td>
+                          <div className="emp-timeline-preview">
+                            {(item.Educacion || []).length === 0
+                              ? <span style={{color:"var(--e-muted)",fontSize:"0.8rem"}}>Sin registros</span>
+                              : <>
+                                  {(item.Educacion || []).slice(0,2).map((e,i) => (
+                                    <div key={i} className="emp-timeline-item">
+                                      <span className="emp-tl-title">{e.Titulo || e.titulo}</span>
+                                      <span className="emp-tl-date">{e.Fecha || e.fecha}</span>
+                                    </div>
+                                  ))}
+                                  {(item.Educacion||[]).length > 2 &&
+                                    <span className="emp-more">+{item.Educacion.length - 2} más</span>
+                                  }
+                                </>
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          <Actions
+                            empId={empId}
+                            onEdit={() => { setFormEd({ empleado_id: empId, Educacion: item.Educacion || [] }); setModal("educacion"); }}
+                          />
+                        </td>
+                      </>}
+
+                      {/* ── TAB 9: Skills ── */}
+                      {activeTab === 9 && <>
+                        <td><span className="emp-name">{nombre}</span></td>
+                        <td>
+                          <div className="emp-skills-preview">
+                            {(item.Habilidades?.Programacion || []).length === 0
+                              ? <span style={{color:"var(--e-muted)",fontSize:"0.8rem"}}>Sin habilidades</span>
+                              : (item.Habilidades.Programacion || []).map((h,i) => (
+                                  <div key={i} className="emp-skill-row">
+                                    <span className="emp-skill-name">{h.Titulo || h.titulo}</span>
+                                    <div className="emp-skill-bar-track">
+                                      <div className="emp-skill-bar-fill" style={{width:`${h.Porcentaje||h.porcentaje||0}%`}} />
+                                    </div>
+                                    <span className="emp-skill-pct">{h.Porcentaje||h.porcentaje||0}%</span>
+                                  </div>
+                                ))
+                            }
+                          </div>
+                        </td>
+                        <td>
+                          <Actions
+                            empId={empId}
+                            onEdit={() => { setFormSkill({ empleado_id: empId, Habilidades: item.Habilidades || { Programacion:[] } }); setModal("skills"); }}
+                          />
+                        </td>
+                      </>}
+
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* ── Paginación ────────────────────────────────────────────────── */}
+        {totalPags > 1 && (
+          <div className="emp-pagination">
+            <button
+              className="emp-pag-btn"
+              onClick={() => setPagina(p => Math.max(0, p-1))}
+              disabled={pagina === 0}
+            >
               <FaChevronLeft />
             </button>
-            <span style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--accent-blue)", textTransform: "uppercase", letterSpacing: "1.5px" }}>
-              Panel {globalnumber}
+            <span className="emp-pag-info">
+              Página <strong>{pagina+1}</strong> de <strong>{totalPags}</strong>
+              <span style={{marginLeft:8, color:"var(--e-hint)"}}>· {filtered.length} registros</span>
             </span>
-            <button className="btn-nav" onClick={handleNextPage} style={{ background: "none", border: "1px solid var(--glass-border)", color: "#fff", borderRadius: "50%", width: "45px", height: "45px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            <button
+              className="emp-pag-btn"
+              onClick={() => setPagina(p => Math.min(totalPags-1, p+1))}
+              disabled={pagina+1 >= totalPags}
+            >
               <FaChevronRight />
             </button>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* --- BLOQUE DE MODALES (CRISTAL LÍQUIDO) --- */}
-      
-      {/* 1. AGREGAR/EDITAR EMPLEADO */}
-      <Modal isOpen={modalAgregar} toggle={() => setModalAgregar(false)} size="lg" centered>
-        <ModalHeader toggle={() => setModalAgregar(false)}>
-          <span style={{ color: "#fff", fontWeight: "700", letterSpacing: "1px" }}>{modalTitulo}</span>
+      {/* ══════════════════════════════════════════════════════════════════
+          MODALES
+      ══════════════════════════════════════════════════════════════════ */}
+
+      {/* 1 — Empleado */}
+      <Modal isOpen={modal==="empleado"} toggle={() => setModal(null)} size="lg" centered>
+        <ModalHeader toggle={() => setModal(null)}>
+          {formEmp._id ? "Editar empleado" : <>Nuevo empleado <span className="modal-step-badge">Paso 1 de 3</span></>}
         </ModalHeader>
         <ModalBody>
-          <div className="row g-4">
-            <div className="col-md-4">
-              <label className="form-label small text-muted text-uppercase">Nombre</label>
-              <input className="form-control" type="text" value={formEmpleado.Nombre} onChange={e => setFormEmpleado({...formEmpleado, Nombre: e.target.value})} />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label small text-muted text-uppercase">Apellido Paterno</label>
-              <input className="form-control" type="text" value={formEmpleado.ApelPaterno} onChange={e => setFormEmpleado({...formEmpleado, ApelPaterno: e.target.value})} />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label small text-muted text-uppercase">Apellido Materno</label>
-              <input className="form-control" type="text" value={formEmpleado.ApelMaterno} onChange={e => setFormEmpleado({...formEmpleado, ApelMaterno: e.target.value})} />
-            </div>
+          <div className="row g-3">
+            {[
+              { label:"Nombre",           field:"Nombre",        col:"col-md-4" },
+              { label:"Apellido paterno", field:"ApelPaterno",   col:"col-md-4" },
+              { label:"Apellido materno", field:"ApelMaterno",   col:"col-md-4" },
+              { label:"Fecha nacimiento", field:"FecNacimiento", col:"col-md-6", type:"date" },
+            ].map(({ label, field, col, type="text" }) => (
+              <div key={field} className={col}>
+                <label className="form-label">{label}</label>
+                <input
+                  className="form-control" type={type}
+                  value={formEmp[field] || ""}
+                  onChange={e => setFormEmp(p => ({ ...p, [field]: e.target.value }))}
+                />
+              </div>
+            ))}
             <div className="col-md-6">
-              <label className="form-label small text-muted text-uppercase">Fecha de Nacimiento</label>
-              <input className="form-control" type="date" value={formEmpleado.FecNacimiento} onChange={e => setFormEmpleado({...formEmpleado, FecNacimiento: e.target.value})} />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label d-block small text-muted text-uppercase">Fotografía de Perfil</label>
-              <button className="btn btn-outline-info w-100" onClick={() => openFilePicker()} style={{ borderRadius: "15px", padding: "10px" }}>
-                <CiFileOn className="me-2" /> {filesContent.length > 0 ? `${filesContent.length} Imagen(es)` : "Cargar Archivo"}
+              <label className="form-label">Fotografía</label>
+              <button className="btn btn-outline-info w-100" onClick={openFilePicker}>
+                <CiFileOn style={{marginRight:6}} />
+                {filesContent.length > 0 ? `${filesContent.length} imagen(es) seleccionada(s)` : "Seleccionar imagen"}
               </button>
+              {filesContent[0] && (
+                <img src={filesContent[0].content} alt="preview" className="emp-foto-preview mt-2" />
+              )}
             </div>
           </div>
         </ModalBody>
         <ModalFooter>
-          <button className="btn btn-primary w-100" style={{ height: "50px" }} onClick={ejecutarGuardarEmpleado}>Continuar al paso 2</button>
+          <button className="btn btn-primary w-100" onClick={paso1} disabled={guardando || !formEmp.Nombre}>
+            {guardando ? "Guardando..." : "Continuar → Paso 2"}
+          </button>
         </ModalFooter>
       </Modal>
 
-      {/* 2. CREDENCIALES USUARIO */}
-      <Modal isOpen={modalAgregarUsuario} toggle={() => setModalAgregarUsuario(false)} centered>
-        <ModalHeader>Credenciales de Acceso</ModalHeader>
+      {/* 2 — Usuario */}
+      <Modal isOpen={modal==="usuario"} centered>
+        <ModalHeader>
+          Credenciales <span className="modal-step-badge">Paso 2 de 3</span>
+        </ModalHeader>
         <ModalBody>
-          <div className="mb-4">
-            <label className="form-label small text-muted text-uppercase">Usuario ID</label>
-            <input className="form-control" value={formUsuario.user} onChange={e => setFormUsuario({...formUsuario, user: e.target.value})} placeholder="ej: nombre.usuario" />
+          <div className="mb-3">
+            <label className="form-label">Nombre de usuario</label>
+            <input className="form-control" placeholder="nombre.usuario" value={formUser.user} onChange={e => setFormUser(p => ({...p, user: e.target.value}))} />
           </div>
-          <div className="mb-2">
-            <label className="form-label small text-muted text-uppercase">Password Temporal</label>
-            <input className="form-control" type="password" value={formUsuario.password} onChange={e => setFormUsuario({...formUsuario, password: e.target.value})} />
+          <div>
+            <label className="form-label">Contraseña temporal</label>
+            <input className="form-control" type="password" value={formUser.password} onChange={e => setFormUser(p => ({...p, password: e.target.value}))} />
           </div>
         </ModalBody>
-        <ModalFooter><button className="btn btn-primary w-100" onClick={ejecutarGuardarUsuario}>Validar y Continuar</button></ModalFooter>
+        <ModalFooter>
+          <button className="btn btn-primary w-100" onClick={paso2} disabled={guardando || !formUser.user}>
+            {guardando ? "Validando..." : "Continuar → Paso 3"}
+          </button>
+        </ModalFooter>
       </Modal>
 
-      {/* 3. DIRECCIÓN Y CONTACTO */}
-      <Modal isOpen={modalAgregarDireccion} toggle={() => setModalAgregarDireccion(false)} size="lg" centered>
-        <ModalHeader>Localización Geográfica</ModalHeader>
+      {/* 3 — Dirección y contacto */}
+      <Modal isOpen={modal==="direccion"} size="lg" centered>
+        <ModalHeader>
+          Ubicación y contacto <span className="modal-step-badge">Paso 3 de 3</span>
+        </ModalHeader>
         <ModalBody>
           <div className="row g-3">
-            <div className="col-8"><label className="small text-muted text-uppercase">Calle</label><input className="form-control" value={formDireccion.Calle} onChange={e => setFormDireccion({...formDireccion, Calle: e.target.value})} /></div>
-            <div className="col-2"><label className="small text-muted text-uppercase">Num. Ext</label><input className="form-control" value={formDireccion.NumExterior} onChange={e => setFormDireccion({...formDireccion, NumExterior: e.target.value})} /></div>
-            <div className="col-2"><label className="small text-muted text-uppercase">Num. Int</label><input className="form-control" value={formDireccion.NumInterior} onChange={e => setFormDireccion({...formDireccion, NumInterior: e.target.value})} /></div>
-            <div className="col-6"><label className="small text-muted text-uppercase">Municipio / Delegación</label><input className="form-control" value={formDireccion.Municipio} onChange={e => setFormDireccion({...formDireccion, Municipio: e.target.value})} /></div>
-            <div className="col-6"><label className="small text-muted text-uppercase">Teléfono Móvil</label><input className="form-control" value={formDatosContacto.TelCelular} onChange={e => setFormDatosContacto({...formDatosContacto, TelCelular: e.target.value})} /></div>
+            {[
+              { label:"Calle",         field:"Calle",       col:"col-8" },
+              { label:"Núm. ext.",     field:"NumExterior", col:"col-2" },
+              { label:"Núm. int.",     field:"NumInterior", col:"col-2" },
+              { label:"Municipio",     field:"Municipio",   col:"col-6" },
+              { label:"Ciudad",        field:"Ciudad",      col:"col-6" },
+              { label:"Código postal", field:"CodigoP",     col:"col-4" },
+            ].map(({ label, field, col }) => (
+              <div key={field} className={col}>
+                <label className="form-label">{label}</label>
+                <input className="form-control" value={formDir[field]||""} onChange={e => setFormDir(p => ({...p, [field]: e.target.value}))} />
+              </div>
+            ))}
+            <div className="col-md-6">
+              <label className="form-label">Teléfono celular</label>
+              <input className="form-control" type="tel" value={formDC.TelCelular} onChange={e => setFormDC(p => ({...p, TelCelular: e.target.value}))} />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">Correo electrónico</label>
+              <input className="form-control" type="email" value={formDC.ListaCorreos} onChange={e => setFormDC(p => ({...p, ListaCorreos: e.target.value}))} />
+            </div>
           </div>
         </ModalBody>
-        <ModalFooter><button className="btn btn-primary w-100" style={{ height: "50px" }} onClick={ejecutarGuardarDireccionYContacto}>Finalizar Configuración</button></ModalFooter>
+        <ModalFooter>
+          <button className="btn btn-primary w-100" onClick={paso3} disabled={guardando}>
+            {guardando ? "Finalizando..." : "Completar registro"}
+          </button>
+        </ModalFooter>
       </Modal>
 
-      {/* 4. EDITAR CONTACTO (DC) */}
-      <Modal isOpen={modalAgregarDC} toggle={() => setModalAgregarDC(false)} centered>
-        <ModalHeader>Ajustes de Contacto</ModalHeader>
+      {/* 4 — Editar contacto */}
+      <Modal isOpen={modal==="contacto"} toggle={() => setModal(null)} centered>
+        <ModalHeader toggle={() => setModal(null)}>Editar datos de contacto</ModalHeader>
         <ModalBody>
-          <label className="small text-muted text-uppercase">ID WhatsApp</label>
-          <input className="form-control mb-4" value={formcontacto.IdWhatsApp} onChange={e => setformcontacto({...formcontacto, IdWhatsApp: e.target.value})} />
-          <label className="small text-muted text-uppercase">Email de Enlace</label>
-          <input className="form-control" value={formcontacto.ListaCorreos} onChange={e => setformcontacto({...formcontacto, ListaCorreos: e.target.value})} />
-        </ModalBody>
-        <ModalFooter><button className="btn btn-primary w-100" onClick={async () => { await contactoService.updateDatos(formcontacto._id, formcontacto); setModalAgregarDC(false); cargarTodo(); }}>Actualizar Nodo</button></ModalFooter>
-      </Modal>
-
-      {/* 5. EDITAR PERSONA DE CONTACTO (PC) */}
-      <Modal isOpen={modalAgregarPC} toggle={() => setModalAgregarPC(false)} centered>
-        <ModalHeader>Enlace de Emergencia</ModalHeader>
-        <ModalBody>
-          <label className="small text-muted text-uppercase">Nombre del Enlace</label>
-          <input className="form-control mb-4" value={formperscontacto.nombreContacto} onChange={e => setformperscontacto({...formperscontacto, nombreContacto: e.target.value})} />
-          <label className="small text-muted text-uppercase">Canal Telefónico</label>
-          <input className="form-control" value={formperscontacto.telefonoContacto} onChange={e => setformperscontacto({...formperscontacto, telefonoContacto: e.target.value})} />
-        </ModalBody>
-        <ModalFooter><button className="btn btn-primary w-100" onClick={async () => { await contactoService.updatePersona(formperscontacto._id, formperscontacto); setModalAgregarPC(false); cargarTodo(); }}>Confirmar Enlace</button></ModalFooter>
-      </Modal>
-
-      {/* 6. EDITAR REDES (RS) */}
-      <Modal isOpen={modalAgregarRS} toggle={() => setModalAgregarRS(false)} centered>
-        <ModalHeader>Ecosistema Digital</ModalHeader>
-        <ModalBody>
-          {formRS.map((red, index) => (
-            <div key={index} className="mb-3">
-              <label className="small text-muted text-uppercase">{red.redSocialSeleccionada || red.red_social}</label>
-              <input className="form-control" value={red.NombreRedSocial || red.nombre_usuario} onChange={e => {
-                const u = [...formRS]; u[index].NombreRedSocial = e.target.value; setformRS(u);
-              }} />
-            </div>
-          ))}
-        </ModalBody>
-        <ModalFooter><button className="btn btn-primary w-100" onClick={() => setModalAgregarRS(false)}>Cerrar Panel</button></ModalFooter>
-      </Modal>
-
-      {/* 7. EXPERIENCIA / EDUCACIÓN / SKILLS */}
-      <Modal isOpen={ModalAgregarExperiencia || ModalAgregarEducacion || ModalAgregarHabilidades} toggle={() => { setModalAgregarExperiencia(false); setModalAgregarEducacion(false); setModalAgregarHabilidades(false); }} size="lg" centered>
-        <ModalHeader>Módulo Curricular</ModalHeader>
-        <ModalBody style={{ maxHeight: "60vh", overflowY: "auto" }}>
-          {ModalAgregarExperiencia && formExperiencia.Experiencia?.map((exp, i) => (
-            <div key={i} className="mb-4 p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border)", borderRadius: "25px" }}>
-              <input className="form-control mb-3 fw-bold" placeholder="Cargo / Compañía" value={exp.Titulo} onChange={e => { const u = [...formExperiencia.Experiencia]; u[i].Titulo = e.target.value; setformExperiencia({...formExperiencia, Experiencia: u}); }} />
-              <textarea className="form-control mb-3" rows="3" placeholder="Descripción de actividades" value={exp.Descripcion} onChange={e => { const u = [...formExperiencia.Experiencia]; u[i].Descripcion = e.target.value; setformExperiencia({...formExperiencia, Experiencia: u}); }} />
-              <input className="form-control" type="text" placeholder="Periodo Cronológico" value={exp.Fecha} onChange={e => { const u = [...formExperiencia.Experiencia]; u[i].Fecha = e.target.value; setformExperiencia({...formExperiencia, Experiencia: u}); }} />
-            </div>
-          ))}
-
-          {ModalAgregarEducacion && formEducacion.Educacion?.map((ed, i) => (
-            <div key={i} className="mb-4 p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid var(--glass-border)", borderRadius: "25px" }}>
-              <input className="form-control mb-3 fw-bold" placeholder="Grado Académico" value={ed.Titulo} onChange={e => { const u = [...formEducacion.Educacion]; u[i].Titulo = e.target.value; setformEducacion({...formEducacion, Educacion: u}); }} />
-              <input className="form-control mb-3" placeholder="Centro de Estudios" value={ed.Institucion} onChange={e => { const u = [...formEducacion.Educacion]; u[i].Institucion = e.target.value; setformEducacion({...formEducacion, Educacion: u}); }} />
-              <input className="form-control" placeholder="Año de Finalización" value={ed.Fecha} onChange={e => { const u = [...formEducacion.Educacion]; u[i].Fecha = e.target.value; setformEducacion({...formEducacion, Educacion: u}); }} />
-            </div>
-          ))}
-
-          {ModalAgregarHabilidades && formHabilidades.Habilidades?.Programacion?.map((hab, i) => (
-            <div key={i} className="row g-3 mb-3 align-items-center">
-              <div className="col-8"><input className="form-control" value={hab.Titulo} onChange={e => { const u = {...formHabilidades}; u.Habilidades.Programacion[i].Titulo = e.target.value; setFormHabilidades(u); }} /></div>
-              <div className="col-4"><input className="form-control text-center" type="number" value={hab.Porcentaje} onChange={e => { const u = {...formHabilidades}; u.Habilidades.Programacion[i].Porcentaje = e.target.value; setFormHabilidades(u); }} /></div>
+          {[
+            { label:"Teléfono fijo", field:"TelFijo",      type:"tel"   },
+            { label:"Celular",       field:"TelCelular",   type:"tel"   },
+            { label:"WhatsApp",      field:"IdWhatsApp"               },
+            { label:"Telegram",      field:"IdTelegram"               },
+            { label:"Correo",        field:"ListaCorreos", type:"email" },
+          ].map(({ label, field, type="text" }) => (
+            <div key={field} className="mb-3">
+              <label className="form-label">{label}</label>
+              <input className="form-control" type={type} value={formDC[field]||""} onChange={e => setFormDC(p => ({...p, [field]: e.target.value}))} />
             </div>
           ))}
         </ModalBody>
         <ModalFooter>
-          <button className="btn btn-primary w-100" style={{ height: "50px" }} onClick={async () => { 
-            const dataToUpdate = ModalAgregarExperiencia ? formExperiencia : (ModalAgregarEducacion ? formEducacion : formHabilidades);
-            await educacionService.update(dataToUpdate.empleado_id || dataToUpdate._id, dataToUpdate); 
-            setModalAgregarExperiencia(false); setModalAgregarEducacion(false); setModalAgregarHabilidades(false); 
-            cargarTodo(); 
-          }}>Sincronizar Datos</button>
+          <button className="btn btn-primary w-100" disabled={guardando} onClick={async () => {
+            setGuardando(true);
+            try { await contactoService.updateDatos(formDC.empleado_id || formDC._id, formDC); setModal(null); cargarTodo(); }
+            finally { setGuardando(false); }
+          }}>{guardando ? "Guardando..." : "Guardar cambios"}</button>
         </ModalFooter>
       </Modal>
+
+      {/* 5 — Editar familia */}
+      <Modal isOpen={modal==="familia"} toggle={() => setModal(null)} centered>
+        <ModalHeader toggle={() => setModal(null)}>Contacto de emergencia</ModalHeader>
+        <ModalBody>
+          {[
+            { label:"Nombre",     field:"nombreContacto"               },
+            { label:"Parentesco", field:"parenstesco"                  },
+            { label:"Teléfono",   field:"telefonoContacto", type:"tel"   },
+            { label:"Correo",     field:"correoContacto",  type:"email" },
+            { label:"Dirección",  field:"direccionContacto"            },
+          ].map(({ label, field, type="text" }) => (
+            <div key={field} className="mb-3">
+              <label className="form-label">{label}</label>
+              <input className="form-control" type={type} value={formPC[field]||""} onChange={e => setFormPC(p => ({...p, [field]: e.target.value}))} />
+            </div>
+          ))}
+        </ModalBody>
+        <ModalFooter>
+          <button className="btn btn-primary w-100" disabled={guardando} onClick={async () => {
+            setGuardando(true);
+            try { await contactoService.updateDatos(formPC.empleado_id || formPC._id, formPC); setModal(null); cargarTodo(); }
+            finally { setGuardando(false); }
+          }}>{guardando ? "Guardando..." : "Guardar"}</button>
+        </ModalFooter>
+      </Modal>
+
+      {/* 6 — Editar clínico */}
+      <Modal isOpen={modal==="clinico"} toggle={() => setModal(null)} centered>
+        <ModalHeader toggle={() => setModal(null)}>Expediente clínico</ModalHeader>
+        <ModalBody>
+          <div className="mb-3">
+            <label className="form-label">Tipo de sangre</label>
+            <select className="form-control" value={formClin.tipoSangre||""} onChange={e => setFormClin(p => ({...p, tipoSangre: e.target.value}))}>
+              <option value="">Seleccionar</option>
+              {TIPOS_SANGRE.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          {[
+            { label:"NSS",              field:"NumeroSeguroSocial"    },
+            { label:"Padecimientos",    field:"Padecimientos"         },
+            { label:"Seguro de gastos", field:"Segurodegastosmedicos" },
+          ].map(({ label, field }) => (
+            <div key={field} className="mb-3">
+              <label className="form-label">{label}</label>
+              <input className="form-control" value={formClin[field]||""} onChange={e => setFormClin(p => ({...p, [field]: e.target.value}))} />
+            </div>
+          ))}
+        </ModalBody>
+        <ModalFooter>
+          <button className="btn btn-primary w-100" disabled={guardando} onClick={async () => {
+            setGuardando(true);
+            try { await clinicoService.update(formClin.empleado_id, formClin); setModal(null); cargarTodo(); }
+            finally { setGuardando(false); }
+          }}>{guardando ? "Guardando..." : "Guardar"}</button>
+        </ModalFooter>
+      </Modal>
+
+      {/* 7 — Editar RH */}
+      <Modal isOpen={modal==="rh"} toggle={() => setModal(null)} centered>
+        <ModalHeader toggle={() => setModal(null)}>Datos de RH</ModalHeader>
+        <ModalBody>
+          <div className="mb-3">
+            <label className="form-label">Puesto</label>
+            <input className="form-control" value={formRH.Puesto||""} onChange={e => setFormRH(p => ({...p, Puesto: e.target.value}))} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Jefe inmediato</label>
+            <input className="form-control" value={formRH.JefeInmediato||""} onChange={e => setFormRH(p => ({...p, JefeInmediato: e.target.value}))} />
+          </div>
+          <div className="row g-3">
+            {[
+              { label:"Hora entrada",   field:"HoraEntrada",   type:"time" },
+              { label:"Hora salida",    field:"HoraSalida",    type:"time" },
+              { label:"Tiempo comida",  field:"TiempoComida"             },
+              { label:"Días trabajados",field:"DiasTrabajados"           },
+            ].map(({ label, field, type="text" }) => (
+              <div key={field} className="col-6">
+                <label className="form-label">{label}</label>
+                <input className="form-control" type={type}
+                  value={formRH.HorarioLaboral?.[field]||""}
+                  onChange={e => setFormRH(p => ({...p, HorarioLaboral: {...p.HorarioLaboral, [field]: e.target.value}}))}
+                />
+              </div>
+            ))}
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <button className="btn btn-primary w-100" disabled={guardando} onClick={async () => {
+            setGuardando(true);
+            try { await rhService.update(formRH.empleado_id, formRH); setModal(null); cargarTodo(); }
+            finally { setGuardando(false); }
+          }}>{guardando ? "Guardando..." : "Guardar"}</button>
+        </ModalFooter>
+      </Modal>
+
+      {/* 8,9,10 — Experiencia / Educación / Skills */}
+      {["experiencia","educacion","skills"].map(tipo => (
+        <Modal key={tipo} isOpen={modal===tipo} toggle={() => setModal(null)} size="lg" centered>
+          <ModalHeader toggle={() => setModal(null)}>
+            {{ experiencia:"Experiencia laboral", educacion:"Educación", skills:"Habilidades" }[tipo]}
+          </ModalHeader>
+          <ModalBody style={{maxHeight:"60vh", overflowY:"auto"}}>
+
+            {tipo==="experiencia" && (formExp.Experiencia||[]).map((exp,i) => (
+              <div key={i} className="emp-modal-card">
+                <label className="form-label">Cargo / Empresa</label>
+                <input className="form-control mb-2" value={exp.Titulo||""} onChange={e => { const u=[...formExp.Experiencia]; u[i].Titulo=e.target.value; setFormExp(p=>({...p,Experiencia:u})); }} />
+                <label className="form-label">Descripción</label>
+                <textarea className="form-control mb-2" rows="2" value={exp.Descripcion||""} onChange={e => { const u=[...formExp.Experiencia]; u[i].Descripcion=e.target.value; setFormExp(p=>({...p,Experiencia:u})); }} />
+                <label className="form-label">Periodo</label>
+                <input className="form-control" value={exp.Fecha||""} onChange={e => { const u=[...formExp.Experiencia]; u[i].Fecha=e.target.value; setFormExp(p=>({...p,Experiencia:u})); }} />
+              </div>
+            ))}
+
+            {tipo==="educacion" && (formEd.Educacion||[]).map((ed,i) => (
+              <div key={i} className="emp-modal-card">
+                <label className="form-label">Título obtenido</label>
+                <input className="form-control mb-2" value={ed.Titulo||""} onChange={e => { const u=[...formEd.Educacion]; u[i].Titulo=e.target.value; setFormEd(p=>({...p,Educacion:u})); }} />
+                <label className="form-label">Institución</label>
+                <input className="form-control mb-2" value={ed.Institucion||""} onChange={e => { const u=[...formEd.Educacion]; u[i].Institucion=e.target.value; setFormEd(p=>({...p,Educacion:u})); }} />
+                <label className="form-label">Año</label>
+                <input className="form-control" value={ed.Fecha||""} onChange={e => { const u=[...formEd.Educacion]; u[i].Fecha=e.target.value; setFormEd(p=>({...p,Educacion:u})); }} />
+              </div>
+            ))}
+
+            {tipo==="skills" && (formSkill.Habilidades?.Programacion||[]).map((h,i) => (
+              <div key={i} className="row g-2 align-items-center mb-3">
+                <div className="col-6">
+                  <input className="form-control" placeholder="Habilidad" value={h.Titulo||""} onChange={e => { const u={...formSkill}; u.Habilidades.Programacion[i].Titulo=e.target.value; setFormSkill(u); }} />
+                </div>
+                <div className="col-3">
+                  <input className="form-control text-center" type="number" min="0" max="100" placeholder="%" value={h.Porcentaje||""} onChange={e => { const u={...formSkill}; u.Habilidades.Programacion[i].Porcentaje=e.target.value; setFormSkill(u); }} />
+                </div>
+                <div className="col-3">
+                  <div className="emp-skill-bar-track">
+                    <div className="emp-skill-bar-fill" style={{width:`${h.Porcentaje||0}%`}} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </ModalBody>
+          <ModalFooter>
+            <button className="btn btn-primary w-100" disabled={guardando} onClick={async () => {
+              setGuardando(true);
+              try {
+                const payload = tipo==="experiencia" ? formExp : tipo==="educacion" ? formEd : formSkill;
+                await educacionService.update(payload.empleado_id, payload);
+                setModal(null); cargarTodo();
+              } finally { setGuardando(false); }
+            }}>{guardando ? "Guardando..." : "Guardar cambios"}</button>
+          </ModalFooter>
+        </Modal>
+      ))}
 
     </section>
   );

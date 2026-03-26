@@ -1,39 +1,87 @@
-// src/services/authService.js
-const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const API_URL = isLocal ? "http://localhost:5001" : "http://51.79.18.52:5001";
+// services/authService.js
 
 export const authService = {
-  login: async (credentials) => {
-    const res = await fetch(`${API_URL}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+
+  // ─── Login ────────────────────────────────────────────────────────────────
+  async login(credentials) {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(credentials),
     });
-    if (!res.ok) throw new Error('Error en autenticación');
-    return res.json();
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Credenciales inválidas.");
+
+    sessionStorage.setItem("access_token", data.access_token);
+    sessionStorage.setItem("user_role",    data.role);
+    sessionStorage.setItem("empleado_id",  data.empleado_id  ?? "");
+    sessionStorage.setItem("depto_id",     data.depto_id     ?? "");
+
+    return data;
   },
 
-  // Registro paso a paso para evitar los 404 de dependencias
-  createEmpleado: async (empleadoData) => {
-    const res = await fetch(`${API_URL}/empleados`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(empleadoData),
-    });
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.message || 'Error al crear empleado base');
-    }
-    return res.json();
+  // ─── Logout ───────────────────────────────────────────────────────────────
+  logout() {
+    sessionStorage.removeItem("access_token");
+    sessionStorage.removeItem("user_role");
+    sessionStorage.removeItem("empleado_id");
+    sessionStorage.removeItem("depto_id");
   },
 
-  createUsuario: async (usuarioData) => {
-    const res = await fetch(`${API_URL}/usuario`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(usuarioData),
-    });
-    if (!res.ok) throw new Error('Error al crear credenciales de usuario');
-    return res.json();
-  }
+  // ─── Getters ──────────────────────────────────────────────────────────────
+  getToken()      { return sessionStorage.getItem("access_token"); },
+  getRole()       { return sessionStorage.getItem("user_role"); },
+  getEmpleadoId() { return sessionStorage.getItem("empleado_id"); },
+  getDeptoId()    { return sessionStorage.getItem("depto_id"); },
+
+  isAuthenticated() { return !!sessionStorage.getItem("access_token"); },
+
+  // ─── Checks de rol ────────────────────────────────────────────────────────
+  isSuperAdmin() {
+    return sessionStorage.getItem("user_role") === "SUPER_ADMIN";
+  },
+
+  isAdmin() {
+    const role = sessionStorage.getItem("user_role");
+    return role === "ADMIN" || role === "SUPER_ADMIN";
+  },
+
+  isEmployee() {
+    return sessionStorage.getItem("user_role") === "EMPLOYEE";
+  },
+
+  // ─── Checks de acceso ────────────────────────────────────────────────────
+
+  // Puede editar un perfil: dueño del perfil, ADMIN o SUPER_ADMIN
+  canEdit(perfilEmpleadoId) {
+    return (
+      this.isOwnProfile(perfilEmpleadoId) ||
+      this.isAdmin()
+    );
+  },
+
+  // Puede ver secciones sensibles (RH, expediente clínico):
+  // solo el dueño, ADMIN o SUPER_ADMIN
+  canViewSensitive(perfilEmpleadoId) {
+    return (
+      this.isOwnProfile(perfilEmpleadoId) ||
+      this.isAdmin()
+    );
+  },
+
+  // Puede gestionar empleados (acceder al módulo Empleados)
+  canManageEmployees() {
+    return this.isAdmin();
+  },
+
+  // El perfil que se está viendo es el propio
+  isOwnProfile(perfilEmpleadoId) {
+    return sessionStorage.getItem("empleado_id") === String(perfilEmpleadoId);
+  },
+
+  // El empleado pertenece al mismo depto que el usuario autenticado
+  isSameArea(empDeptoId) {
+    if (this.isSuperAdmin()) return true; // SUPER_ADMIN ve todo
+    return sessionStorage.getItem("depto_id") === String(empDeptoId);
+  },
 };

@@ -1,84 +1,91 @@
-// ---------------------------------------------------------
-// LOGIN FORM REINFORCED - STABILITY VERSION 2026.01.28
-// ---------------------------------------------------------
-
-import React, { useState, useEffect, useCallback } from "react";
-import { Modal, ModalHeader, ModalBody, ModalFooter, Progress, Table } from "reactstrap";
+// LoginForm.js — Flujo de registro en 3 pasos
+import React, { useState, useEffect } from "react";
+import { Modal, ModalHeader, ModalBody, ModalFooter, Progress } from "reactstrap";
 import { useFilePicker } from "use-file-picker";
 import { FileAmountLimitValidator, FileSizeValidator } from "use-file-picker/validators";
 
-// --- SERVICIOS PROPIOS ---
 import { empleadoService } from "../../services/empleadoService";
-import { contactoService } from "../../services/contactoService";
+import { contactoService }  from "../../services/contactoService";
+import { direccionService } from "../../services/direccionService";
+import { usuarioService }   from "../../services/usuarioService";
 
-import './Login.css';
+import "./Login.css";
 
-const LoginForm = ({ openRegisterModal, onClose }) => {
-  // -----------------------------------------
-  // ESTADOS DE CONTROL DE UI
-  // -----------------------------------------
-  const [loading, setLoading] = useState(false);
+// ─── Componente de alerta inline (reemplaza alert() nativo) ─────────────────
+const InlineAlert = ({ message, type = "danger" }) =>
+  message ? (
+    <div className={`alert alert-${type} p-2 small border-0 bg-${type} bg-opacity-10`} role="alert">
+      {message}
+    </div>
+  ) : null;
+
+// ─── Checklist de contraseña ─────────────────────────────────────────────────
+const PasswordChecklist = ({ validations }) => {
+  const rules = [
+    "Mínimo 5 caracteres",
+    "Una letra mayúscula",
+    "Un número",
+    "Símbolo ($&+,:;=@#)",
+  ];
+  return (
+    <div className="password-checklist mt-3">
+      {rules.map((rule, i) => (
+        <div key={i} className={validations[i] ? "text-success" : "text-danger"}>
+          • {rule}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Helper genérico para inputs controlados ─────────────────────────────────
+const useFormState = (initial) => {
+  const [form, setForm] = useState(initial);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+  return [form, handleChange, setForm];
+};
+
+// ════════════════════════════════════════════════════════════════════════════════
+const LoginForm = ({ onClose }) => {
+  const [step, setStep]           = useState(1); // 1 | 2 | 3
+  const [loading, setLoading]     = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
-  const [modalEmpleado, setModalEmpleado] = useState(false);
-  const [modalUsuario, setModalUsuario] = useState(false);
-  const [modalContactoDir, setModalContactoDir] = useState(false);
+  const [alert, setAlert]         = useState({ message: "", type: "danger" });
 
-  const [alertMessage, setAlertMessage] = useState("");
+  const [empleadoId, setEmpleadoId] = useState(null);
+
+  const [formEmpleado, onEmpleadoChange] = useFormState({
+    Nombre: "", ApelPaterno: "", ApelMaterno: "", FecNacimiento: "",
+  });
+
+  const [formUsuario, onUsuarioChange] = useFormState({ user: "", password: "" });
+
+  const [formContacto, onContactoChange] = useFormState({
+    TelFijo: "", TelCelular: "", IdWhatsApp: "", IdTelegram: "",
+  });
+
+  const [formDireccion, onDireccionChange] = useFormState({
+    Calle: "", NumExterior: "", NumInterior: "",
+    Municipio: "", Ciudad: "", CodigoP: "",
+  });
+
   const [validations, setValidations] = useState([false, false, false, false]);
 
-  // -----------------------------------------
-  // ESTADOS DE DATOS (FORMULARIOS COMPLETOS)
-  // -----------------------------------------
-  const [formEmpleado, setFormEmpleado] = useState({ 
-    id: "", 
-    Nombre: "", 
-    ApelPaterno: "", 
-    ApelMaterno: "", 
-    FecNacimiento: "" 
-  });
-
-  const [formUsuario, setFormUsuario] = useState({ 
-    user: "", 
-    password: "" 
-  });
-
-  const [formContacto, setFormContacto] = useState({ 
-    TelFijo: "", 
-    TelCelular: "", 
-    IdWhatsApp: "", 
-    IdTelegram: "" 
-  });
-
-  const [formDireccion, setFormDireccion] = useState({ 
-    Calle: "", 
-    NumExterior: "", 
-    NumInterior: "", 
-    Municipio: "", 
-    Ciudad: "", 
-    CodigoP: "" 
-  });
-
-  // -----------------------------------------
-  // CONFIGURACIÓN DE SELECTOR DE ARCHIVOS
-  // -----------------------------------------
   const { openFilePicker, filesContent, clear } = useFilePicker({
     readAs: "DataURL",
     accept: "image/*",
     multiple: false,
     validators: [
       new FileAmountLimitValidator({ max: 1 }),
-      new FileSizeValidator({ maxFileSize: 1024 * 1024 * 2 }) // Ajustado a 2MB
+      new FileSizeValidator({ maxFileSize: 1024 * 1024 * 2 }),
     ],
   });
 
-  // -----------------------------------------
-  // LÓGICA DE VALIDACIÓN Y HELPER
-  // -----------------------------------------
-  const handleInputChange = (e, setter) => {
-    const { name, value } = e.target;
-    setter(prev => ({ ...prev, [name]: value }));
-  };
+  // Limpia la alerta al cambiar de paso
+  useEffect(() => { setAlert({ message: "", type: "danger" }); }, [step]);
 
   const validatePassword = (e) => {
     const pwd = e.target.value;
@@ -86,264 +93,263 @@ const LoginForm = ({ openRegisterModal, onClose }) => {
       pwd.length >= 5,
       /[A-Z]/.test(pwd),
       /[0-9]/.test(pwd),
-      /[$&+,:;=?@#]/.test(pwd)
+      /[$&+,:;=?@#]/.test(pwd),
     ]);
+    onUsuarioChange(e);
   };
 
-  // -----------------------------------------
-  // FLUJO DE PERSISTENCIA (PASO A PASO)
-  // -----------------------------------------
-
+  // ─── Paso 1: Crear empleado ────────────────────────────────────────────────
   const step1_CrearEmpleado = async () => {
     if (!formEmpleado.Nombre || !formEmpleado.ApelPaterno) {
-      alert("⚠️ El nombre y el primer apellido son obligatorios.");
+      setAlert({ message: "El nombre y el primer apellido son obligatorios.", type: "danger" });
       return;
     }
 
     setLoading(true);
     try {
       const payload = {
-        Nombre: formEmpleado.Nombre,
-        ApelPaterno: formEmpleado.ApelPaterno,
-        ApelMaterno: formEmpleado.ApelMaterno,
-        FecNacimiento: formEmpleado.FecNacimiento,
-        Fotografia: filesContent.length > 0 ? filesContent[0].content : "",
+        ...formEmpleado,
+        Fotografia: filesContent[0]?.content ?? "",
         depto_id: "Sin Asignar",
-        Cargo: "Personal"
+        Cargo: "Personal",
       };
 
-      console.log("🚀 Iniciando Step 1: Payload ->", payload);
-      
-      const response = await fetch("http://localhost:5001/empleados", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      const data = await empleadoService.create(payload);
+      const id   = data._id || data.id;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("🔥 Error 500 del Servidor:", errorText);
-        throw new Error("El servidor falló al crear el empleado.");
-      }
+      if (!id) throw new Error("El servidor no devolvió un ID válido.");
 
-      const data = await response.json();
-      const generatedId = data._id || data.id;
-
-      if (generatedId) {
-        setFormEmpleado(prev => ({ ...prev, id: generatedId }));
-        console.log("✅ Empleado creado con éxito ID:", generatedId);
-        setModalEmpleado(false);
-        setModalUsuario(true);
-      } else {
-        throw new Error("Respuesta exitosa pero sin ID de objeto.");
-      }
+      setEmpleadoId(id);
+      setStep(2);
     } catch (err) {
-      console.error("❌ Error Crítico Step 1:", err);
-      alert(`Error en el registro: ${err.message}`);
+      setAlert({ message: `Error al registrar empleado: ${err.message}`, type: "danger" });
     } finally {
       setLoading(false);
     }
   };
 
+  // ─── Paso 2: Crear usuario / credenciales ─────────────────────────────────
   const step2_CrearUsuario = async () => {
-    if (!validations.every(v => v)) {
-      setAlertMessage("La contraseña no cumple los requisitos de seguridad.");
+    if (!validations.every(Boolean)) {
+      setAlert({ message: "La contraseña no cumple los requisitos de seguridad.", type: "danger" });
+      return;
+    }
+    if (!formUsuario.user) {
+      setAlert({ message: "Ingresa un nombre de usuario.", type: "danger" });
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5001/usuario`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          user: formUsuario.user,
-          password: formUsuario.password,
-          role: "USER", 
-          empleado_id: formEmpleado.id 
-        }),
+      await usuarioService.create({
+        user:        formUsuario.user,
+        password:    formUsuario.password,
+        role:        "USER",
+        empleado_id: empleadoId,
       });
-
-      if (!res.ok) {
-         const errData = await res.json();
-         throw new Error(errData.message || "Error al crear credenciales.");
-      }
-
-      console.log("✅ Usuario vinculado correctamente.");
-      setModalUsuario(false);
-      setModalContactoDir(true);
+      setStep(3);
     } catch (err) {
-      setAlertMessage(err.message || "El nombre de usuario ya existe.");
+      setAlert({ message: err.message || "El nombre de usuario ya existe.", type: "danger" });
     } finally {
       setLoading(false);
     }
   };
 
+  // ─── Paso 3: Contacto + Dirección ─────────────────────────────────────────
   const step3_Finalizar = async () => {
     setLoading(true);
     try {
-      console.log("📦 Iniciando Step 3 para ID:", formEmpleado.id);
-
-      // 1. Guardar Datos de Contacto (Usando la nueva función createDatos del servicio)
-      // Pasamos los teléfonos y el empleado_id
-      await contactoService.createDatos({ 
-        TelCelular: formContacto.TelCelular,
-        TelFijo: formContacto.TelFijo,
-        empleado_id: formEmpleado.id 
+      await contactoService.createDatos({
+        TelCelular:  formContacto.TelCelular,
+        TelFijo:     formContacto.TelFijo,
+        IdWhatsApp:  formContacto.IdWhatsApp,
+        IdTelegram:  formContacto.IdTelegram,
+        empleado_id: empleadoId,
       });
 
-      // 2. Guardar Redes Sociales (Opcional, si tu backend lo requiere por separado)
-      // Si IdWhatsApp o IdTelegram tienen datos, podrías enviarlos aquí
-      // await contactoService.createRedes({ ... });
-      
-      // 3. Guardar Dirección (Fetch Manual)
-      const resDir = await fetch(`http://localhost:5001/direccion`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          ...formDireccion, 
-          empleado_id: formEmpleado.id 
-        }),
+      await direccionService.create({
+        ...formDireccion,
+        empleado_id: empleadoId,
       });
 
-      if (!resDir.ok) throw new Error("Fallo al guardar la dirección física.");
+      setAlert({ message: "Registro completado exitosamente.", type: "success" });
+      clear();
 
-      alert("✨ ¡Proceso de registro maestro finalizado con éxito!");
-      clear(); 
-      setModalContactoDir(false);
-      onClose(); 
+      // Pequeña pausa para que el usuario vea el mensaje de éxito
+      setTimeout(() => { onClose(); }, 1500);
     } catch (err) {
-      console.error("❌ Error en Step 3:", err);
-      alert(`Error en el cierre de registro: ${err.message}`);
+      setAlert({ message: `Error al finalizar el registro: ${err.message}`, type: "danger" });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (openRegisterModal) {
-      setModalEmpleado(true);
-      setAlertMessage("");
-    }
-  }, [openRegisterModal]);
+  const progress = { 1: 33, 2: 66, 3: 100 }[step];
 
+  // ════════════════════════════════════════════════════════════════════════════
   return (
     <div className="login-register-flow">
-      {/* MODAL 1: IDENTIDAD */}
-      <Modal isOpen={modalEmpleado} centered size="lg" className="cyber-modal" fade={false}>
-        <ModalHeader className="border-0 bg-dark text-white">Registro de Identidad - Paso 1</ModalHeader>
-        <Progress value="33" className="cyber-progress" />
+
+      {/* ── MODAL 1: IDENTIDAD ─────────────────────────────────────────────── */}
+      <Modal isOpen={step === 1} centered size="lg" className="cyber-modal" fade={false}>
+        <ModalHeader className="border-0 bg-dark text-white">
+          Registro de Identidad — Paso 1 de 3
+        </ModalHeader>
+        <Progress value={progress} className="cyber-progress" />
         <ModalBody className="glass-modal-body">
           <div className="row g-4">
             <div className="col-md-8">
-              <Table borderless className="text-white">
-                <tbody>
-                  <tr>
-                    <td>
-                      <label>Nombre(s)</label>
-                      <input name="Nombre" className="form-control" placeholder="Ej: Juan" onChange={e => handleInputChange(e, setFormEmpleado)}/>
-                    </td>
-                    <td>
-                      <label>Apellido Paterno</label>
-                      <input name="ApelPaterno" className="form-control" placeholder="Ej: Pérez" onChange={e => handleInputChange(e, setFormEmpleado)}/>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <label>Apellido Materno</label>
-                      <input name="ApelMaterno" className="form-control" placeholder="Ej: López" onChange={e => handleInputChange(e, setFormEmpleado)}/>
-                    </td>
-                    <td>
-                      <label>Fecha de Nacimiento</label>
-                      <input name="FecNacimiento" type="date" className="form-control" onChange={e => handleInputChange(e, setFormEmpleado)}/>
-                    </td>
-                  </tr>
-                </tbody>
-              </Table>
-            </div>
-            <div className="col-md-4 text-center border-start border-secondary border-opacity-25">
-              <div className="upload-section">
-                <button className={`btn-upload-circle ${filesContent.length > 0 ? 'success' : ''}`} onClick={openFilePicker}>
-                  <i className={filesContent.length > 0 ? "fas fa-check" : "fas fa-camera"}></i>
-                  <div className="btn-upload-ring"></div>
-                </button>
-                <p className="mt-2 small text-secondary text-uppercase">Foto de Perfil</p>
+              <div className="row g-3">
+                {[
+                  { name: "Nombre",       label: "Nombre(s)",         placeholder: "Ej: Juan" },
+                  { name: "ApelPaterno",  label: "Apellido Paterno",  placeholder: "Ej: Pérez" },
+                  { name: "ApelMaterno",  label: "Apellido Materno",  placeholder: "Ej: López" },
+                ].map(({ name, label, placeholder }) => (
+                  <div key={name} className="col-md-6">
+                    <label>{label}</label>
+                    <input name={name} className="form-control" placeholder={placeholder} onChange={onEmpleadoChange} />
+                  </div>
+                ))}
+                <div className="col-md-6">
+                  <label>Fecha de Nacimiento</label>
+                  <input name="FecNacimiento" type="date" className="form-control" onChange={onEmpleadoChange} />
+                </div>
               </div>
-              {filesContent.map((f, i) => (
-                <img key={i} src={f.content} className="rounded-circle mt-2 shadow-glow" width="100" height="100" style={{objectFit:'cover'}} alt="preview"/>
-              ))}
             </div>
+
+            <div className="col-md-4 text-center border-start border-secondary border-opacity-25">
+              <button
+                className={`btn-upload-circle ${filesContent.length > 0 ? "success" : ""}`}
+                onClick={openFilePicker}
+                type="button"
+                aria-label="Seleccionar foto de perfil"
+              >
+                <i className={filesContent.length > 0 ? "fas fa-check" : "fas fa-camera"} />
+                <div className="btn-upload-ring" />
+              </button>
+              <p className="mt-2 small text-secondary text-uppercase">Foto de Perfil</p>
+              {filesContent[0] && (
+                <img
+                  src={filesContent[0].content}
+                  className="rounded-circle mt-2"
+                  width="100"
+                  height="100"
+                  style={{ objectFit: "cover" }}
+                  alt="Vista previa"
+                />
+              )}
+            </div>
+          </div>
+          <div className="mt-3">
+            <InlineAlert {...alert} />
           </div>
         </ModalBody>
         <ModalFooter className="border-0">
-          <button className="btn-login-submit" onClick={step1_CrearEmpleado} disabled={loading}>
-            {loading ? "Sincronizando con DB..." : "Continuar a Seguridad"}
+          <button type="button" className="btn btn-outline-secondary me-2" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="button" className="btn-login-submit" onClick={step1_CrearEmpleado} disabled={loading}>
+            {loading ? "Registrando..." : "Continuar →"}
           </button>
         </ModalFooter>
       </Modal>
 
-      {/* MODAL 2: SEGURIDAD / CUENTA */}
-      <Modal isOpen={modalUsuario} centered className="cyber-modal" fade={false}>
-        <ModalHeader className="border-0">Configuración de Acceso - Paso 2</ModalHeader>
-        <Progress value="66" className="cyber-progress" />
+      {/* ── MODAL 2: CREDENCIALES ──────────────────────────────────────────── */}
+      <Modal isOpen={step === 2} centered className="cyber-modal" fade={false}>
+        <ModalHeader className="border-0">Configuración de Acceso — Paso 2 de 3</ModalHeader>
+        <Progress value={progress} className="cyber-progress" />
         <ModalBody className="glass-modal-body">
           <div className="mb-3">
             <label>Nombre de Usuario</label>
-            <input name="user" className="form-control" placeholder="usuario123" onChange={e => handleInputChange(e, setFormUsuario)}/>
+            <input
+              name="user"
+              className="form-control"
+              placeholder="usuario123"
+              onChange={onUsuarioChange}
+            />
           </div>
           <div className="mb-3">
             <label>Contraseña</label>
             <div className="input-group">
-              <input 
+              <input
                 name="password"
-                type={showPassword ? "text" : "password"} 
-                className="form-control" 
-                onChange={e => { handleInputChange(e, setFormUsuario); validatePassword(e); }}
+                type={showPassword ? "text" : "password"}
+                className="form-control"
+                onChange={validatePassword}
               />
-              <button className="btn btn-outline-info" onClick={() => setShowPassword(!showPassword)}>
-                <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+              <button
+                type="button"
+                className="btn btn-outline-info"
+                aria-label={showPassword ? "Ocultar" : "Mostrar"}
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                <i className={`fas ${showPassword ? "fa-eye-slash" : "fa-eye"}`} />
               </button>
             </div>
-            <div className="password-checklist mt-3">
-              <div className={validations[0] ? "text-success" : "text-danger"}>• Mínimo 5 caracteres</div>
-              <div className={validations[1] ? "text-success" : "text-danger"}>• Una letra Mayúscula</div>
-              <div className={validations[2] ? "text-success" : "text-danger"}>• Un número</div>
-              <div className={validations[3] ? "text-success" : "text-danger"}>• Símbolo ($&+,:;=@#)</div>
-            </div>
+            <PasswordChecklist validations={validations} />
           </div>
-          {alertMessage && <div className="alert alert-danger p-2 small border-0 bg-danger bg-opacity-10">{alertMessage}</div>}
+          <InlineAlert {...alert} />
         </ModalBody>
         <ModalFooter className="border-0">
-          <button className="btn-login-submit" onClick={step2_CrearUsuario} disabled={loading}>Vincular Cuenta</button>
+          <button type="button" className="btn btn-outline-secondary me-2" onClick={() => setStep(1)}>
+            ← Atrás
+          </button>
+          <button type="button" className="btn-login-submit" onClick={step2_CrearUsuario} disabled={loading}>
+            {loading ? "Vinculando..." : "Vincular Cuenta →"}
+          </button>
         </ModalFooter>
       </Modal>
 
-      {/* MODAL 3: CONTACTO Y DIRECCIÓN */}
-      <Modal isOpen={modalContactoDir} centered size="lg" className="cyber-modal" fade={false}>
-        <ModalHeader className="border-0">Información de Contacto - Finalizar</ModalHeader>
-        <Progress value="100" className="cyber-progress-success" />
-        <ModalBody className="glass-modal-body" style={{maxHeight: '65vh', overflowY: 'auto'}}>
-          <h6 className="text-info mb-3"><i className="fas fa-phone-alt me-2"></i>Medios de Comunicación</h6>
+      {/* ── MODAL 3: CONTACTO Y DIRECCIÓN ─────────────────────────────────── */}
+      <Modal isOpen={step === 3} centered size="lg" className="cyber-modal" fade={false}>
+        <ModalHeader className="border-0">Información de Contacto — Paso 3 de 3</ModalHeader>
+        <Progress value={progress} className="cyber-progress-success" />
+        <ModalBody className="glass-modal-body" style={{ maxHeight: "65vh", overflowY: "auto" }}>
+          <h6 className="text-info mb-3">
+            <i className="fas fa-phone-alt me-2" />Medios de Comunicación
+          </h6>
           <div className="row g-3 mb-4">
-            <div className="col-md-6"><label>Teléfono Celular</label><input name="TelCelular" className="form-control" onChange={e => handleInputChange(e, setFormContacto)}/></div>
-            <div className="col-md-6"><label>WhatsApp (ID)</label><input name="IdWhatsApp" className="form-control" onChange={e => handleInputChange(e, setFormContacto)}/></div>
-            <div className="col-md-6"><label>Teléfono Fijo</label><input name="TelFijo" className="form-control" onChange={e => handleInputChange(e, setFormContacto)}/></div>
-            <div className="col-md-6"><label>Telegram</label><input name="IdTelegram" className="form-control" onChange={e => handleInputChange(e, setFormContacto)}/></div>
+            {[
+              { name: "TelCelular", label: "Teléfono Celular", handler: onContactoChange },
+              { name: "IdWhatsApp", label: "WhatsApp (ID)",    handler: onContactoChange },
+              { name: "TelFijo",    label: "Teléfono Fijo",   handler: onContactoChange },
+              { name: "IdTelegram", label: "Telegram",         handler: onContactoChange },
+            ].map(({ name, label, handler }) => (
+              <div key={name} className="col-md-6">
+                <label>{label}</label>
+                <input name={name} className="form-control" onChange={handler} />
+              </div>
+            ))}
           </div>
 
-          <h6 className="text-info mb-3"><i className="fas fa-map-marker-alt me-2"></i>Ubicación Domiciliaria</h6>
+          <h6 className="text-info mb-3">
+            <i className="fas fa-map-marker-alt me-2" />Ubicación Domiciliaria
+          </h6>
           <div className="row g-3">
-            <div className="col-md-8"><label>Calle</label><input name="Calle" className="form-control" onChange={e => handleInputChange(e, setFormDireccion)}/></div>
-            <div className="col-md-2"><label>Ext.</label><input name="NumExterior" className="form-control" onChange={e => handleInputChange(e, setFormDireccion)}/></div>
-            <div className="col-md-2"><label>Int.</label><input name="NumInterior" className="form-control" onChange={e => handleInputChange(e, setFormDireccion)}/></div>
-            <div className="col-md-4"><label>Municipio / Delegación</label><input name="Municipio" className="form-control" onChange={e => handleInputChange(e, setFormDireccion)}/></div>
-            <div className="col-md-4"><label>Ciudad / Estado</label><input name="Ciudad" className="form-control" onChange={e => handleInputChange(e, setFormDireccion)}/></div>
-            <div className="col-md-4"><label>Código Postal</label><input name="CodigoP" className="form-control" onChange={e => handleInputChange(e, setFormDireccion)}/></div>
+            {[
+              { name: "Calle",       label: "Calle",                  col: "col-md-8" },
+              { name: "NumExterior", label: "Ext.",                   col: "col-md-2" },
+              { name: "NumInterior", label: "Int.",                   col: "col-md-2" },
+              { name: "Municipio",   label: "Municipio / Delegación", col: "col-md-4" },
+              { name: "Ciudad",      label: "Ciudad / Estado",        col: "col-md-4" },
+              { name: "CodigoP",     label: "Código Postal",          col: "col-md-4" },
+            ].map(({ name, label, col }) => (
+              <div key={name} className={col}>
+                <label>{label}</label>
+                <input name={name} className="form-control" onChange={onDireccionChange} />
+              </div>
+            ))}
+          </div>
+          <div className="mt-3">
+            <InlineAlert {...alert} />
           </div>
         </ModalBody>
         <ModalFooter className="border-0">
-          <button className="btn-login-submit success-glow" onClick={step3_Finalizar} disabled={loading}>
-            {loading ? "Guardando Registro Maestro..." : "Completar Registro"}
+          <button type="button" className="btn btn-outline-secondary me-2" onClick={() => setStep(2)}>
+            ← Atrás
+          </button>
+          <button type="button" className="btn-login-submit success-glow" onClick={step3_Finalizar} disabled={loading}>
+            {loading ? "Guardando..." : "Completar Registro"}
           </button>
         </ModalFooter>
       </Modal>

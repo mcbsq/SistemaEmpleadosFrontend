@@ -1,16 +1,34 @@
+// services/rhService.js
 import { API_URL, defaultHeaders } from "./apiConfig";
 
 export const rhService = {
-  getByEmpleado: (id) => fetch(`${API_URL}/rh/empleado/${id}`).then(res => res.json()),
-  getJerarquia: () => fetch(`${API_URL}/jerarquia`).then(res => res.json()),
-  
-  saveJerarquia: (datos) => fetch(`${API_URL}/jerarquia`, {
-    method: "POST", headers: defaultHeaders, body: JSON.stringify(datos)
-  }).then(res => res.json()),
+  // GET /rh — todos los registros RH (para el selector de jefe)
+  getAll: () =>
+    fetch(`${API_URL}/rh`, { headers: defaultHeaders })
+      .then(res => res.ok ? res.json() : []),
 
-  update: (id, datos) => fetch(`${API_URL}/rh/${id}`, {
-    method: "PUT", headers: defaultHeaders, body: JSON.stringify(datos)
-  }).then(res => res.json()),
+  getByEmpleado: (id) =>
+    fetch(`${API_URL}/rh/empleado/${id}`, { headers: defaultHeaders })
+      .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); }),
 
-  delete: (id) => fetch(`${API_URL}/rh/${id}`, { method: "DELETE", headers: defaultHeaders })
+  getJerarquia: () =>
+    fetch(`${API_URL}/jerarquia`, { headers: defaultHeaders })
+      .then(res => res.json()),
+
+  saveJerarquia: (datos) =>
+    fetch(`${API_URL}/jerarquia`, {
+      method: "POST",
+      headers: defaultHeaders,
+      body: JSON.stringify(datos),
+    }).then(res => res.json()),
+
+  update: (id, datos) =>
+    fetch(`${API_URL}/rh/${id}`, {
+      method: "PUT",
+      headers: defaultHeaders,
+      body: JSON.stringify(datos),
+    }).then(res => res.json()),
+
+  delete: (id) =>
+    fetch(`${API_URL}/rh/${id}`, { method: "DELETE", headers: defaultHeaders }),
 };

@@ -307,3 +307,91 @@
   .card img { height: 110px; }
   .card-name { font-size: 0.9rem; }
 }
+
+/* ── Adiciones a Home.css ────────────────────────────────────────────────────── */
+
+/* Loading state */
+.home-loading {
+  width: 100%;
+  min-height: 60vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.home-loading-ring {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Scope label */
+.home-scope-label {
+  color: rgba(255,255,255,0.35);
+  font-size: 0.75rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+/* Fallback sin contacto */
+.no-contact {
+  color: rgba(255,255,255,0.3);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+/* Botón ver perfil dentro del info-card */
+.btn-ver-perfil {
+  display: block;
+  margin-top: 18px;
+  text-align: center;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(0,113,227,0.15);
+  border: 1px solid rgba(0,113,227,0.3);
+  color: #6ab0ff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+.btn-ver-perfil:hover {
+  background: rgba(0,113,227,0.25);
+  border-color: var(--accent-blue);
+}
+
+/* Organigrama scope label */
+.org-scope-label {
+  color: rgba(255,255,255,0.35);
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-align: center;
+  margin-top: -16px;
+  margin-bottom: 20px;
+}
+
+/* Organigrama loading */
+.org-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 14px;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.9rem;
+}
+.org-loading-ring {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255,255,255,0.08);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}

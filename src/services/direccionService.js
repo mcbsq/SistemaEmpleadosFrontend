@@ -1,19 +1,16 @@
-// src/services/direccionService.js
-import { API_URL, defaultHeaders } from "./apiConfig";
+// services/direccionService.js
+import { apiFetch } from "./apiConfig";
 
 export const direccionService = {
-  // POST /direccion
-  agregarDireccion: async (nuevaDireccion) => {
-    try {
-      const response = await fetch(`${API_URL}/direccion`, {
-        method: "POST",
-        headers: defaultHeaders,
-        body: JSON.stringify(nuevaDireccion),
-      });
-      return await response.json();
-    } catch (error) {
-      console.error("Error en direccionService.agregar:", error);
-      throw error;
-    }
-  }
+  create: (payload) =>
+    apiFetch("/direccion", { method: "POST", body: JSON.stringify(payload) }),
+
+  getByEmpleado: (empleadoId) =>
+    apiFetch(`/direccion/empleado/${empleadoId}`),
+
+  update: (empleadoId, payload) =>
+    apiFetch(`/direccion/empleado/${empleadoId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
 };
