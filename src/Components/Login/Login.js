@@ -1,5 +1,5 @@
 // services/authService.js
-import { apiFetch } from "./apiConfig";
+import { authService } from "../../services/authService";
 
 export const authService = {
 
