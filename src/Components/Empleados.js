@@ -152,7 +152,7 @@ function Empleados() {
   const [formDir,   setFormDir]   = useState(DIR_INIT);
   const [formDC,    setFormDC]    = useState(DC_INIT);
   const [formPC,    setFormPC]    = useState(PC_INIT);
-  //const [formRS,    setFormRS]    = useState([]);
+  const [formRS,    setFormRS]    = useState([]);
   const [formEd,    setFormEd]    = useState({ empleado_id:"", Educacion:[] });
   const [formExp,   setFormExp]   = useState({ empleado_id:"", Experiencia:[] });
   const [formSkill, setFormSkill] = useState({ empleado_id:"", Habilidades:{ Programacion:[] } });
