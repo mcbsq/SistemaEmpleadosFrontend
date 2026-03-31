@@ -56,7 +56,7 @@ function Perfil() {
   // canViewSensitive: dueño, ADMIN o SUPER_ADMIN
   // Un EMPLOYEE viendo el perfil de un compañero NO ve RH ni expediente clínico
   const canViewSensitive = authService.canViewSensitive(empleadoId);
-  const isSuperAdmin     = authService.isSuperAdmin();
+  //const isSuperAdmin     = authService.isSuperAdmin();
   const isAdmin          = authService.isAdmin();
 
   // ─── Estados ──────────────────────────────────────────────────────────────
