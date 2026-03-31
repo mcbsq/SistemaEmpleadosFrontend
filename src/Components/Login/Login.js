@@ -1,124 +1,104 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import "./Login.css";
-import LoginForm from "./LoginForm";
-import { authService } from "../../services/authService";
+// services/authService.js
+import { apiFetch } from "./apiConfig";
 
-function Login({ setIsAuthenticated, setUserRole }) {
-  const [user, setUser]               = useState("");
-  const [password, setPassword]       = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [message, setMessage]         = useState("");
-  const [loading, setLoading]         = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
+export const authService = {
 
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage("");
-
-    if (!user || !password) {
-      setMessage("Por favor, ingrese usuario y contraseña.");
-      return;
-    }
-
-    setLoading(true);
+  // ─── Login ────────────────────────────────────────────────────────────────
+  // Ahora usa apiFetch para centralizar la URL y los errores
+  async login(credentials) {
     try {
-      const data = await authService.login({ user, password });
+      const data = await apiFetch("/login", {
+        method: "POST",
+        body: JSON.stringify(credentials),
+      });
 
-      sessionStorage.setItem("access_token", data.access_token);
-      sessionStorage.setItem("user_role", data.role);
+      // Guardado de persistencia en sesión
+      if (data.access_token) {
+        sessionStorage.setItem("access_token", data.access_token);
+        sessionStorage.setItem("user_role",    data.role);
+        sessionStorage.setItem("empleado_id",  data.empleado_id  ?? "");
+        sessionStorage.setItem("depto_id",     data.depto_id     ?? "");
+        sessionStorage.setItem("user_name",    data.user         ?? "");
+      }
 
-      setIsAuthenticated(true);
-      setUserRole(data.role);
-
-      // ✔ Ruta correcta según App.js
-      navigate("/Dashboard", { replace: true });
+      return data;
     } catch (error) {
-      setMessage(error.message || "No se pudo conectar con el servidor.");
-    } finally {
-      setLoading(false);
+      // Re-lanzamos el error para que el componente Login.js lo capture en su catch
+      throw error;
     }
-  };
+  },
 
-  return (
-    <div className="login-page">
-      <div className="login-container">
-        <header className="login-header">
-          <h1>Sistema de Empleados</h1>
-          <h3>Cibernética en el Siglo XXI</h3>
-        </header>
+  // ─── Logout ───────────────────────────────────────────────────────────────
+  logout() {
+    sessionStorage.clear(); // Limpia todo rastro de la sesión
+    window.location.href = "/"; // Redirige al inicio
+  },
 
-        <div className="login-card">
-          <h2>Acceso al Sistema</h2>
+  // ─── Getters de Sesión ───────────────────────────────────────────────────
+  getToken()      { return sessionStorage.getItem("access_token"); },
+  getRole()       { return sessionStorage.getItem("user_role"); },
+  getEmpleadoId() { return sessionStorage.getItem("empleado_id"); },
+  getDeptoId()    { return sessionStorage.getItem("depto_id"); },
+  getUserName()   { return sessionStorage.getItem("user_name"); },
 
-          <form onSubmit={handleSubmit} noValidate>
-            <div className="form-group">
-              <label htmlFor="user">Nombre de Usuario</label>
-              <input
-                type="text"
-                id="user"
-                value={user}
-                onChange={(e) => setUser(e.target.value)}
-                autoComplete="username"
-                placeholder="Ingrese su usuario"
-                autoFocus
-                disabled={loading}
-              />
-            </div>
+  isAuthenticated() { 
+    return !!sessionStorage.getItem("access_token"); 
+  },
 
-            <div className="form-group">
-              <label htmlFor="password">Contraseña</label>
-              <div className="password-wrapper">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className="password-toggle-btn"
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  onClick={() => setShowPassword((v) => !v)}
-                >
-                  <i className={`fa ${showPassword ? "fa-eye-slash" : "fa-eye"}`} />
-                </button>
-              </div>
-            </div>
+  // ─── Verificaciones de Rol ───────────────────────────────────────────────
+  isSuperAdmin() {
+    return sessionStorage.getItem("user_role") === "SUPER_ADMIN";
+  },
 
-            {message && (
-              <div className="error-message alert alert-danger" role="alert">
-                {message}
-              </div>
-            )}
+  isAdmin() {
+    const role = sessionStorage.getItem("user_role");
+    return role === "ADMIN" || role === "SUPER_ADMIN";
+  },
 
-            <div className="action-buttons mt-4">
-              <button type="submit" className="btn-login-submit" disabled={loading}>
-                {loading ? "Verificando..." : "Ingresar"}
-              </button>
-              <div className="divider">o</div>
-              <button
-                type="button"
-                className="btn-register-trigger"
-                onClick={() => setShowRegister(true)}
-              >
-                Crear cuenta nueva
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
+  isEmployee() {
+    return sessionStorage.getItem("user_role") === "EMPLOYEE";
+  },
 
-      {showRegister && (
-        <LoginForm onClose={() => setShowRegister(false)} />
-      )}
-    </div>
-  );
-}
+  // ─── Lógica de Permisos de Acceso ────────────────────────────────────────
 
-export default Login;
+  // ¿Puede editar este perfil? (Dueño, ADMIN o SUPER_ADMIN)
+  canEdit(perfilEmpleadoId) {
+    return (
+      this.isOwnProfile(perfilEmpleadoId) ||
+      this.isAdmin()
+    );
+  },
+
+  // ¿Puede ver datos sensibles (RH, Clínica)?
+  canViewSensitive(perfilEmpleadoId) {
+    if (this.isSuperAdmin()) return true;
+    return (
+      this.isOwnProfile(perfilEmpleadoId) ||
+      this.isAdmin()
+    );
+  },
+
+  // ¿Puede entrar al módulo de gestión de nómina/empleados?
+  canManageEmployees() {
+    return this.isAdmin();
+  },
+
+  // Verifica si el ID del perfil coincide con el usuario logueado
+  isOwnProfile(perfilEmpleadoId) {
+    const currentId = sessionStorage.getItem("empleado_id");
+    return currentId && String(currentId) === String(perfilEmpleadoId);
+  },
+
+  // Verifica si el empleado pertenece al área del usuario (para jerarquías)
+  isSameArea(empDeptoId) {
+    if (this.isSuperAdmin()) return true;
+    const myDepto = sessionStorage.getItem("depto_id");
+    return myDepto && String(myDepto) === String(empDeptoId);
+  },
+
+  // Helper para headers de archivos (si necesitas subir PDFs después)
+  getAuthHeader() {
+    const token = this.getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+};
