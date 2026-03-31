@@ -2,32 +2,41 @@
 // Única fuente de verdad para URL, headers y fetch base.
 
 /**
- * LÓGICA DE LIMPIEZA DE URL (Anti-errores de Vercel)
- * Obtenemos la variable y nos aseguramos de que tenga el formato correcto: https://...
+ * LÓGICA DE LIMPIEZA DE URL (Anti-errores de Vercel y concatenación)
+ * Esta sección asegura que la URL sea absoluta para que no se pegue a la del frontend.
  */
 let rawUrl = (process.env.REACT_APP_API_URL || "").trim();
 
-// 1. Forzar las dos barras si solo viene una (ej. https:/ -> https://)
-if (rawUrl.startsWith("https:/") && !rawUrl.startsWith("https://")) {
+// 1. Limpieza de caracteres extraños (como corchetes o espacios accidentales)
+rawUrl = rawUrl.replace(/[\[\]]/g, "");
+
+// 2. FORZAR PROTOCOLO: Si no empieza con http, el navegador la trata como ruta relativa.
+// Esto evita el error: frontend.com/https:/backend.com
+if (rawUrl && !rawUrl.startsWith("http")) {
+  // Quitamos barras iniciales sobrantes y ponemos https://
+  const cleanPath = rawUrl.replace(/^\/+/, "");
+  rawUrl = `https://${cleanPath}`;
+}
+
+// 3. Corregir el error de una sola barra (https:/ -> https://)
+if (rawUrl.includes("https:/") && !rawUrl.includes("https://")) {
   rawUrl = rawUrl.replace("https:/", "https://");
 }
 
-// 2. Quitar diagonal final para evitar problemas de concatenación (ej. url//login)
+// 4. Quitar diagonal final para evitar "//" en la ruta final
 const API_URL = rawUrl.endsWith("/") ? rawUrl.slice(0, -1) : rawUrl;
 
-// Log para que tú mismo verifiques en la consola del navegador (F12) qué está leyendo el código
+// Log de diagnóstico
 if (!API_URL) {
   console.error(
     "[apiConfig] REACT_APP_API_URL no está definida. Revisa el Dashboard de Vercel."
   );
 } else {
-  console.log("🔍 API_URL Configurada:", API_URL);
+  console.log("🔍 API_URL FINAL CONFIGURADA:", API_URL);
 }
 
-// Exportado para servicios existentes
 export { API_URL };
 
-// Headers base
 export const defaultHeaders = {
   "Content-Type": "application/json",
   "Accept": "application/json",
@@ -35,8 +44,6 @@ export const defaultHeaders = {
 
 /**
  * Helper con manejo de errores, token automático y limpieza de rutas.
- * @param {string} endpoint - Ejemplo: '/login'
- * @param {object} options - Opciones estándar de fetch
  */
 export async function apiFetch(endpoint, options = {}) {
   const token = sessionStorage.getItem("access_token");
@@ -44,10 +51,9 @@ export async function apiFetch(endpoint, options = {}) {
   // Nos aseguramos de que el endpoint empiece con /
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   
-  // Construcción de la URL final
+  // Construcción de la URL final (Al ser absoluta gracias a la limpieza de arriba, no se concatenará)
   const finalUrl = `${API_URL}${cleanEndpoint}`;
 
-  // Log de depuración para ver exactamente a dónde va la petición
   console.log(`🚀 Solicitando [${options.method || "GET"}]:`, finalUrl);
 
   try {
@@ -65,17 +71,14 @@ export async function apiFetch(endpoint, options = {}) {
 
     // Si la respuesta no es OK (200-299)
     if (!response.ok) {
-      // Intentamos leer el JSON de error del backend
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error || errorData.message || `Error ${response.status}`;
-      
       throw new Error(errorMessage);
     }
 
     return await response.json();
     
   } catch (error) {
-    // Si el error es de red o de parseo, lo lanzamos para que el componente lo maneje
     console.error(`❌ Error en apiFetch (${cleanEndpoint}):`, error.message);
     throw error;
   }
