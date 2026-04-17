@@ -1,0 +1,251 @@
+/* ══════════════════════════════════════════════════════
+   DashboardEspecializado.css
+   CSS compartido por DashboardContador, DashboardPM,
+   DashboardMedico y DashboardJefeArea
+══════════════════════════════════════════════════════ */
+
+[data-theme="dark"], :root {
+  --de-bg:         #0f1117;
+  --de-surface:    #181c26;
+  --de-border:     rgba(255,255,255,0.07);
+  --de-text:       #e8eaf0;
+  --de-muted:      #7a7f94;
+  --de-shadow:     0 2px 16px rgba(0,0,0,0.35);
+}
+[data-theme="light"] {
+  --de-bg:         #f4f5f9;
+  --de-surface:    #ffffff;
+  --de-border:     rgba(0,0,0,0.07);
+  --de-text:       #1a1d2b;
+  --de-muted:      #6b7080;
+  --de-shadow:     0 2px 12px rgba(0,0,0,0.08);
+}
+
+.de-root {
+  padding: 20px 24px 32px;
+  background: var(--de-bg);
+  min-height: 60vh;
+  transition: background 0.25s;
+}
+
+/* ── Page header ─────────────────────────────────── */
+.de-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.de-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--de-text);
+  margin: 0 0 2px;
+  letter-spacing: -0.02em;
+}
+.de-subtitle {
+  font-size: 0.72rem;
+  color: var(--de-muted);
+  margin: 0;
+}
+
+/* Role badges */
+.de-role-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  align-self: center;
+}
+.de-role-badge--amber  { background: rgba(245,166,35,0.12);  color: #d4940a; border: 0.5px solid rgba(245,166,35,0.2); }
+.de-role-badge--purple { background: rgba(155,127,232,0.12); color: #9B7FE8; border: 0.5px solid rgba(155,127,232,0.2); }
+.de-role-badge--red    { background: rgba(232,107,95,0.12);  color: #E86B5F; border: 0.5px solid rgba(232,107,95,0.2); }
+.de-role-badge--teal   { background: rgba(78,202,172,0.12);  color: #4ECAAC; border: 0.5px solid rgba(78,202,172,0.2); }
+.de-role-badge--blue   { background: rgba(91,138,240,0.12);  color: #5B8AF0; border: 0.5px solid rgba(91,138,240,0.2); }
+
+[data-theme="light"] .de-role-badge--amber  { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+[data-theme="light"] .de-role-badge--purple { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
+[data-theme="light"] .de-role-badge--red    { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+[data-theme="light"] .de-role-badge--teal   { background: #ccfbf1; color: #0f766e; border-color: #99f6e4; }
+[data-theme="light"] .de-role-badge--blue   { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+
+/* ── KPIs ─────────────────────────────────────────── */
+.de-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.de-kpi {
+  background: var(--de-surface);
+  border: 0.5px solid var(--de-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--de-shadow);
+  transition: transform 0.18s;
+}
+.de-kpi:hover { transform: translateY(-2px); }
+.de-kpi-accent { width: 3px; height: 28px; border-radius: 2px; flex-shrink: 0; }
+.de-kpi-val  { font-size: 1.5rem; font-weight: 700; color: var(--de-text); line-height: 1; letter-spacing: -0.03em; }
+.de-kpi-lbl  { font-size: 0.68rem; color: var(--de-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; margin-top: 3px; }
+.de-kpi-sub  { font-size: 0.65rem; color: var(--de-muted); opacity: 0.7; margin-top: 2px; }
+
+/* ── Cards ────────────────────────────────────────── */
+.de-card {
+  background: var(--de-surface);
+  border: 0.5px solid var(--de-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: var(--de-shadow);
+  margin-bottom: 10px;
+}
+.de-card-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--de-muted);
+  margin-bottom: 12px;
+}
+.de-mid-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+@media (max-width: 700px) {
+  .de-mid-row { grid-template-columns: 1fr; }
+  .de-root { padding: 12px 14px 24px; }
+}
+
+/* ── Barras ───────────────────────────────────────── */
+.de-bar-row   { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.de-bar-lbl   { font-size: 0.72rem; color: var(--de-muted); width: 76px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.de-bar-track { flex: 1; height: 5px; background: var(--de-border); border-radius: 3px; overflow: hidden; }
+.de-bar-fill  { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.de-bar-num   { font-size: 0.72rem; color: var(--de-muted); width: 20px; text-align: right; }
+
+/* ── Skills ───────────────────────────────────────── */
+.de-skill-row  { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.de-skill-name { font-size: 0.72rem; color: var(--de-muted); width: 84px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.de-skill-meta { font-size: 0.65rem; color: var(--de-muted); width: 58px; text-align: right; flex-shrink: 0; }
+
+/* ── Empleados ────────────────────────────────────── */
+.de-emp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 0.5px solid var(--de-border);
+  transition: background 0.12s;
+  border-radius: 4px;
+  padding-left: 4px;
+}
+.de-emp-row:last-child { border-bottom: none; }
+.de-emp-row:hover { background: rgba(255,255,255,0.03); }
+[data-theme="light"] .de-emp-row:hover { background: #f8f9fc; }
+.de-emp-ini {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.de-emp-info  { flex: 1; min-width: 0; }
+.de-emp-name  { font-size: 0.78rem; font-weight: 500; color: var(--de-text); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.de-emp-hint  { font-size: 0.65rem; color: var(--de-muted); }
+
+/* ── Tags ─────────────────────────────────────────── */
+.de-tag {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.de-tag--amber { background: rgba(245,158,11,0.12);  color: #d97706; }
+.de-tag--red   { background: rgba(239,68,68,0.12);   color: #ef4444; }
+.de-tag--blue  { background: rgba(91,138,240,0.12);  color: #5B8AF0; }
+[data-theme="light"] .de-tag--amber { background: #fef3c7; color: #b45309; }
+[data-theme="light"] .de-tag--red   { background: #fee2e2; color: #b91c1c; }
+[data-theme="light"] .de-tag--blue  { background: #dbeafe; color: #1d4ed8; }
+
+/* ── Proyectos ────────────────────────────────────── */
+.de-proyecto-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--de-border);
+  flex-wrap: wrap;
+}
+.de-proyecto-row:last-child { border-bottom: none; }
+.de-proyecto-info { min-width: 160px; flex: 1; }
+.de-proyecto-nombre { font-size: 0.82rem; font-weight: 500; color: var(--de-text); display: block; }
+.de-proyecto-meta   { font-size: 0.68rem; color: var(--de-muted); }
+.de-proyecto-bar-wrap { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 120px; }
+.de-proyecto-pct { font-size: 0.72rem; color: var(--de-muted); width: 30px; text-align: right; flex-shrink: 0; }
+
+/* ── Tipos de sangre ──────────────────────────────── */
+.de-sangre-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.de-sangre-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 0.5px solid;
+  min-width: 52px;
+}
+.de-sangre-tipo  { font-size: 0.9rem; font-weight: 700; line-height: 1; }
+.de-sangre-count { font-size: 0.65rem; color: var(--de-muted); margin-top: 3px; }
+
+/* ── Grid de chips de empleados (PM) ──────────────── */
+.de-emp-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.de-emp-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: rgba(255,255,255,0.03);
+  border: 0.5px solid var(--de-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.de-emp-chip:hover { background: rgba(255,255,255,0.07); }
+[data-theme="light"] .de-emp-chip { background: #f4f5f9; }
+[data-theme="light"] .de-emp-chip:hover { background: #eef0f6; }
+.de-emp-chip-info { display: flex; flex-direction: column; }
+
+/* ── Vacío + loading ──────────────────────────────── */
+.de-empty { font-size: 0.78rem; color: var(--de-muted); margin: 4px 0; }
+.de-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 28vh;
+  font-size: 0.85rem;
+  color: var(--de-muted);
+}
+.de-spinner {
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid var(--de-border);
+  border-top-color: #5B8AF0;
+  border-radius: 50%;
+  animation: de-spin 0.8s linear infinite;
+}
+@keyframes de-spin { to { transform: rotate(360deg); } }

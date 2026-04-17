@@ -1,241 +1,189 @@
-/* --- FUNDAMENTOS Y VARIABLES --- */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+/* ══════════════════════════════════════════════════════════════════
+   src/styles.css — App shell
+══════════════════════════════════════════════════════════════════ */
+@import "./styles/design-tokens.css";
 
-:root {
-  --bg-main: #050505;
-  --accent-blue: #0071e3;
-  --text-primary: #ffffff;
-  --text-secondary: #a1a1a6;
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --apple-ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-premium: all 0.5s var(--apple-ease);
-}
-
-* {
-  margin: 0; padding: 0; box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background-color: var(--bg-main);
-  color: var(--text-primary);
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  background: var(--hr-bg);
+  color: var(--hr-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-  background-image: radial-gradient(circle at 50% -10%, rgba(0, 113, 227, 0.12), transparent 40%);
-  background-attachment: fixed;
+  transition: background var(--hr-duration) var(--hr-ease), color var(--hr-duration) var(--hr-ease);
 }
 
+.app-shell { display: flex; min-height: 100vh; position: relative; }
+
+/* ── Fondo ────────────────────────────────────────────────────── */
 .noise-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: url('https://grainy-gradients.vercel.app/noise.svg');
-  opacity: 0.03; pointer-events: none; z-index: 10000;
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  opacity: 0.35;
+}
+.ambient-glow {
+  position: fixed; top: -40%; left: 50%; transform: translateX(-50%);
+  width: 100vw; height: 80vh;
+  background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(var(--hr-accent-rgb),0.07) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+  transition: background var(--hr-duration-lg);
+  will-change: transform;
 }
 
-/* --- HEADER ESTRUCTURAL --- */
-.header {
-  height: 80px;
-  width: 100%;
-  position: fixed;
-  top: 0; left: 0;
+/* ── Sidebar ──────────────────────────────────────────────────── */
+.app-sidebar {
+  position: fixed; top: 0; left: 0; height: 100vh; width: 240px;
+  background: var(--hr-glass-bg);
+  backdrop-filter: var(--hr-blur); -webkit-backdrop-filter: var(--hr-blur);
+  border-right: 0.5px solid var(--hr-glass-border);
+  display: flex; flex-direction: column; z-index: 100;
+  transform: translateX(-100%);
+  transition: transform var(--hr-duration) var(--hr-ease);
+  will-change: transform;
+}
+.app-sidebar--open { transform: translateX(0); }
+
+@media (min-width: 1024px) {
+  .app-sidebar  { transform: translateX(0); }
+  .app-main     { margin-left: 240px; }
+  .app-topbar   { display: none !important; }
+}
+
+/* ── Sidebar header (logo + subtítulo) ───────────────────────── */
+.sb-header {
+  padding: 24px 20px 14px;
+  border-bottom: 0.5px solid var(--hr-border);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 6%;
-  background: rgba(5, 5, 5, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  z-index: 9999;
-  transition: var(--transition-premium);
+  flex-direction: column;
+  gap: 2px;
 }
-
-/* --- LA CÁPSULA (Lógica Desktop) --- */
-.header.scrolled-capsule {
-  top: 15px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  max-width: 1100px;
-  height: 60px;
-  border-radius: 40px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--glass-border);
-  padding: 0 30px;
-}
-
-.logo {
-  font-size: 1.4rem;
+.sb-logo-link {
+  font-size: var(--hr-font-lg);
   font-weight: 800;
-  color: #fff;
+  letter-spacing: -0.03em;
   text-decoration: none;
-  letter-spacing: -1px;
-  z-index: 10002;
-  transition: var(--transition-premium);
+  background: linear-gradient(135deg, var(--hr-text), var(--hr-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: block;
+}
+.sb-logo-sub {
+  font-size: var(--hr-font-xs);
+  color: var(--hr-muted);
+  letter-spacing: .15em;
+  text-transform: uppercase;
 }
 
-/* --- NAVBAR DESKTOP --- */
-.navbar {
-  display: flex;
-  gap: 2rem;
-  align-items: center;
+/* ── Nav ──────────────────────────────────────────────────────── */
+.sb-nav { flex: 1; overflow-y: auto; padding: 12px 10px; scrollbar-width: none; position: relative; }
+.sb-nav::-webkit-scrollbar { display: none; }
+.sb-group       { margin-bottom: 20px; }
+.sb-group-label { font-size: var(--hr-font-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--hr-muted); padding: 0 10px; margin-bottom: 4px; }
+
+.sb-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 10px;
+  border-radius: var(--hr-radius-sm);
+  font-size: var(--hr-font-md); font-weight: 500;
+  color: var(--hr-muted); background: none; border: none;
+  text-decoration: none; cursor: pointer;
+  transition: color var(--hr-duration-xs), background var(--hr-duration-xs);
+  position: relative; z-index: 1;
+}
+.sb-item:hover    { color: var(--hr-text); background: rgba(255,255,255,0.05); }
+.sb-item--active  { color: var(--hr-accent); background: rgba(var(--hr-accent-rgb),0.1); }
+.sb-item-icon     { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+[data-theme="light"] .sb-item:hover   { background: rgba(0,0,0,0.04); }
+[data-theme="light"] .sb-item--active { background: rgba(var(--hr-accent-rgb),0.08); }
+
+/* ── Footer sidebar ───────────────────────────────────────────── */
+.sb-footer {
+  padding: 12px 10px 20px;
+  border-top: 0.5px solid var(--hr-border);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sb-theme-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: var(--hr-radius-sm);
+  border: none; background: none; cursor: pointer;
+  color: var(--hr-muted); font-size: var(--hr-font-md);
+  transition: color var(--hr-duration-xs), background var(--hr-duration-xs);
+  width: 100%; text-align: left;
+}
+.sb-theme-btn:hover { color: var(--hr-text); background: rgba(255,255,255,0.05); }
+.sb-theme-icon  { font-size: 0.95rem; width: 20px; text-align: center; }
+.sb-theme-label { font-size: var(--hr-font-sm); }
+.sb-user-row    { padding: 2px 10px 4px; }
+.sb-user-role   { font-size: var(--hr-font-xs); color: var(--hr-muted); text-transform: uppercase; letter-spacing: .1em; }
+.sb-logout {
+  padding: 9px 10px; border-radius: var(--hr-radius-sm);
+  border: 0.5px solid rgba(232,107,95,0.3);
+  background: rgba(232,107,95,0.06); color: var(--hr-danger);
+  font-size: var(--hr-font-sm); font-weight: 600;
+  cursor: pointer; transition: background var(--hr-duration-xs);
+  text-align: left;
+}
+.sb-logout:hover { background: rgba(232,107,95,0.14); }
+
+/* ── Topbar móvil — solo hamburger + logo ────────────────────── */
+.app-topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 52px;
+  background: var(--hr-glass-bg);
+  backdrop-filter: var(--hr-blur); -webkit-backdrop-filter: var(--hr-blur);
+  border-bottom: 0.5px solid var(--hr-glass-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; z-index: 200;
 }
 
-.navbar button {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.3s;
+/* Hamburger limpio — 3 líneas → X */
+.topbar-hamburger {
+  width: 36px; height: 36px;
+  border: none; background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; flex-shrink: 0;
+}
+.hamburger-line {
+  display: block;
+  width: 18px; height: 1.5px;
+  background: var(--hr-text); border-radius: 2px;
+  position: relative;
+  transition: background var(--hr-duration-xs);
+}
+.hamburger-line::before,
+.hamburger-line::after {
+  content: "";
+  position: absolute; left: 0;
+  width: 100%; height: 1.5px;
+  background: var(--hr-text); border-radius: 2px;
+  transition: transform var(--hr-duration-sm) var(--hr-ease), opacity var(--hr-duration-sm);
+}
+.hamburger-line::before { top: -5px; }
+.hamburger-line::after  { top: 5px; }
+.hamburger-line.open              { background: transparent; }
+.hamburger-line.open::before      { transform: rotate(45deg) translate(3.5px, 3.5px); }
+.hamburger-line.open::after       { transform: rotate(-45deg) translate(3.5px, -3.5px); }
+
+.topbar-logo    { font-size: var(--hr-font-base); font-weight: 800; color: var(--hr-text); text-decoration: none; }
+.topbar-spacer  { width: 36px; flex-shrink: 0; }
+
+/* ── Overlay ──────────────────────────────────────────────────── */
+.sidebar-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px); z-index: 99;
+  animation: hr-fade-in var(--hr-duration-sm) ease;
 }
 
-.navbar button:hover { color: #fff; }
+/* ── Main ─────────────────────────────────────────────────────── */
+.app-main  { flex: 1; min-height: 100vh; position: relative; z-index: 1; padding-top: 52px; }
+@media (min-width: 1024px) { .app-main { padding-top: 0; } }
 
-.btn-logout {
-  padding: 8px 20px;
-  background: #fff !important;
-  color: #000 !important;
-  border-radius: 50px;
-  font-weight: 700;
-}
+.vertical-landing  { display: flex; flex-direction: column; }
+.page-padded       { padding: 20px 24px 40px; }
+@media (max-width: 640px) { .page-padded { padding: 12px 14px 28px; } }
 
-/* --- MENU TOGGLE --- */
-.menu-toggle {
-  display: none;
-  width: 44px; height: 44px;
-  background: transparent; border: none;
-  position: relative; z-index: 10002;
-  cursor: pointer;
-}
-
-.menu-toggle span, .menu-toggle span::before, .menu-toggle span::after {
-  content: ''; position: absolute; width: 24px; height: 2px;
-  background: #fff; transition: 0.3s var(--apple-ease);
-  right: 10px;
-}
-
-.menu-toggle span::before { top: -8px; width: 16px; right: 0; }
-.menu-toggle span::after { top: 8px; width: 24px; right: 0; opacity: 1; }
-
-.menu-toggle span.open { background: transparent; }
-.menu-toggle span.open::before { transform: rotate(45deg); top: 0; width: 24px; }
-.menu-toggle span.open::after { transform: rotate(-45deg); top: 0; width: 24px; }
-
-/* --- BREAKPOINT MÓVIL (UX/UI PROFESIONAL) --- */
-@media (max-width: 992px) {
-  .header {
-    top: 12px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: 92% !important;
-    height: 58px !important;
-    border-radius: 30px !important;
-    padding: 0 20px !important;
-    background: rgba(255, 255, 255, 0.08) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-  }
-
-  /* PANEL DE MENÚ ABIERTO */
-  .header.menu-is-open {
-    top: 0 !important; width: 100% !important; height: 100vh !important;
-    border-radius: 0 !important; background: #000 !important;
-    border: none !important; transform: translateX(-50%) scale(1) !important;
-    align-items: flex-start; /* Alinea contenido al inicio superior */
-    padding-top: 40px !important;
-  }
-
-  /* Reposicionamos el logo al estar el menú abierto */
-  .header.menu-is-open .logo {
-    position: absolute;
-    top: 45px;
-    left: 15%;
-    font-size: 1.8rem;
-  }
-
-  .menu-toggle { display: flex; align-items: center; justify-content: center; }
-
-  .navbar {
-    position: absolute;
-    top: 120px; /* Espacio para que el logo respire arriba */
-    left: 0; width: 100%; height: auto;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: flex-start;
-    padding: 40px 15%;
-    gap: 2rem;
-    opacity: 0; visibility: hidden;
-    transition: 0.3s ease;
-  }
-
-  .navbar.active {
-    opacity: 1; visibility: visible;
-  }
-
-  .navbar button {
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: #fff;
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  .navbar.active button {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  /* Delays para efecto cascada */
-  .navbar.active button:nth-child(1) { transition: 0.4s var(--apple-ease) 0.1s; }
-  .navbar.active button:nth-child(2) { transition: 0.4s var(--apple-ease) 0.2s; }
-  .navbar.active button:nth-child(3) { transition: 0.4s var(--apple-ease) 0.3s; }
-  .navbar.active button:nth-child(4) { transition: 0.4s var(--apple-ease) 0.4s; }
-
-  .btn-logout {
-    margin-top: 1rem;
-    background: var(--accent-blue) !important;
-    color: #fff !important;
-    font-size: 1.2rem !important;
-    padding: 12px 30px;
-  }
-}
-
-/* SECCIONES */
-.vertical-landing section {
-  min-height: 100vh;
-  padding: 100px 6%;
-}
-
-.fade-in-page {
-  animation: appleShow 1s var(--apple-ease) forwards;
-}
-
-@keyframes appleShow {
-  from { opacity: 0; transform: translateY(30px); filter: blur(10px); }
-  to { opacity: 1; transform: translateY(0); filter: blur(0); }
-}
-
-.footer {
-  padding: 3rem; text-align: center;
-  color: var(--text-secondary); font-size: 0.8rem;
-  border-top: 1px solid var(--glass-border);
-}
-
-/* Pega esto en tu App.css o styles.css existente */
-
-.btn-mi-perfil {
-  background: rgba(100, 255, 218, 0.08);
-  color: #64ffda;
-  border: 1px solid rgba(100, 255, 218, 0.25);
-  padding: 8px 18px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition: all 0.3s;
-  white-space: nowrap;
-}
-.btn-mi-perfil:hover {
-  background: rgba(100, 255, 218, 0.15);
-  border-color: rgba(100, 255, 218, 0.5);
-  color: #64ffda;
-}
+.app-footer   { padding: 20px 24px; border-top: 0.5px solid var(--hr-border); text-align: center; }
+.app-footer p { font-size: var(--hr-font-xs); color: var(--hr-muted); letter-spacing: .05em; }

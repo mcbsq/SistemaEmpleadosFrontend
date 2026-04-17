@@ -3,6 +3,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { CiFacebook, CiLinkedin, CiYoutube } from "react-icons/ci";
 import { FaInstagram, FaTiktok, FaGithub } from "react-icons/fa";
 import { authService } from "../../services/authService";
+import { PDFAttachment } from "./PDFAttachment";
 
 // ─── Catálogo de redes sociales ───────────────────────────────────────────────
 const REDES_CONFIG = [
@@ -187,7 +188,7 @@ const TimelineRenderer = ({ title, items = [], isEditing, setItems }) => {
   );
 };
 
-export const EducationSectionRenderer  = (props) => <TimelineRenderer title="Educación"          {...props} items={props.educationItems}  setItems={props.setEducationItems} />;
+export const EducationSectionRenderer  = (props) => <TimelineRenderer title="Educación"           {...props} items={props.educationItems}  setItems={props.setEducationItems} />;
 export const ExperienceSectionRenderer = (props) => <TimelineRenderer title="Experiencia Laboral" {...props} items={props.experienceItems} setItems={props.setExperienceItems} />;
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -237,14 +238,13 @@ export const RHSectionRenderer = ({
   isEditing,
   RH,
   handleRHChange,
-  listaEmpleados = [],   // ← lista real de empleados [{_id, Nombre, ApelPaterno, Puesto}]
+  listaEmpleados = [],
   openRHPicker,
   empleadoEncontrado,
 }) => {
   const h            = RH?.HorarioLaboral ?? {};
   const isSuperAdmin = authService.isSuperAdmin();
 
-  // El jefe seleccionado como objeto para mostrar su nombre
   const jefeSeleccionado = listaEmpleados.find(e => e._id === RH?.JefeInmediato_id);
   const nombreJefe = jefeSeleccionado
     ? `${jefeSeleccionado.Nombre} ${jefeSeleccionado.ApelPaterno}`
@@ -254,7 +254,7 @@ export const RHSectionRenderer = ({
     <div className="section-inner">
       <h3 className="section-title">Recursos Humanos</h3>
 
-      {/* ── Puesto: solo admin edita ────────────────────────────────────────── */}
+      {/* Puesto */}
       <div className="field-row">
         <span className="field-label">Puesto</span>
         {isEditing && isSuperAdmin ? (
@@ -269,33 +269,28 @@ export const RHSectionRenderer = ({
         )}
       </div>
 
-      {/* ── Jefe inmediato: solo admin puede cambiar ────────────────────────── */}
+      {/* Jefe inmediato */}
       <div className="field-row">
         <span className="field-label">
           Jefe inmediato
           {!isSuperAdmin && <span className="field-readonly-hint"> · solo RH puede modificar</span>}
         </span>
-
         {isEditing && isSuperAdmin ? (
           <select
             className="field-input"
             value={RH?.JefeInmediato_id || ""}
             onChange={e => {
               const emp = listaEmpleados.find(x => x._id === e.target.value);
-              // Guardamos tanto el ID (para el árbol) como el nombre (para mostrar)
               handleRHChange("JefeInmediato_id", e.target.value);
-              handleRHChange("JefeInmediato", emp
-                ? `${emp.Nombre} ${emp.ApelPaterno}`
-                : "");
+              handleRHChange("JefeInmediato", emp ? `${emp.Nombre} ${emp.ApelPaterno}` : "");
             }}
           >
             <option value="">— Sin jefe asignado —</option>
             {listaEmpleados
-              .filter(e => e._id !== empleadoEncontrado?._id) // no puede ser su propio jefe
+              .filter(e => e._id !== empleadoEncontrado?._id)
               .map(e => (
                 <option key={e._id} value={e._id}>
-                  {e.Nombre} {e.ApelPaterno}
-                  {e.Puesto ? ` · ${e.Puesto}` : ""}
+                  {e.Nombre} {e.ApelPaterno}{e.Puesto ? ` · ${e.Puesto}` : ""}
                 </option>
               ))
             }
@@ -305,24 +300,30 @@ export const RHSectionRenderer = ({
         )}
       </div>
 
-      {/* ── Horario: empleado y admin pueden editar ─────────────────────────── */}
+      {/* Horario */}
       <div className="rh-horario">
         <p className="field-label" style={{ marginBottom: 8 }}>Horario laboral</p>
         <div className="horario-grid">
-          <Field label="Entrada"        value={h.HoraEntrada}    isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.HoraEntrada", v)}    type="time" />
-          <Field label="Salida"         value={h.HoraSalida}     isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.HoraSalida", v)}     type="time" />
-          <Field label="Tiempo comida"  value={h.TiempoComida}   isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.TiempoComida", v)} />
+          <Field label="Entrada"         value={h.HoraEntrada}    isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.HoraEntrada", v)}    type="time" />
+          <Field label="Salida"          value={h.HoraSalida}     isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.HoraSalida", v)}     type="time" />
+          <Field label="Tiempo comida"   value={h.TiempoComida}   isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.TiempoComida", v)} />
           <Field label="Días trabajados" value={h.DiasTrabajados} isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.DiasTrabajados", v)} />
         </div>
       </div>
 
+      {/* Subir PDF — solo en edición */}
       {isEditing && isSuperAdmin && (
         <button className="btn-ghost" onClick={openRHPicker}>
           📎 Subir expediente digital (PDF)
         </button>
       )}
-      {RH?.ExpedienteDigitalPDF && !isEditing && (
-        <p className="field-value" style={{ marginTop: 8 }}>📄 Expediente digital adjunto</p>
+
+      {/* Vista previa del PDF — visible siempre que exista el archivo */}
+      {RH?.ExpedienteDigitalPDF && (
+        <PDFAttachment
+          raw={RH.ExpedienteDigitalPDF}
+          label="Expediente digital RH"
+        />
       )}
     </div>
   );
@@ -339,6 +340,7 @@ export const ExpedienteClinicoRenderer = ({ isEditing, expedienteclinico, setexp
   return (
     <div className="section-inner">
       <h3 className="section-title">Expediente Clínico</h3>
+
       <div className="field-row">
         <span className="field-label">Tipo de sangre</span>
         {isEditing ? (
@@ -350,14 +352,24 @@ export const ExpedienteClinicoRenderer = ({ isEditing, expedienteclinico, setexp
           <span className="field-value">{c.tipoSangre || <em className="field-empty">Sin registrar</em>}</span>
         )}
       </div>
+
       <Field label="NSS"              value={c.NumeroSeguroSocial}  isEditing={isEditing} onChange={v => upd("NumeroSeguroSocial", v)} />
       <Field label="Padecimientos"    value={c.Padecimientos}       isEditing={isEditing} onChange={v => upd("Padecimientos", v)} />
       <Field label="Seguro de gastos" value={c.Datossegurodegastos} isEditing={isEditing} onChange={v => upd("Datossegurodegastos", v)} />
+
+      {/* Subir PDF — solo en edición */}
       {isEditing && (
-        <button className="btn-ghost" onClick={openFilePicker}>📎 Adjuntar póliza de seguro (PDF)</button>
+        <button className="btn-ghost" onClick={openFilePicker}>
+          📎 Adjuntar póliza de seguro (PDF)
+        </button>
       )}
-      {c.PDFSegurodegastosmedicos && !isEditing && (
-        <p className="field-value" style={{ marginTop: 8 }}>📄 Póliza adjunta</p>
+
+      {/* Vista previa del PDF — visible siempre que exista el archivo */}
+      {c.PDFSegurodegastosmedicos && (
+        <PDFAttachment
+          raw={c.PDFSegurodegastosmedicos}
+          label="Póliza de seguro de gastos médicos"
+        />
       )}
     </div>
   );

@@ -1,14 +1,13 @@
-// services/rhService.js
 import { API_URL, defaultHeaders } from "./apiConfig";
 
 export const rhService = {
-  // GET /rh — todos los registros RH (para el selector de jefe)
   getAll: () =>
     fetch(`${API_URL}/rh`, { headers: defaultHeaders })
       .then(res => res.ok ? res.json() : []),
 
+  // FIX: era /rh/empleado/${id} → ruta Flask real es /rh/<empleado_id>
   getByEmpleado: (id) =>
-    fetch(`${API_URL}/rh/empleado/${id}`, { headers: defaultHeaders })
+    fetch(`${API_URL}/rh/${id}`, { headers: defaultHeaders })
       .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); }),
 
   getJerarquia: () =>
@@ -26,7 +25,7 @@ export const rhService = {
     fetch(`${API_URL}/rh/${id}`, {
       method: "PUT",
       headers: defaultHeaders,
-      body: JSON.stringify(datos),
+      body: JSON.stringify({ ...datos, empleado_id: id }),
     }).then(res => res.json()),
 
   delete: (id) =>
