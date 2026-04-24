@@ -20,6 +20,7 @@ import { clinicoService }   from "../services/clinicoService";
 import { rhService }        from "../services/rhService";
 import { usuarioService }   from "../services/usuarioService";
 import { direccionService } from "../services/direccionService";
+import { catalogoService, FALLBACK } from "../services/catalogoService";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const ITEMS_PER_PAGE = 6;
@@ -57,11 +58,18 @@ const RH_INIT_F  = { empleado_id:"", Puesto:"", JefeInmediato:"", HorarioLaboral
 
 const getId = (item) => item?._id?.$oid || item?._id || "";
 
-// ─── Componente Avatar ────────────────────────────────────────────────────────
+// ─── Máscara de teléfono ──────────────────────────────────────────────────────
+const formatTelefono = (raw = "") => {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 2)  return digits;
+  if (digits.length <= 6)  return `${digits.slice(0, 2)} ${digits.slice(2)}`;
+  return `${digits.slice(0, 2)} ${digits.slice(2, 6)} ${digits.slice(6)}`;
+};
+
+// ─── Avatar ───────────────────────────────────────────────────────────────────
 const Avatar = ({ nombre = "", foto = null, sub = "" }) => {
-  const inicial = nombre.trim()[0]?.toUpperCase() || "?";
-  // Colores basados en inicial para variedad visual
-  const colors = ["av-a","av-b","av-c","av-d","av-e"];
+  const inicial    = nombre.trim()[0]?.toUpperCase() || "?";
+  const colors     = ["av-a","av-b","av-c","av-d","av-e"];
   const colorClass = colors[inicial.charCodeAt(0) % colors.length];
   return (
     <div className="emp-cell-avatar">
@@ -77,45 +85,30 @@ const Avatar = ({ nombre = "", foto = null, sub = "" }) => {
   );
 };
 
-// ─── Componente StatusDot ─────────────────────────────────────────────────────
 const StatusDot = ({ activo = true }) => (
   <span className={`emp-status-dot emp-status-dot--${activo ? "on" : "off"}`}>
     {activo ? "Activo" : "Inactivo"}
   </span>
 );
 
-// ─── Componente Acciones ──────────────────────────────────────────────────────
 const Actions = ({ empId, onEdit, showDelete, onDelete }) => (
   <div className="emp-actions">
-    <button className="emp-btn emp-btn--edit" title="Editar" onClick={onEdit}>
-      <CiEdit />
-    </button>
+    <button className="emp-btn emp-btn--edit" title="Editar" onClick={onEdit}><CiEdit /></button>
     {showDelete && (
-      <button className="emp-btn emp-btn--delete" title="Eliminar" onClick={onDelete}>
-        <CiTrash />
-      </button>
+      <button className="emp-btn emp-btn--delete" title="Eliminar" onClick={onDelete}><CiTrash /></button>
     )}
-    <Link to={`/Perfil/${empId}`} className="emp-btn emp-btn--profile" title="Ver perfil">
-      <CiUser />
-    </Link>
+    <Link to={`/Perfil/${empId}`} className="emp-btn emp-btn--profile" title="Ver perfil"><CiUser /></Link>
   </div>
 );
 
-// ─── Modal confirmar eliminación ──────────────────────────────────────────────
 const ConfirmDeleteModal = ({ empleado, onConfirm, onCancel, loading }) => (
   <Modal isOpen={!!empleado} toggle={onCancel} centered>
     <ModalBody className="confirm-delete-body">
       <span className="confirm-delete-icon">⚠</span>
       <h3>Eliminar empleado</h3>
-      <p>
-        ¿Estás seguro de eliminar a{" "}
-        <strong>{empleado?.Nombre} {empleado?.ApelPaterno}</strong>?
-        Esta acción elimina todos sus datos asociados y no se puede deshacer.
-      </p>
+      <p>¿Estás seguro de eliminar a <strong>{empleado?.Nombre} {empleado?.ApelPaterno}</strong>? Esta acción elimina todos sus datos asociados y no se puede deshacer.</p>
       <div className="confirm-delete-actions">
-        <button className="btn-confirm-cancel" onClick={onCancel} disabled={loading}>
-          Cancelar
-        </button>
+        <button className="btn-confirm-cancel" onClick={onCancel} disabled={loading}>Cancelar</button>
         <button className="btn-confirm-delete" onClick={onConfirm} disabled={loading}>
           {loading ? "Eliminando..." : "Sí, eliminar"}
         </button>
@@ -136,12 +129,13 @@ function Empleados() {
   const [clinico,       setClinico]       = useState([]);
   const [rhData,        setRhData]        = useState([]);
   const [cargado,       setCargado]       = useState(false);
+  const [catalogos,     setCatalogos]     = useState(FALLBACK);
 
   // ─── UI ───────────────────────────────────────────────────────────────────
   const [activeTab,   setActiveTab]   = useState(1);
   const [filtro,      setFiltro]      = useState("");
   const [pagina,      setPagina]      = useState(0);
-  const [modal,       setModal]       = useState(null);   // string | null
+  const [modal,       setModal]       = useState(null);
   const [guardando,   setGuardando]   = useState(false);
   const [empEliminar, setEmpEliminar] = useState(null);
   const [eliminando,  setEliminando]  = useState(false);
@@ -159,9 +153,7 @@ function Empleados() {
   const [formClin,  setFormClin]  = useState(CLIN_INIT);
   const [formRH,    setFormRH]    = useState(RH_INIT_F);
 
-  const { openFilePicker, filesContent } = useFilePicker({
-    readAs:"DataURL", accept:"image/*", multiple:true,
-  });
+  const { openFilePicker, filesContent } = useFilePicker({ readAs:"DataURL", accept:"image/*", multiple:true });
 
   // ─── Carga ────────────────────────────────────────────────────────────────
   const cargarTodo = useCallback(async () => {
@@ -191,12 +183,15 @@ function Empleados() {
 
   useEffect(() => { cargarTodo(); }, [cargarTodo]);
 
-  // ─── Cruzar empleados con su puesto (para tab General) ───────────────────
-  // Una sola pasada en memo para no recalcular en cada render
+  useEffect(() => {
+    catalogoService.getAll().then(setCatalogos).catch(() => {});
+  }, []);
+
+  // ─── Empleados con puesto ─────────────────────────────────────────────────
   const empleadosConPuesto = useMemo(() => {
     return empleados.map(emp => {
-      const id  = getId(emp);
-      const rh  = rhData.find(r => {
+      const id = getId(emp);
+      const rh = rhData.find(r => {
         const rid = r.empleado_id?.$oid || r.empleado_id || "";
         return rid === id;
       });
@@ -204,7 +199,6 @@ function Empleados() {
     });
   }, [empleados, rhData]);
 
-  // ─── Source por tab ───────────────────────────────────────────────────────
   const getSource = useCallback(() => ({
     1: empleadosConPuesto,
     2: datosContacto,
@@ -217,7 +211,6 @@ function Empleados() {
     9: educacion,
   }[activeTab] ?? []), [activeTab, empleadosConPuesto, datosContacto, persContacto, clinico, redesSocial, rhData, educacion]);
 
-  // ─── Filtrado y paginación ────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const src = getSource();
     if (!filtro.trim()) return src;
@@ -231,7 +224,6 @@ function Empleados() {
 
   const totalPags = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const pageData  = filtered.slice(pagina * ITEMS_PER_PAGE, (pagina + 1) * ITEMS_PER_PAGE);
-
   const cambiarTab = (id) => { setActiveTab(id); setPagina(0); setFiltro(""); };
 
   // ─── Eliminación ──────────────────────────────────────────────────────────
@@ -242,20 +234,14 @@ function Empleados() {
       await empleadoService.deleteFull(getId(empEliminar));
       setEmpEliminar(null);
       cargarTodo();
-    } finally {
-      setEliminando(false);
-    }
+    } finally { setEliminando(false); }
   };
 
   // ─── Exportar Excel ───────────────────────────────────────────────────────
   const exportarExcel = () => {
     const data = empleadosConPuesto.map(e => ({
-      Nombre:      e.Nombre,
-      Paterno:     e.ApelPaterno,
-      Materno:     e.ApelMaterno,
-      Nacimiento:  e.FecNacimiento,
-      Puesto:      e._puesto,
-      JefeInmediato: e._jefe,
+      Nombre: e.Nombre, Paterno: e.ApelPaterno, Materno: e.ApelMaterno,
+      Nacimiento: e.FecNacimiento, Puesto: e._puesto, JefeInmediato: e._jefe,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -263,16 +249,12 @@ function Empleados() {
     XLSX.writeFile(wb, "Reporte_Empleados_Cibercom.xlsx");
   };
 
-  // ─── Flujo registro ───────────────────────────────────────────────────────
+  // ─── Flujo registro admin ─────────────────────────────────────────────────
   const paso1 = async () => {
     if (!formEmp.Nombre || !formEmp.ApelPaterno) return;
     setGuardando(true);
     try {
-      const res   = await empleadoService.create({
-        ...formEmp,
-        Fotografias: filesContent.map(f => f.content),
-        depto_id: "Sin Asignar", Cargo: "Personal",
-      });
+      const res = await empleadoService.create({ ...formEmp, Fotografias: filesContent.map(f => f.content), depto_id:"Sin Asignar", Cargo:"Personal" });
       setFormEmp(p => ({ ...p, _id: getId(res) }));
       setModal("usuario");
     } finally { setGuardando(false); }
@@ -300,7 +282,6 @@ function Empleados() {
     } finally { setGuardando(false); }
   };
 
-  // ─── Loading ──────────────────────────────────────────────────────────────
   if (!cargado) return (
     <div className="empleados-loading">
       <div className="emp-loading-ring" />
@@ -308,56 +289,29 @@ function Empleados() {
     </div>
   );
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <section className="empleados">
 
-      <ConfirmDeleteModal
-        empleado={empEliminar}
-        onConfirm={handleEliminar}
-        onCancel={() => setEmpEliminar(null)}
-        loading={eliminando}
-      />
+      <ConfirmDeleteModal empleado={empEliminar} onConfirm={handleEliminar} onCancel={() => setEmpEliminar(null)} loading={eliminando} />
 
       <div className="CRUDS">
 
         {/* ── Toolbar ───────────────────────────────────────────────────── */}
         <div className="emp-toolbar">
-          <button
-            className="btn-emp btn-emp--primary"
-            title="Agregar empleado"
-            onClick={() => { setFormEmp(EMP_INIT); setModal("empleado"); }}
-          >
-            <FaPlus />
-          </button>
-
+          <button className="btn-emp btn-emp--primary" title="Agregar empleado" onClick={() => { setFormEmp(EMP_INIT); setModal("empleado"); }}><FaPlus /></button>
           <div className="emp-search-wrap">
             <CiSearch className="emp-search-icon" />
-            <input
-              type="text"
-              className="emp-search-input"
-              placeholder="Buscar por nombre..."
-              value={filtro}
-              onChange={e => { setFiltro(e.target.value); setPagina(0); }}
-            />
-            {filtro && (
-              <button className="emp-search-clear" onClick={() => setFiltro("")}>✕</button>
-            )}
+            <input type="text" className="emp-search-input" placeholder="Buscar por nombre..."
+              value={filtro} onChange={e => { setFiltro(e.target.value); setPagina(0); }} />
+            {filtro && <button className="emp-search-clear" onClick={() => setFiltro("")}>✕</button>}
           </div>
-
-          <button className="btn-emp btn-emp--excel" title="Exportar Excel" onClick={exportarExcel}>
-            <FaFileExcel />
-          </button>
+          <button className="btn-emp btn-emp--excel" title="Exportar Excel" onClick={exportarExcel}><FaFileExcel /></button>
         </div>
 
         {/* ── Tabs ──────────────────────────────────────────────────────── */}
         <div className="emp-tabs">
           {TABS.map(t => (
-            <button
-              key={t.id}
-              className={`emp-tab${activeTab === t.id ? " emp-tab--active" : ""}`}
-              onClick={() => cambiarTab(t.id)}
-            >
+            <button key={t.id} className={`emp-tab${activeTab === t.id ? " emp-tab--active" : ""}`} onClick={() => cambiarTab(t.id)}>
               {t.label}
             </button>
           ))}
@@ -366,49 +320,22 @@ function Empleados() {
         {/* ── Tabla ─────────────────────────────────────────────────────── */}
         <div className="emp-table-wrap">
           {pageData.length === 0 ? (
-            <div className="emp-empty">
-              <CiBoxList className="emp-empty-icon" />
-              <p>No se encontraron registros.</p>
-            </div>
+            <div className="emp-empty"><CiBoxList className="emp-empty-icon" /><p>No se encontraron registros.</p></div>
           ) : (
             <table className="emp-table">
               <thead>
                 <tr>
-                  {activeTab === 1 && <>
-                    <th>Empleado</th>
-                    <th>Puesto</th>
-                    <th>Jefe inmediato</th>
-                    <th>Estado</th>
-                    <th>Ingreso</th>
-                    <th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
-                  {activeTab === 2 && <>
-                    <th>Empleado</th><th>Celular</th><th>WhatsApp</th><th>Correo</th><th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
-                  {activeTab === 3 && <>
-                    <th>Empleado</th><th>Contacto</th><th>Parentesco</th><th>Teléfono</th><th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
-                  {activeTab === 4 && <>
-                    <th>Empleado</th><th>Sangre</th><th>NSS</th><th>Padecimientos</th><th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
-                  {activeTab === 5 && <>
-                    <th>Empleado</th><th>Redes</th><th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
-                  {activeTab === 6 && <>
-                    <th>Empleado</th><th>Puesto</th><th>Jefe</th><th>Horario</th><th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
-                  {activeTab === 7 && <>
-                    <th>Empleado</th><th>Experiencia laboral</th><th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
-                  {activeTab === 8 && <>
-                    <th>Empleado</th><th>Educación</th><th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
-                  {activeTab === 9 && <>
-                    <th>Empleado</th><th>Habilidades</th><th style={{textAlign:"center"}}>Acciones</th>
-                  </>}
+                  {activeTab === 1 && <><th>Empleado</th><th>Puesto</th><th>Jefe inmediato</th><th>Estado</th><th>Ingreso</th><th style={{textAlign:"center"}}>Acciones</th></>}
+                  {activeTab === 2 && <><th>Empleado</th><th>Celular</th><th>WhatsApp</th><th>Correo</th><th style={{textAlign:"center"}}>Acciones</th></>}
+                  {activeTab === 3 && <><th>Empleado</th><th>Contacto</th><th>Parentesco</th><th>Teléfono</th><th style={{textAlign:"center"}}>Acciones</th></>}
+                  {activeTab === 4 && <><th>Empleado</th><th>Sangre</th><th>NSS</th><th>Padecimientos</th><th style={{textAlign:"center"}}>Acciones</th></>}
+                  {activeTab === 5 && <><th>Empleado</th><th>Redes</th><th style={{textAlign:"center"}}>Acciones</th></>}
+                  {activeTab === 6 && <><th>Empleado</th><th>Puesto</th><th>Jefe</th><th>Horario</th><th style={{textAlign:"center"}}>Acciones</th></>}
+                  {activeTab === 7 && <><th>Empleado</th><th>Experiencia laboral</th><th style={{textAlign:"center"}}>Acciones</th></>}
+                  {activeTab === 8 && <><th>Empleado</th><th>Educación</th><th style={{textAlign:"center"}}>Acciones</th></>}
+                  {activeTab === 9 && <><th>Empleado</th><th>Habilidades</th><th style={{textAlign:"center"}}>Acciones</th></>}
                 </tr>
               </thead>
-
               <tbody>
                 {pageData.map((item, idx) => {
                   const id    = getId(item);
@@ -419,100 +346,35 @@ function Empleados() {
 
                   return (
                     <tr key={id || idx}>
-
-                      {/* ── TAB 1: General ── */}
                       {activeTab === 1 && <>
-                        <td>
-                          <Avatar
-                            nombre={`${nombre} ${apel}`}
-                            foto={foto}
-                            sub={`ID: ${id.slice(-8)}`}
-                          />
-                        </td>
-                        <td>
-                          {item._puesto
-                            ? <span className="emp-chip emp-chip--blue">{item._puesto}</span>
-                            : <span className="emp-chip">Sin asignar</span>
-                          }
-                        </td>
-                        <td>
-                          <span style={{fontSize:"0.84rem", color: item._jefe ? "var(--e-text)" : "var(--e-muted)"}}>
-                            {item._jefe || "—"}
-                          </span>
-                        </td>
+                        <td><Avatar nombre={`${nombre} ${apel}`} foto={foto} sub={`ID: ${id.slice(-8)}`} /></td>
+                        <td>{item._puesto ? <span className="emp-chip emp-chip--blue">{item._puesto}</span> : <span className="emp-chip">Sin asignar</span>}</td>
+                        <td><span style={{fontSize:"0.84rem", color: item._jefe ? "var(--e-text)" : "var(--e-muted)"}}>{item._jefe || "—"}</span></td>
                         <td><StatusDot activo={true} /></td>
-                        <td>
-                          <span style={{fontSize:"0.8rem", color:"var(--e-muted)"}}>
-                            {item.FecNacimiento || "—"}
-                          </span>
-                        </td>
-                        <td>
-                          <Actions
-                            empId={id}
-                            onEdit={() => { setFormEmp(item); setModal("empleado"); }}
-                            showDelete
-                            onDelete={() => setEmpEliminar(item)}
-                          />
-                        </td>
+                        <td><span style={{fontSize:"0.8rem", color:"var(--e-muted)"}}>{item.FecNacimiento || "—"}</span></td>
+                        <td><Actions empId={id} onEdit={() => { setFormEmp(item); setModal("empleado"); }} showDelete onDelete={() => setEmpEliminar(item)} /></td>
                       </>}
-
-                      {/* ── TAB 2: Contacto ── */}
                       {activeTab === 2 && <>
                         <td><span className="emp-name">{nombre}</span></td>
                         <td>{item.TelCelular || "—"}</td>
                         <td>{item.IdWhatsApp  || "—"}</td>
                         <td><span className="emp-text-truncate">{item.ListaCorreos || "—"}</span></td>
-                        <td>
-                          <Actions
-                            empId={empId}
-                            onEdit={() => { setFormDC({ ...DC_INIT, ...item, empleado_id: empId }); setModal("contacto"); }}
-                          />
-                        </td>
+                        <td><Actions empId={empId} onEdit={() => { setFormDC({ ...DC_INIT, ...item, empleado_id: empId }); setModal("contacto"); }} /></td>
                       </>}
-
-                      {/* ── TAB 3: Familia ── */}
                       {activeTab === 3 && <>
                         <td><span className="emp-name">{nombre}</span></td>
                         <td>{item.nombreContacto || "—"}</td>
-                        <td>
-                          {item.parenstesco
-                            ? <span className="emp-chip emp-chip--cyan">{item.parenstesco}</span>
-                            : "—"
-                          }
-                        </td>
+                        <td>{item.parenstesco ? <span className="emp-chip emp-chip--cyan">{item.parenstesco}</span> : "—"}</td>
                         <td>{item.telefonoContacto || "—"}</td>
-                        <td>
-                          <Actions
-                            empId={empId}
-                            onEdit={() => { setFormPC({ ...PC_INIT, ...item, empleado_id: empId }); setModal("familia"); }}
-                          />
-                        </td>
+                        <td><Actions empId={empId} onEdit={() => { setFormPC({ ...PC_INIT, ...item, empleado_id: empId }); setModal("familia"); }} /></td>
                       </>}
-
-                      {/* ── TAB 4: Clínico ── */}
                       {activeTab === 4 && <>
                         <td><span className="emp-name">{nombre}</span></td>
-                        <td>
-                          {item.tipoSangre
-                            ? <span className="emp-chip emp-chip--red">{item.tipoSangre}</span>
-                            : "—"
-                          }
-                        </td>
+                        <td>{item.tipoSangre ? <span className="emp-chip emp-chip--red">{item.tipoSangre}</span> : "—"}</td>
                         <td>{item.NumeroSeguroSocial || "—"}</td>
-                        <td>
-                          <span className="emp-text-truncate" style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>
-                            {item.Padecimientos || "—"}
-                          </span>
-                        </td>
-                        <td>
-                          <Actions
-                            empId={empId}
-                            onEdit={() => { setFormClin({ ...CLIN_INIT, ...item, empleado_id: empId }); setModal("clinico"); }}
-                          />
-                        </td>
+                        <td><span className="emp-text-truncate" style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>{item.Padecimientos || "—"}</span></td>
+                        <td><Actions empId={empId} onEdit={() => { setFormClin({ ...CLIN_INIT, ...item, empleado_id: empId }); setModal("clinico"); }} /></td>
                       </>}
-
-                      {/* ── TAB 5: Redes ── */}
                       {activeTab === 5 && <>
                         <td><span className="emp-name">{nombre}</span></td>
                         <td>
@@ -521,139 +383,62 @@ function Empleados() {
                               ? <span style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>Sin redes</span>
                               : (item.RedesSociales || []).map((r, i) => {
                                   const key = (r.redSocialSeleccionada || "").toLowerCase();
-                                  return (
-                                    <span key={i} className="emp-red-chip">
-                                      {REDES_ICONS[key] || null}
-                                      {r.NombreRedSocial}
-                                    </span>
-                                  );
+                                  return <span key={i} className="emp-red-chip">{REDES_ICONS[key] || null}{r.NombreRedSocial}</span>;
                                 })
                             }
                           </div>
                         </td>
-                        <td>
-                          <Actions
-                            empId={empId}
-                            onEdit={() => { setFormRS(item.RedesSociales || []); setModal("redes"); }}
-                          />
-                        </td>
+                        <td><Actions empId={empId} onEdit={() => { setFormRS(item.RedesSociales || []); setModal("redes"); }} /></td>
                       </>}
-
-                      {/* ── TAB 6: RH ── */}
                       {activeTab === 6 && <>
-                        <td>
-                          <Avatar nombre={nombre} sub={apel} />
-                        </td>
-                        <td>
-                          {item.Puesto
-                            ? <span className="emp-chip emp-chip--blue">{item.Puesto}</span>
-                            : <span style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>—</span>
-                          }
-                        </td>
-                        <td>
-                          <span style={{fontSize:"0.84rem", color: item.JefeInmediato ? "var(--e-text)" : "var(--e-muted)"}}>
-                            {item.JefeInmediato || "—"}
-                          </span>
-                        </td>
-                        <td>
-                          {item.HorarioLaboral?.HoraEntrada
-                            ? <span className="emp-chip">{item.HorarioLaboral.HoraEntrada} – {item.HorarioLaboral.HoraSalida}</span>
-                            : <span style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>—</span>
-                          }
-                        </td>
-                        <td>
-                          <Actions
-                            empId={empId}
-                            onEdit={() => { setFormRH({ ...RH_INIT_F, ...item, empleado_id: empId }); setModal("rh"); }}
-                          />
-                        </td>
+                        <td><Avatar nombre={nombre} sub={apel} /></td>
+                        <td>{item.Puesto ? <span className="emp-chip emp-chip--blue">{item.Puesto}</span> : <span style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>—</span>}</td>
+                        <td><span style={{fontSize:"0.84rem", color: item.JefeInmediato ? "var(--e-text)" : "var(--e-muted)"}}>{item.JefeInmediato || "—"}</span></td>
+                        <td>{item.HorarioLaboral?.HoraEntrada ? <span className="emp-chip">{item.HorarioLaboral.HoraEntrada} – {item.HorarioLaboral.HoraSalida}</span> : <span style={{color:"var(--e-muted)", fontSize:"0.8rem"}}>—</span>}</td>
+                        <td><Actions empId={empId} onEdit={() => { setFormRH({ ...RH_INIT_F, ...item, empleado_id: empId }); setModal("rh"); }} /></td>
                       </>}
-
-                      {/* ── TAB 7: Experiencia ── */}
                       {activeTab === 7 && <>
                         <td><span className="emp-name">{nombre}</span></td>
                         <td>
                           <div className="emp-timeline-preview">
                             {(item.Experiencia || []).length === 0
                               ? <span style={{color:"var(--e-muted)",fontSize:"0.8rem"}}>Sin registros</span>
-                              : <>
-                                  {(item.Experiencia || []).slice(0,2).map((e,i) => (
-                                    <div key={i} className="emp-timeline-item">
-                                      <span className="emp-tl-title">{e.Titulo || e.titulo}</span>
-                                      <span className="emp-tl-date">{e.Fecha || e.fecha}</span>
-                                    </div>
-                                  ))}
-                                  {(item.Experiencia||[]).length > 2 &&
-                                    <span className="emp-more">+{item.Experiencia.length - 2} más</span>
-                                  }
-                                </>
+                              : <>{(item.Experiencia || []).slice(0, 2).map((e, i) => <div key={i} className="emp-timeline-item"><span className="emp-tl-title">{e.Titulo || e.titulo}</span><span className="emp-tl-date">{e.Fecha || e.fecha}</span></div>)}{(item.Experiencia||[]).length > 2 && <span className="emp-more">+{item.Experiencia.length - 2} más</span>}</>
                             }
                           </div>
                         </td>
-                        <td>
-                          <Actions
-                            empId={empId}
-                            onEdit={() => { setFormExp({ empleado_id: empId, Experiencia: item.Experiencia || [] }); setModal("experiencia"); }}
-                          />
-                        </td>
+                        <td><Actions empId={empId} onEdit={() => { setFormExp({ empleado_id: empId, Experiencia: item.Experiencia || [] }); setModal("experiencia"); }} /></td>
                       </>}
-
-                      {/* ── TAB 8: Educación ── */}
                       {activeTab === 8 && <>
                         <td><span className="emp-name">{nombre}</span></td>
                         <td>
                           <div className="emp-timeline-preview">
                             {(item.Educacion || []).length === 0
                               ? <span style={{color:"var(--e-muted)",fontSize:"0.8rem"}}>Sin registros</span>
-                              : <>
-                                  {(item.Educacion || []).slice(0,2).map((e,i) => (
-                                    <div key={i} className="emp-timeline-item">
-                                      <span className="emp-tl-title">{e.Titulo || e.titulo}</span>
-                                      <span className="emp-tl-date">{e.Fecha || e.fecha}</span>
-                                    </div>
-                                  ))}
-                                  {(item.Educacion||[]).length > 2 &&
-                                    <span className="emp-more">+{item.Educacion.length - 2} más</span>
-                                  }
-                                </>
+                              : <>{(item.Educacion || []).slice(0, 2).map((e, i) => <div key={i} className="emp-timeline-item"><span className="emp-tl-title">{e.Titulo || e.titulo}</span><span className="emp-tl-date">{e.Fecha || e.fecha}</span></div>)}{(item.Educacion||[]).length > 2 && <span className="emp-more">+{item.Educacion.length - 2} más</span>}</>
                             }
                           </div>
                         </td>
-                        <td>
-                          <Actions
-                            empId={empId}
-                            onEdit={() => { setFormEd({ empleado_id: empId, Educacion: item.Educacion || [] }); setModal("educacion"); }}
-                          />
-                        </td>
+                        <td><Actions empId={empId} onEdit={() => { setFormEd({ empleado_id: empId, Educacion: item.Educacion || [] }); setModal("educacion"); }} /></td>
                       </>}
-
-                      {/* ── TAB 9: Skills ── */}
                       {activeTab === 9 && <>
                         <td><span className="emp-name">{nombre}</span></td>
                         <td>
                           <div className="emp-skills-preview">
                             {(item.Habilidades?.Programacion || []).length === 0
                               ? <span style={{color:"var(--e-muted)",fontSize:"0.8rem"}}>Sin habilidades</span>
-                              : (item.Habilidades.Programacion || []).map((h,i) => (
+                              : (item.Habilidades.Programacion || []).map((h, i) => (
                                   <div key={i} className="emp-skill-row">
                                     <span className="emp-skill-name">{h.Titulo || h.titulo}</span>
-                                    <div className="emp-skill-bar-track">
-                                      <div className="emp-skill-bar-fill" style={{width:`${h.Porcentaje||h.porcentaje||0}%`}} />
-                                    </div>
+                                    <div className="emp-skill-bar-track"><div className="emp-skill-bar-fill" style={{width:`${h.Porcentaje||h.porcentaje||0}%`}} /></div>
                                     <span className="emp-skill-pct">{h.Porcentaje||h.porcentaje||0}%</span>
                                   </div>
                                 ))
                             }
                           </div>
                         </td>
-                        <td>
-                          <Actions
-                            empId={empId}
-                            onEdit={() => { setFormSkill({ empleado_id: empId, Habilidades: item.Habilidades || { Programacion:[] } }); setModal("skills"); }}
-                          />
-                        </td>
+                        <td><Actions empId={empId} onEdit={() => { setFormSkill({ empleado_id: empId, Habilidades: item.Habilidades || { Programacion:[] } }); setModal("skills"); }} /></td>
                       </>}
-
                     </tr>
                   );
                 })}
@@ -665,24 +450,9 @@ function Empleados() {
         {/* ── Paginación ────────────────────────────────────────────────── */}
         {totalPags > 1 && (
           <div className="emp-pagination">
-            <button
-              className="emp-pag-btn"
-              onClick={() => setPagina(p => Math.max(0, p-1))}
-              disabled={pagina === 0}
-            >
-              <FaChevronLeft />
-            </button>
-            <span className="emp-pag-info">
-              Página <strong>{pagina+1}</strong> de <strong>{totalPags}</strong>
-              <span style={{marginLeft:8, color:"var(--e-hint)"}}>· {filtered.length} registros</span>
-            </span>
-            <button
-              className="emp-pag-btn"
-              onClick={() => setPagina(p => Math.min(totalPags-1, p+1))}
-              disabled={pagina+1 >= totalPags}
-            >
-              <FaChevronRight />
-            </button>
+            <button className="emp-pag-btn" onClick={() => setPagina(p => Math.max(0, p-1))} disabled={pagina === 0}><FaChevronLeft /></button>
+            <span className="emp-pag-info">Página <strong>{pagina+1}</strong> de <strong>{totalPags}</strong><span style={{marginLeft:8, color:"var(--e-hint)"}}>· {filtered.length} registros</span></span>
+            <button className="emp-pag-btn" onClick={() => setPagina(p => Math.min(totalPags-1, p+1))} disabled={pagina+1 >= totalPags}><FaChevronRight /></button>
           </div>
         )}
       </div>
@@ -706,11 +476,8 @@ function Empleados() {
             ].map(({ label, field, col, type="text" }) => (
               <div key={field} className={col}>
                 <label className="form-label">{label}</label>
-                <input
-                  className="form-control" type={type}
-                  value={formEmp[field] || ""}
-                  onChange={e => setFormEmp(p => ({ ...p, [field]: e.target.value }))}
-                />
+                <input className="form-control" type={type} value={formEmp[field] || ""}
+                  onChange={e => setFormEmp(p => ({ ...p, [field]: e.target.value }))} />
               </div>
             ))}
             <div className="col-md-6">
@@ -719,9 +486,7 @@ function Empleados() {
                 <CiFileOn style={{marginRight:6}} />
                 {filesContent.length > 0 ? `${filesContent.length} imagen(es) seleccionada(s)` : "Seleccionar imagen"}
               </button>
-              {filesContent[0] && (
-                <img src={filesContent[0].content} alt="preview" className="emp-foto-preview mt-2" />
-              )}
+              {filesContent[0] && <img src={filesContent[0].content} alt="preview" className="emp-foto-preview mt-2" />}
             </div>
           </div>
         </ModalBody>
@@ -734,17 +499,17 @@ function Empleados() {
 
       {/* 2 — Usuario */}
       <Modal isOpen={modal==="usuario"} centered>
-        <ModalHeader>
-          Credenciales <span className="modal-step-badge">Paso 2 de 3</span>
-        </ModalHeader>
+        <ModalHeader>Credenciales <span className="modal-step-badge">Paso 2 de 3</span></ModalHeader>
         <ModalBody>
           <div className="mb-3">
             <label className="form-label">Nombre de usuario</label>
-            <input className="form-control" placeholder="nombre.usuario" value={formUser.user} onChange={e => setFormUser(p => ({...p, user: e.target.value}))} />
+            <input className="form-control" placeholder="nombre.usuario" value={formUser.user}
+              onChange={e => setFormUser(p => ({...p, user: e.target.value}))} />
           </div>
           <div>
             <label className="form-label">Contraseña temporal</label>
-            <input className="form-control" type="password" value={formUser.password} onChange={e => setFormUser(p => ({...p, password: e.target.value}))} />
+            <input className="form-control" type="password" value={formUser.password}
+              onChange={e => setFormUser(p => ({...p, password: e.target.value}))} />
           </div>
         </ModalBody>
         <ModalFooter>
@@ -756,9 +521,7 @@ function Empleados() {
 
       {/* 3 — Dirección y contacto */}
       <Modal isOpen={modal==="direccion"} size="lg" centered>
-        <ModalHeader>
-          Ubicación y contacto <span className="modal-step-badge">Paso 3 de 3</span>
-        </ModalHeader>
+        <ModalHeader>Ubicación y contacto <span className="modal-step-badge">Paso 3 de 3</span></ModalHeader>
         <ModalBody>
           <div className="row g-3">
             {[
@@ -776,11 +539,14 @@ function Empleados() {
             ))}
             <div className="col-md-6">
               <label className="form-label">Teléfono celular</label>
-              <input className="form-control" type="tel" value={formDC.TelCelular} onChange={e => setFormDC(p => ({...p, TelCelular: e.target.value}))} />
+              <input className="form-control" type="tel" placeholder="55 1234 5678" maxLength={12}
+                value={formDC.TelCelular || ""}
+                onChange={e => setFormDC(p => ({...p, TelCelular: formatTelefono(e.target.value)}))} />
             </div>
             <div className="col-md-6">
               <label className="form-label">Correo electrónico</label>
-              <input className="form-control" type="email" value={formDC.ListaCorreos} onChange={e => setFormDC(p => ({...p, ListaCorreos: e.target.value}))} />
+              <input className="form-control" type="email" value={formDC.ListaCorreos}
+                onChange={e => setFormDC(p => ({...p, ListaCorreos: e.target.value}))} />
             </div>
           </div>
         </ModalBody>
@@ -795,18 +561,33 @@ function Empleados() {
       <Modal isOpen={modal==="contacto"} toggle={() => setModal(null)} centered>
         <ModalHeader toggle={() => setModal(null)}>Editar datos de contacto</ModalHeader>
         <ModalBody>
-          {[
-            { label:"Teléfono fijo", field:"TelFijo",      type:"tel"   },
-            { label:"Celular",       field:"TelCelular",   type:"tel"   },
-            { label:"WhatsApp",      field:"IdWhatsApp"               },
-            { label:"Telegram",      field:"IdTelegram"               },
-            { label:"Correo",        field:"ListaCorreos", type:"email" },
-          ].map(({ label, field, type="text" }) => (
-            <div key={field} className="mb-3">
-              <label className="form-label">{label}</label>
-              <input className="form-control" type={type} value={formDC[field]||""} onChange={e => setFormDC(p => ({...p, [field]: e.target.value}))} />
-            </div>
-          ))}
+          <div className="mb-3">
+            <label className="form-label">Teléfono fijo</label>
+            <input className="form-control" type="tel" placeholder="55 1234 5678" maxLength={12}
+              value={formDC.TelFijo || ""}
+              onChange={e => setFormDC(p => ({...p, TelFijo: formatTelefono(e.target.value)}))} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Celular</label>
+            <input className="form-control" type="tel" placeholder="55 1234 5678" maxLength={12}
+              value={formDC.TelCelular || ""}
+              onChange={e => setFormDC(p => ({...p, TelCelular: formatTelefono(e.target.value)}))} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">WhatsApp</label>
+            <input className="form-control" value={formDC.IdWhatsApp||""}
+              onChange={e => setFormDC(p => ({...p, IdWhatsApp: e.target.value}))} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Telegram</label>
+            <input className="form-control" value={formDC.IdTelegram||""}
+              onChange={e => setFormDC(p => ({...p, IdTelegram: e.target.value}))} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Correo</label>
+            <input className="form-control" type="email" value={formDC.ListaCorreos||""}
+              onChange={e => setFormDC(p => ({...p, ListaCorreos: e.target.value}))} />
+          </div>
         </ModalBody>
         <ModalFooter>
           <button className="btn btn-primary w-100" disabled={guardando} onClick={async () => {
@@ -821,18 +602,37 @@ function Empleados() {
       <Modal isOpen={modal==="familia"} toggle={() => setModal(null)} centered>
         <ModalHeader toggle={() => setModal(null)}>Contacto de emergencia</ModalHeader>
         <ModalBody>
-          {[
-            { label:"Nombre",     field:"nombreContacto"               },
-            { label:"Parentesco", field:"parenstesco"                  },
-            { label:"Teléfono",   field:"telefonoContacto", type:"tel"   },
-            { label:"Correo",     field:"correoContacto",  type:"email" },
-            { label:"Dirección",  field:"direccionContacto"            },
-          ].map(({ label, field, type="text" }) => (
-            <div key={field} className="mb-3">
-              <label className="form-label">{label}</label>
-              <input className="form-control" type={type} value={formPC[field]||""} onChange={e => setFormPC(p => ({...p, [field]: e.target.value}))} />
-            </div>
-          ))}
+          <div className="mb-3">
+            <label className="form-label">Nombre</label>
+            <input className="form-control" value={formPC.nombreContacto||""}
+              onChange={e => setFormPC(p => ({...p, nombreContacto: e.target.value}))} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Parentesco</label>
+            <select className="form-control" value={formPC.parenstesco||""}
+              onChange={e => setFormPC(p => ({...p, parenstesco: e.target.value}))}>
+              <option value="">Seleccionar parentesco</option>
+              {(catalogos?.parentesco || []).map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Teléfono</label>
+            <input className="form-control" type="tel" placeholder="55 1234 5678" maxLength={12}
+              value={formPC.telefonoContacto||""}
+              onChange={e => setFormPC(p => ({...p, telefonoContacto: formatTelefono(e.target.value)}))} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Correo</label>
+            <input className="form-control" type="email" value={formPC.correoContacto||""}
+              onChange={e => setFormPC(p => ({...p, correoContacto: e.target.value}))} />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Dirección</label>
+            <input className="form-control" value={formPC.direccionContacto||""}
+              onChange={e => setFormPC(p => ({...p, direccionContacto: e.target.value}))} />
+          </div>
         </ModalBody>
         <ModalFooter>
           <button className="btn btn-primary w-100" disabled={guardando} onClick={async () => {
@@ -888,17 +688,16 @@ function Empleados() {
           </div>
           <div className="row g-3">
             {[
-              { label:"Hora entrada",   field:"HoraEntrada",   type:"time" },
-              { label:"Hora salida",    field:"HoraSalida",    type:"time" },
-              { label:"Tiempo comida",  field:"TiempoComida"             },
-              { label:"Días trabajados",field:"DiasTrabajados"           },
+              { label:"Hora entrada",    field:"HoraEntrada",   type:"time" },
+              { label:"Hora salida",     field:"HoraSalida",    type:"time" },
+              { label:"Tiempo comida",   field:"TiempoComida"              },
+              { label:"Días trabajados", field:"DiasTrabajados"            },
             ].map(({ label, field, type="text" }) => (
               <div key={field} className="col-6">
                 <label className="form-label">{label}</label>
                 <input className="form-control" type={type}
                   value={formRH.HorarioLaboral?.[field]||""}
-                  onChange={e => setFormRH(p => ({...p, HorarioLaboral: {...p.HorarioLaboral, [field]: e.target.value}}))}
-                />
+                  onChange={e => setFormRH(p => ({...p, HorarioLaboral: {...p.HorarioLaboral, [field]: e.target.value}}))} />
               </div>
             ))}
           </div>
@@ -912,14 +711,13 @@ function Empleados() {
         </ModalFooter>
       </Modal>
 
-      {/* 8,9,10 — Experiencia / Educación / Skills */}
+      {/* 8, 9, 10 — Experiencia / Educación / Skills */}
       {["experiencia","educacion","skills"].map(tipo => (
         <Modal key={tipo} isOpen={modal===tipo} toggle={() => setModal(null)} size="lg" centered>
           <ModalHeader toggle={() => setModal(null)}>
             {{ experiencia:"Experiencia laboral", educacion:"Educación", skills:"Habilidades" }[tipo]}
           </ModalHeader>
           <ModalBody style={{maxHeight:"60vh", overflowY:"auto"}}>
-
             {tipo==="experiencia" && (formExp.Experiencia||[]).map((exp,i) => (
               <div key={i} className="emp-modal-card">
                 <label className="form-label">Cargo / Empresa</label>
@@ -930,7 +728,6 @@ function Empleados() {
                 <input className="form-control" value={exp.Fecha||""} onChange={e => { const u=[...formExp.Experiencia]; u[i].Fecha=e.target.value; setFormExp(p=>({...p,Experiencia:u})); }} />
               </div>
             ))}
-
             {tipo==="educacion" && (formEd.Educacion||[]).map((ed,i) => (
               <div key={i} className="emp-modal-card">
                 <label className="form-label">Título obtenido</label>
@@ -941,7 +738,6 @@ function Empleados() {
                 <input className="form-control" value={ed.Fecha||""} onChange={e => { const u=[...formEd.Educacion]; u[i].Fecha=e.target.value; setFormEd(p=>({...p,Educacion:u})); }} />
               </div>
             ))}
-
             {tipo==="skills" && (formSkill.Habilidades?.Programacion||[]).map((h,i) => (
               <div key={i} className="row g-2 align-items-center mb-3">
                 <div className="col-6">
@@ -951,9 +747,7 @@ function Empleados() {
                   <input className="form-control text-center" type="number" min="0" max="100" placeholder="%" value={h.Porcentaje||""} onChange={e => { const u={...formSkill}; u.Habilidades.Programacion[i].Porcentaje=e.target.value; setFormSkill(u); }} />
                 </div>
                 <div className="col-3">
-                  <div className="emp-skill-bar-track">
-                    <div className="emp-skill-bar-fill" style={{width:`${h.Porcentaje||0}%`}} />
-                  </div>
+                  <div className="emp-skill-bar-track"><div className="emp-skill-bar-fill" style={{width:`${h.Porcentaje||0}%`}} /></div>
                 </div>
               </div>
             ))}

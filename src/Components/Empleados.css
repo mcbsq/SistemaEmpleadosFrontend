@@ -365,3 +365,35 @@ select.form-control option  { background: var(--hr-bg); color: var(--hr-text); }
 [data-theme="light"] .emp-tab--active { background: #1a1d2b; color: #fff; }
 [data-theme="light"] .modal-content { background: rgba(255,255,255,0.98) !important; }
 [data-theme="light"] .form-control { background: #f8f9fc !important; border-color: rgba(0,0,0,0.1) !important; color: #1a1d2b !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+   EMPLEADOS.CSS — ADICIONES
+   Pegar al final del archivo Empleados.css existente
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Select dentro de modales (parentesco, tipo sangre, etc.) ── */
+/* El .form-control ya cubre los inputs; este bloque refuerza
+   el appearance y el color del placeholder en selects        */
+select.form-control {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px !important;
+  cursor: pointer;
+}
+select.form-control:focus {
+  background-color: rgba(255,255,255,0.07) !important;
+}
+[data-theme="light"] select.form-control {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23444' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ── Chip de parentesco en tab Familia (ya existía cyan,
+   este refuerza el select en la tabla para consistencia) ── */
+.emp-chip--parentesco {
+  background: rgba(var(--hr-accent-2-rgb),0.07);
+  border-color: rgba(var(--hr-accent-2-rgb),0.2);
+  color: var(--hr-accent-2);
+}
