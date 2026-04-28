@@ -5,28 +5,7 @@ import { FileAmountLimitValidator } from "use-file-picker/validators";
 import "../Personal.css";
 
 import { authService }      from "../../services/authService";
-import { decodeId }          from "../../services/empleadoService";
-
-// Resuelve slug/base64/id a un ObjectId real de MongoDB
-const resolveToId = (slugOrId) => {
-  if (!slugOrId) return slugOrId;
-  // ObjectId directo (24 hex) — caso más común al llegar por URL directa
-  if (/^[a-f0-9]{24}$/i.test(slugOrId)) return slugOrId;
-  // Buscar en mapa de slugs de sessionStorage
-  try {
-    const map = JSON.parse(sessionStorage.getItem("hr_slug_map") || "{}");
-    if (map[slugOrId]) return map[slugOrId];
-  } catch {}
-  // Fallback base64
-  return decodeId(slugOrId);
-};
-
-// Genera slug URL-friendly
-const toSlug = (nombre = "", apelPaterno = "") =>
-  `${nombre} ${apelPaterno}`.normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
-    .replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
-import { empleadoService }  from "../../services/empleadoService";
+import { decodeId, empleadoService } from "../../services/empleadoService"; // Limpié el import duplicado de abajo
 import { contactoService }  from "../../services/contactoService";
 import { educacionService } from "../../services/educacionService";
 import { rhService }        from "../../services/rhService";
@@ -43,10 +22,27 @@ import {
   ExpedienteClinicoRenderer, CVExportRenderer,
 } from "./renderpersonal.js";
 
+// ─── FUNCIONES HELPER (Movidas aquí abajo para que no rompan el build) ────────
+const resolveToId = (slugOrId) => {
+  if (!slugOrId) return slugOrId;
+  if (/^[a-f0-9]{24}$/i.test(slugOrId)) return slugOrId;
+  try {
+    const map = JSON.parse(sessionStorage.getItem("hr_slug_map") || "{}");
+    if (map[slugOrId]) return map[slugOrId];
+  } catch {}
+  return decodeId(slugOrId);
+};
+
+const toSlug = (nombre = "", apelPaterno = "") =>
+  `${nombre} ${apelPaterno}`.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
+
+// ─── CONSTANTES INICIALES ───────────────────────────────────────────────────
 const CONTACTO_INIT  = { telefonoF:"", telefonoC:"", IDwhatsapp:"", IDtelegram:"", correo:"" };
 const PERS_CONT_INIT = { parenstesco:"", nombreContacto:"", telefonoContacto:"", correoContacto:"", direccionContacto:"" };
 const DIR_INIT       = { Calle:"", NumExterior:"", NumInterior:"", Municipio:"", Ciudad:"", CodigoP:"", lat:null, lng:null };
-const RH_INIT        = { Puesto:"", JefeInmediato:"", JefeInmediato_id:"", HorarioLaboral:{ HoraEntrada:"", HoraSalida:"", TiempoComida:"", DiasTrabajados:"" }, ExpedienteDigitalPDF:null };
+const RH_INIT       = { Puesto:"", JefeInmediato:"", JefeInmediato_id:"", HorarioLaboral:{ HoraEntrada:"", HoraSalida:"", TiempoComida:"", DiasTrabajados:"" }, ExpedienteDigitalPDF:null };
 const EXP_INIT       = { tipoSangre:"", Padecimientos:"", NumeroSeguroSocial:"", Datossegurodegastos:"", PDFSegurodegastosmedicos:null };
 
 // ─── Modal verificación ───────────────────────────────────────────────────────
