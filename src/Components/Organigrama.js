@@ -40,7 +40,6 @@ const RenderNode = ({ nodeDatum, onNodeClick, fotosMap }) => {
   const empleadoId = nodeDatum.attributes?.Id;
   const foto       = fotosMap?.[empleadoId];
 
-  // Iniciales para el placeholder del avatar
   const iniciales = nodeDatum.name
     ?.split(" ")
     .slice(0, 2)
@@ -54,7 +53,6 @@ const RenderNode = ({ nodeDatum, onNodeClick, fotosMap }) => {
         r="8"
         className={isArea ? "area-node-dot" : "employee-node-dot"}
       />
-
       <foreignObject x="-90" y="18" width="180" height={isArea ? 50 : 72}>
         <div
           xmlns="http://www.w3.org/1999/xhtml"
@@ -62,7 +60,6 @@ const RenderNode = ({ nodeDatum, onNodeClick, fotosMap }) => {
           onClick={() => !isArea && onNodeClick(empleadoId)}
           title={!isArea ? "Ver perfil" : undefined}
         >
-          {/* Nodo de empleado: avatar + texto */}
           {!isArea && (
             <>
               {foto ? (
@@ -84,8 +81,6 @@ const RenderNode = ({ nodeDatum, onNodeClick, fotosMap }) => {
               </div>
             </>
           )}
-
-          {/* Nodo de área: solo nombre */}
           {isArea && (
             <div className="node-name">{nodeDatum.name}</div>
           )}
@@ -99,7 +94,7 @@ const RenderNode = ({ nodeDatum, onNodeClick, fotosMap }) => {
 function Organigrama() {
   const [windowWidth,       setWindowWidth]       = useState(window.innerWidth);
   const [jerarquiaMostrada, setJerarquiaMostrada] = useState(null);
-  const [fotosMap,          setFotosMap]          = useState({}); // { empleadoId: urlFoto }
+  const [fotosMap,          setFotosMap]          = useState({});
   const [loading,           setLoading]           = useState(true);
   const [error,             setError]             = useState(false);
 
@@ -116,7 +111,6 @@ function Organigrama() {
   const cargarDatos = useCallback(async () => {
     setLoading(true);
     try {
-      // Cargar jerarquía y empleados en paralelo
       const [jerarquiaData, todosEmpleados] = await Promise.all([
         rhService.getJerarquia(),
         empleadoService.getAll().catch(() => []),
@@ -124,9 +118,10 @@ function Organigrama() {
 
       const arbol = jerarquiaData.jerarquia || jerarquiaData;
 
-      // Construir mapa de fotos { _id: urlFoto } para los nodos
+      // ── Guardia: solo construir el mapa si llegó un array válido ────────────
+      const listaEmpleados = Array.isArray(todosEmpleados) ? todosEmpleados : [];
       const mapa = {};
-      todosEmpleados.forEach(e => {
+      listaEmpleados.forEach(e => {
         const foto = e.Fotografias?.[0] || e.Fotografia || null;
         if (foto) mapa[e._id] = foto;
       });

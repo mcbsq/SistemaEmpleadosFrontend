@@ -614,3 +614,33 @@
   border-color: rgba(0,0,0,0.12) !important;
   color: #111 !important;
 }
+
+/* ── Recuperar contraseña ───────────────────────────────────── */
+.login-btn-recovery {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px;
+  background: none;
+  border: none;
+  color: var(--hr-muted, #86868b);
+  font-size: 0.84rem;
+  cursor: pointer;
+  text-align: center;
+  transition: color var(--hr-duration-xs);
+}
+.login-btn-recovery:hover { color: var(--hr-accent-2, #4ECAAC); }
+
+.login-recovery-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: rgba(var(--hr-accent-rgb), 0.06);
+  border: 0.5px solid rgba(var(--hr-accent-rgb), 0.2);
+  border-radius: var(--hr-radius-sm);
+  color: var(--hr-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  animation: loginFadeUp 0.2s ease both;
+}

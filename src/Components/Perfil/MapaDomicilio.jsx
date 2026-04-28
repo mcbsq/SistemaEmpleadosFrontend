@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 
-// ─── Carga dinámica de Leaflet ────────────────────────────────────────────────
 let leafletLoaded = false;
 
 function ensureLeaflet() {
@@ -12,39 +12,35 @@ function ensureLeaflet() {
   }
   leafletLoaded = true;
   return new Promise((resolve, reject) => {
-    const link = document.createElement("link");
-    link.rel  = "stylesheet";
-    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    const link  = document.createElement("link");
+    link.rel    = "stylesheet";
+    link.href   = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
     document.head.appendChild(link);
-
-    const script = document.createElement("script");
-    script.src     = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.onload  = () => resolve(window.L);
-    script.onerror = () => reject(new Error("No se pudo cargar Leaflet"));
+    const script    = document.createElement("script");
+    script.src      = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.onload   = () => resolve(window.L);
+    script.onerror  = () => reject(new Error("No se pudo cargar Leaflet"));
     document.head.appendChild(script);
   });
 }
 
-// ─── Geocodificación Nominatim (OpenStreetMap, sin API key) ───────────────────
 async function geocodificar(direccion) {
-  const { Calle = "", NumExterior = "", Municipio = "", Ciudad = "" } = direccion;
+  const { Calle="", NumExterior="", Municipio="", Ciudad="" } = direccion;
   const query = [Calle, NumExterior, Municipio, Ciudad, "México"].filter(Boolean).join(", ");
   if (!query.trim()) return null;
   try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
-    const res  = await fetch(url, { headers: { "Accept-Language": "es", "User-Agent": "CibercomHR/1.0" } });
+    const url  = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+    const res  = await fetch(url, { headers: { "Accept-Language":"es", "User-Agent":"CibercomHR/1.0" } });
     const data = await res.json();
     if (data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-    const fallbackQ = [Municipio, Ciudad, "México"].filter(Boolean).join(", ");
-    const res2  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fallbackQ)}&format=json&limit=1`, { headers: { "Accept-Language": "es", "User-Agent": "CibercomHR/1.0" } });
-    const data2 = await res2.json();
-    return data2.length > 0 ? { lat: parseFloat(data2[0].lat), lng: parseFloat(data2[0].lon) } : null;
-  } catch {
-    return null;
-  }
+    const fb  = [Municipio, Ciudad, "México"].filter(Boolean).join(", ");
+    const r2  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fb)}&format=json&limit=1`, { headers: { "Accept-Language":"es", "User-Agent":"CibercomHR/1.0" } });
+    const d2  = await r2.json();
+    return d2.length > 0 ? { lat: parseFloat(d2[0].lat), lng: parseFloat(d2[0].lon) } : null;
+  } catch { return null; }
 }
 
-// ─── Mapa inline ──────────────────────────────────────────────────────────────
+// ─── Mapa inline (el que se renderiza dentro del popup) ───────────────────────
 function MapaInline({ direccion, lat, lng, isEditing, onCoordsChange }) {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
@@ -59,7 +55,10 @@ function MapaInline({ direccion, lat, lng, isEditing, onCoordsChange }) {
     const L = await ensureLeaflet();
     if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
 
-    const map = L.map(containerRef.current, { zoomControl: true, scrollWheelZoom: false }).setView([clat, clng], 15);
+    const map = L.map(containerRef.current, {
+      zoomControl: true,
+      scrollWheelZoom: true,   // permitir scroll dentro del popup grande
+    }).setView([clat, clng], 16);
     mapRef.current = map;
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -82,6 +81,10 @@ function MapaInline({ direccion, lat, lng, isEditing, onCoordsChange }) {
         onCoordsChange?.(newLat, newLng);
       });
     }
+
+    // Forzar resize después de montar — necesario cuando el contenedor
+    // cambia de tamaño al abrirse el modal
+    setTimeout(() => map.invalidateSize(), 100);
   }, [isEditing, label, onCoordsChange]);
 
   useEffect(() => {
@@ -102,92 +105,142 @@ function MapaInline({ direccion, lat, lng, isEditing, onCoordsChange }) {
     }
     load();
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     if (coords && status === "ok") initMap(coords.lat, coords.lng);
-  }, [isEditing]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isEditing]); // eslint-disable-line
 
-  const sinDireccion = !direccion?.Calle && !direccion?.Municipio && !direccion?.Ciudad;
-  if (sinDireccion && !lat && !lng) {
-    return (
-      <div style={{ padding: "20px 0", textAlign: "center", color: "var(--hr-muted)", fontSize: "0.85rem" }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ display: "block", margin: "0 auto 8px" }}>
-          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-        </svg>
-        Sin dirección registrada
-      </div>
-    );
-  }
+  const sinDir = !direccion?.Calle && !direccion?.Municipio && !direccion?.Ciudad;
+  if (sinDir && !lat && !lng) return (
+    <div className="mapa-empty">Sin dirección registrada</div>
+  );
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", height: "100%" }}>
       {status === "loading" && (
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--hr-glass-bg)", borderRadius: 12, zIndex: 10, fontSize: "0.8rem", color: "var(--hr-muted)" }}>
-          <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ width: 14, height: 14, border: "2px solid var(--hr-border)", borderTopColor: "var(--hr-accent-2)", borderRadius: "50%", animation: "hr-spin 0.9s linear infinite", flexShrink: 0 }} />
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"var(--hr-glass-bg)", borderRadius:12, zIndex:10 }}>
+          <div className="mapa-loading">
+            <div className="mapa-loading-dot" />
             Cargando mapa…
-          </span>
+          </div>
         </div>
       )}
       {status === "error" && (
-        <div style={{ padding: "16px", textAlign: "center", color: "var(--hr-muted)", fontSize: "0.82rem", background: "rgba(232,107,95,0.06)", border: "1px solid rgba(232,107,95,0.18)", borderRadius: 12 }}>
+        <div className="mapa-error">
           No se pudo ubicar la dirección en el mapa.
-          {isEditing && <span style={{ color: "var(--hr-accent-2)", marginLeft: 6 }}>Puedes arrastrar el pin manualmente.</span>}
+          {isEditing && <span style={{ color:"var(--hr-accent-2)", marginLeft:6 }}>Puedes arrastrar el pin manualmente.</span>}
         </div>
       )}
-      <div ref={containerRef} style={{ height: 240, borderRadius: 12, overflow: "hidden", border: "1px solid var(--hr-glass-border)", opacity: status === "loading" ? 0 : 1, transition: "opacity 0.3s" }} />
+      <div
+        ref={containerRef}
+        style={{
+          height: "100%",
+          borderRadius: 0,
+          overflow: "hidden",
+          opacity: status === "loading" ? 0 : 1,
+          transition: "opacity 0.3s",
+        }}
+      />
       {isEditing && status === "ok" && (
-        <p style={{ fontSize: "0.72rem", color: "var(--hr-muted)", marginTop: 6, textAlign: "center" }}>
-          Arrastra el pin para ajustar la ubicación exacta
-        </p>
+        <p className="mapa-drag-hint">Arrastra el pin para ajustar la ubicación exacta</p>
       )}
       {coords && (
-        <p style={{ fontSize: "0.68rem", color: "var(--hr-hint, #555)", marginTop: 4, textAlign: "right" }}>
-          {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
-        </p>
+        <p className="mapa-coords">{coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}</p>
       )}
     </div>
   );
 }
 
-// ─── Mapa popup ───────────────────────────────────────────────────────────────
+// ─── Popup fullscreen montado en document.body via portal ─────────────────────
+function MapaPopupFullscreen({ direccion, lat, lng, isEditing, onCoordsChange, onClose }) {
+  const label = [direccion?.Calle, direccion?.NumExterior, direccion?.Municipio]
+    .filter(Boolean).join(", ");
+
+  // Bloquear scroll del body mientras el popup está abierto
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  // Cerrar con Escape
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="mapa-fs-overlay"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="mapa-fs-card">
+
+        {/* Header */}
+        <div className="mapa-fs-header">
+          <div className="mapa-fs-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" style={{ flexShrink:0 }}>
+              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            {label || "Domicilio del empleado"}
+          </div>
+          <button className="mapa-fs-close" onClick={onClose} title="Cerrar (Esc)">✕</button>
+        </div>
+
+        {/* Mapa ocupa todo el espacio restante */}
+        <div className="mapa-fs-body">
+          <MapaInline
+            direccion={direccion}
+            lat={lat}
+            lng={lng}
+            isEditing={isEditing}
+            onCoordsChange={onCoordsChange}
+          />
+        </div>
+
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Botón que dispara el popup ───────────────────────────────────────────────
 function MapaPopup({ direccion, lat, lng, isEditing, onCoordsChange }) {
   const [open, setOpen] = useState(false);
-  const label = [direccion?.Calle, direccion?.NumExterior, direccion?.Municipio].filter(Boolean).join(", ");
-
   return (
     <>
-      <button className="btn-ghost" onClick={() => setOpen(true)}
-        style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", justifyContent: "center" }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+      <button
+        className="btn-ghost"
+        onClick={() => setOpen(true)}
+        style={{ display:"flex", alignItems:"center", gap:6, width:"100%", justifyContent:"center" }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="1.8">
+          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
         </svg>
         Ver en mapa
       </button>
 
       {open && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 8500, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-          onClick={e => e.target === e.currentTarget && setOpen(false)}>
-          <div style={{ width: "100%", maxWidth: 620, background: "var(--hr-bg, #0d0d10)", border: "1px solid var(--hr-glass-border)", borderRadius: 20, overflow: "hidden", boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-            <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--hr-border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--hr-text)" }}>
-                📍 {label || "Domicilio del empleado"}
-              </span>
-              <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid var(--hr-border)", borderRadius: 8, color: "var(--hr-muted)", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "1rem" }}>✕</button>
-            </div>
-            <div style={{ padding: 16 }}>
-              <MapaInline direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} />
-            </div>
-          </div>
-        </div>
+        <MapaPopupFullscreen
+          direccion={direccion}
+          lat={lat}
+          lng={lng}
+          isEditing={isEditing}
+          onCoordsChange={onCoordsChange}
+          onClose={() => setOpen(false)}
+        />
       )}
     </>
   );
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
-export default function MapaDomicilio({ direccion, lat, lng, isEditing = false, onCoordsChange, mode = "popup" }) {
+export default function MapaDomicilio({ direccion, lat, lng, isEditing=false, onCoordsChange, mode="popup" }) {
   if (mode === "inline") {
     return <MapaInline direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} />;
   }

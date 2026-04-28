@@ -26,14 +26,14 @@ const encontrarSubarbol = (nodo, empleadoId) => {
 };
 
 function Home() {
-  const [empleados,          setEmpleados]          = useState([]);
-  const [datosCargados,      setDatosCargados]      = useState(false);
-  const [hoveredEmpleado,    setHoveredEmpleado]    = useState(null);
-  const [datosContacto,      setDatosContacto]      = useState(null);
-  const [currentRotation,    setCurrentRotation]    = useState(0);
-  const [isPaused,           setIsPaused]           = useState(false);
-  const [isNavigating,       setIsNavigating]       = useState(false);
-  const [windowWidth,        setWindowWidth]        = useState(window.innerWidth);
+  const [empleados,       setEmpleados]       = useState([]);
+  const [datosCargados,   setDatosCargados]   = useState(false);
+  const [hoveredEmpleado, setHoveredEmpleado] = useState(null);
+  const [datosContacto,   setDatosContacto]   = useState(null);
+  const [currentRotation, setCurrentRotation] = useState(0);
+  const [isPaused,        setIsPaused]        = useState(false);
+  const [isNavigating,    setIsNavigating]    = useState(false);
+  const [windowWidth,     setWindowWidth]     = useState(window.innerWidth);
 
   const autoRotateRef = useRef(null);
   const touchStartX   = useRef(null);
@@ -41,48 +41,50 @@ function Home() {
   const isSuperAdmin = authService.isSuperAdmin();
   const empleadoId   = authService.getEmpleadoId();
 
-  // ─── Responsive window width ────────────────────────────────────────────────
+  // ─── Responsive ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const onResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ─── Carga de empleados filtrada por rol ────────────────────────────────────
+  // ─── Carga de empleados ──────────────────────────────────────────────────────
   const cargarEmpleados = useCallback(async () => {
     try {
       const todos = await empleadoService.getAll();
 
+      // ── Guardia: si el backend devuelve error u objeto en vez de array ──────
+      if (!Array.isArray(todos)) {
+        console.warn("empleadoService.getAll() no devolvió un array:", todos);
+        setEmpleados([]);
+        return;
+      }
+
       if (isSuperAdmin || !empleadoId) {
-        // SUPER_ADMIN ve a todos
         setEmpleados(todos);
       } else {
-        // Empleado: obtener jerarquía y filtrar por área
         const jerarquia = await rhService.getJerarquia()
           .then(d => d.jerarquia || d)
           .catch(() => null);
 
         if (!jerarquia) {
-          // Si no hay jerarquía, al menos muestra a sí mismo
           const self = todos.find(e => e._id === empleadoId);
           setEmpleados(self ? [self] : todos);
         } else {
-          // Buscar su subárbol (él + su equipo directo) y también su cadena hacia arriba
-          const subArbol = encontrarSubarbol(jerarquia, empleadoId);
-          const idsEnArea = subArbol
+          const subArbol   = encontrarSubarbol(jerarquia, empleadoId);
+          const idsEnArea  = subArbol
             ? extraerIdsDeArbol(subArbol)
             : new Set([empleadoId]);
 
-          // También incluir al jefe inmediato si está en el árbol
           const filtrados = todos.filter(e =>
             idsEnArea.has(e._id) || e._id === empleadoId
           );
-
           setEmpleados(filtrados.length > 0 ? filtrados : todos);
         }
       }
     } catch (err) {
       console.error("Error cargando empleados:", err);
+      setEmpleados([]); // nunca dejar el estado sin array
     } finally {
       setDatosCargados(true);
     }
@@ -147,7 +149,6 @@ function Home() {
       setDatosContacto(data);
       setHoveredEmpleado(emp);
     } catch {
-      // Sin datos de contacto — mostramos solo el nombre
       const emp = empleados.find(e => e._id === empId);
       setDatosContacto({});
       setHoveredEmpleado(emp);
@@ -186,58 +187,65 @@ function Home() {
           <p className="home-scope-label">Tu equipo</p>
         )}
 
-        <div
-          className="carousel-container"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div className="gallery-container">
-            <div
-              className={`box ${isNavigating ? "is-navigating" : ""}`}
-              style={{ transform: `rotateY(${currentRotation}deg)` }}
-            >
-              {empleados.map((emp, index) => {
-                const itemAngle = (360 / empleados.length) * index;
-                const foto = emp.Fotografias?.[0] || emp.Fotografia || DEFAULT_AVATAR;
+        {/* Carrusel vacío — no rompe si no hay empleados */}
+        {empleados.length === 0 ? (
+          <div className="home-empty">
+            <p>No hay empleados registrados aún.</p>
+          </div>
+        ) : (
+          <div
+            className="carousel-container"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div className="gallery-container">
+              <div
+                className={`box ${isNavigating ? "is-navigating" : ""}`}
+                style={{ transform: `rotateY(${currentRotation}deg)` }}
+              >
+                {empleados.map((emp, index) => {
+                  const itemAngle = (360 / empleados.length) * index;
+                  const foto = emp.Fotografias?.[0] || emp.Fotografia || DEFAULT_AVATAR;
 
-                return (
-                  <div
-                    key={emp._id}
-                    className="card"
-                    style={{ transform: `rotateY(${itemAngle}deg) translateZ(${radius}px)` }}
-                    onMouseEnter={() => {
-                      if (!isMobile) { fetchDatosContacto(emp._id); setIsPaused(true); }
-                    }}
-                    onMouseLeave={() => {
-                      if (!isMobile) cerrarInfo();
-                    }}
-                    onClick={() => {
-                      if (isMobile) fetchDatosContacto(emp._id);
-                    }}
-                  >
-                    <img
-                      src={foto}
-                      alt={getFullName(emp)}
-                      onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
-                    />
-                    <div className="card-info">
-                      <p className="card-name">{emp.Nombre}</p>
-                      <Link to={`/Perfil/${emp._id}`} className="btn-direction">
-                        Ver Perfil
-                      </Link>
+                  return (
+                    <div
+                      key={emp._id}
+                      className="card"
+                      style={{ transform: `rotateY(${itemAngle}deg) translateZ(${radius}px)` }}
+                      onMouseEnter={() => {
+                        if (!isMobile) { fetchDatosContacto(emp._id); setIsPaused(true); }
+                      }}
+                      onMouseLeave={() => {
+                        if (!isMobile) cerrarInfo();
+                      }}
+                      onClick={() => {
+                        if (isMobile) fetchDatosContacto(emp._id);
+                      }}
+                    >
+                      <img
+                        src={foto}
+                        alt={getFullName(emp)}
+                        onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
+                      />
+                      <div className="card-info">
+                        <p className="card-name">{emp.Nombre}</p>
+                        <Link to={`/Perfil/${emp._id}`} className="btn-direction">
+                          Ver Perfil
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="button-container">
+              <div className="button prev" onClick={handlePrevClick} />
+              <div className="button next" onClick={handleNextClick} />
             </div>
           </div>
-
-          <div className="button-container">
-            <div className="button prev" onClick={handlePrevClick} />
-            <div className="button next" onClick={handleNextClick} />
-          </div>
-        </div>
+        )}
 
         {/* ── Info card ── */}
         {datosContacto && hoveredEmpleado && (

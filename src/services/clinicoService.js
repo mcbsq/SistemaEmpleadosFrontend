@@ -1,9 +1,10 @@
 import { API_URL, defaultHeaders } from "./apiConfig";
 
 export const clinicoService = {
-  getAll: () =>
-    fetch(`${API_URL}/expedienteclinico`, { headers: defaultHeaders })
-      .then(res => res.ok ? res.json() : []),
+
+  // getAll no tiene endpoint propio en el backend (GET /expedienteclinico → 405)
+  // Devuelve [] para no romper el Promise.all de Empleados.js
+  getAll: () => Promise.resolve([]),
 
   getByEmpleado: (id) =>
     fetch(`${API_URL}/expedienteclinico/empleado/${id}`, { headers: defaultHeaders })
@@ -18,11 +19,11 @@ export const clinicoService = {
 
     const payload = {
       empleado_id:              id,
-      tipoSangre:               datos.tipoSangre              || "",
-      Padecimientos:            datos.Padecimientos           || "",
-      NumeroSeguroSocial:       datos.NumeroSeguroSocial      || "",
-      Segurodegastosmedicos:    datos.Datossegurodegastos     || "",
-      PDFSegurodegastosmedicos: pdfBase64                     || null,
+      tipoSangre:               datos.tipoSangre           || "",
+      Padecimientos:            datos.Padecimientos        || "",
+      NumeroSeguroSocial:       datos.NumeroSeguroSocial   || "",
+      Segurodegastosmedicos:    datos.Datossegurodegastos  || "",
+      PDFSegurodegastosmedicos: pdfBase64                  || null,
     };
 
     const res = await fetch(`${API_URL}/expedienteclinico/empleado/${id}`, {

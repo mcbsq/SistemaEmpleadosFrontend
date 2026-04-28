@@ -42,7 +42,22 @@ const SelectField = ({ label, value, isEditing, onChange, options = [] }) => (
   </div>
 );
 
-// ════════════════════════════════════════════════════════════════════════════════
+// ─── Helper: normaliza el PDF a string data URL para mostrarlo ────────────────
+// Acepta: string base64, data URL, array use-file-picker, objeto {content}
+function resolveRawPDF(raw) {
+  if (!raw) return null;
+  if (Array.isArray(raw) && raw.length > 0) {
+    const first = raw[0];
+    return first?.content || (typeof first === "string" ? first : null);
+  }
+  if (typeof raw === "string" && raw.length > 0) {
+    if (raw.startsWith("data:")) return raw;
+    return `data:application/pdf;base64,${raw}`;
+  }
+  if (raw?.content) return raw.content;
+  return null;
+}
+
 export const DescriptionRenderer = ({ isEditing, descripcion, setDescripcion }) => (
   <div className="section-inner">
     <h3 className="section-title">Descripción</h3>
@@ -55,7 +70,6 @@ export const DescriptionRenderer = ({ isEditing, descripcion, setDescripcion }) 
   </div>
 );
 
-// ════════════════════════════════════════════════════════════════════════════════
 export const InfoPersonalRenderer = ({ isEditing, datoscontacto, handleInputChangedatoscontacto }) => {
   const dc = datoscontacto ?? {};
   return (
@@ -70,84 +84,67 @@ export const InfoPersonalRenderer = ({ isEditing, datoscontacto, handleInputChan
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
-export const PersonasContactoRenderer = ({
-  isEditing, personalcontacto, handlePersonalContactoChange,
-  opcionesParentesco = [],
-}) => {
+export const PersonasContactoRenderer = ({ isEditing, personalcontacto, handlePersonalContactoChange, opcionesParentesco = [] }) => {
   const p = personalcontacto ?? {};
   return (
     <div className="section-inner">
       <h3 className="section-title">Contacto de Emergencia</h3>
-      <Field label="Nombre"    value={p.nombreContacto}   isEditing={isEditing} onChange={v => handlePersonalContactoChange("nombreContacto", v)} />
-      <SelectField
-        label="Parentesco" value={p.parenstesco}
-        isEditing={isEditing} options={opcionesParentesco}
-        onChange={v => handlePersonalContactoChange("parenstesco", v)}
-      />
-      <Field label="Teléfono"  value={p.telefonoContacto} isEditing={isEditing} onChange={v => handlePersonalContactoChange("telefonoContacto", v)} type="tel" />
-      <Field label="Correo"    value={p.correoContacto}   isEditing={isEditing} onChange={v => handlePersonalContactoChange("correoContacto", v)}   type="email" />
+      <Field label="Nombre"    value={p.nombreContacto}    isEditing={isEditing} onChange={v => handlePersonalContactoChange("nombreContacto", v)} />
+      <SelectField label="Parentesco" value={p.parenstesco} isEditing={isEditing} options={opcionesParentesco} onChange={v => handlePersonalContactoChange("parenstesco", v)} />
+      <Field label="Teléfono"  value={p.telefonoContacto}  isEditing={isEditing} onChange={v => handlePersonalContactoChange("telefonoContacto", v)} type="tel" />
+      <Field label="Correo"    value={p.correoContacto}    isEditing={isEditing} onChange={v => handlePersonalContactoChange("correoContacto", v)}   type="email" />
       <Field label="Dirección" value={p.direccionContacto} isEditing={isEditing} onChange={v => handlePersonalContactoChange("direccionContacto", v)} />
     </div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
 export const DireccionRenderer = ({ isEditing, direccion = {}, onDireccionChange, lat, lng, onCoordsChange }) => {
   const upd = (f, v) => onDireccionChange?.(f, v);
   return (
     <div className="section-inner">
       <h3 className="section-title">Domicilio</h3>
       <Field label="Calle"           value={direccion.Calle}       isEditing={isEditing} onChange={v => upd("Calle", v)} />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0 16px" }}>
         <Field label="Núm. Ext." value={direccion.NumExterior} isEditing={isEditing} onChange={v => upd("NumExterior", v)} />
         <Field label="Núm. Int." value={direccion.NumInterior} isEditing={isEditing} onChange={v => upd("NumInterior", v)} />
       </div>
       <Field label="Municipio"       value={direccion.Municipio}   isEditing={isEditing} onChange={v => upd("Municipio", v)} />
       <Field label="Ciudad / Estado" value={direccion.Ciudad}      isEditing={isEditing} onChange={v => upd("Ciudad", v)} />
       <Field label="Código Postal"   value={direccion.CodigoP}     isEditing={isEditing} onChange={v => upd("CodigoP", v)} />
-      <div style={{ height: 1, background: "var(--hr-border)", margin: "16px 0" }} />
-      <MapaDomicilio
-        direccion={direccion} lat={lat} lng={lng}
-        isEditing={isEditing} onCoordsChange={onCoordsChange}
-        mode="popup"
-      />
+      <div style={{ height:1, background:"var(--hr-border)", margin:"16px 0" }} />
+      <MapaDomicilio direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} mode="popup" />
     </div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
 export const RedesSocialesRenderer = ({ isEditing, redesSociales = [], setRedesSociales }) => {
-  const add    = () => setRedesSociales([...redesSociales, { redSocialSeleccionada: "", NombreRedSocial: "", URLRedSocial: "" }]);
-  const remove = (i) => setRedesSociales(redesSociales.filter((_, idx) => idx !== i));
-  const update = (i, field, val) => { const up = [...redesSociales]; up[i] = { ...up[i], [field]: val }; setRedesSociales(up); };
-
+  const add    = () => setRedesSociales([...redesSociales, { redSocialSeleccionada:"", NombreRedSocial:"", URLRedSocial:"" }]);
+  const remove = (i) => setRedesSociales(redesSociales.filter((_,idx) => idx!==i));
+  const update = (i, field, val) => { const up=[...redesSociales]; up[i]={...up[i],[field]:val}; setRedesSociales(up); };
   return (
     <div className="section-inner">
       <h3 className="section-title">Redes Sociales</h3>
       {isEditing ? (
         <div className="redes-edit-list">
-          {redesSociales.map((s, i) => (
+          {redesSociales.map((s,i) => (
             <div key={i} className="redes-edit-row">
-              <select className="field-input field-input--sm" value={s.redSocialSeleccionada}
-                onChange={e => update(i, "redSocialSeleccionada", e.target.value)}>
+              <select className="field-input field-input--sm" value={s.redSocialSeleccionada} onChange={e=>update(i,"redSocialSeleccionada",e.target.value)}>
                 <option value="">Red social</option>
-                {REDES_CONFIG.map(r => <option key={r.label} value={r.label}>{r.label}</option>)}
+                {REDES_CONFIG.map(r=><option key={r.label} value={r.label}>{r.label}</option>)}
               </select>
-              <input className="field-input" placeholder="Usuario o URL" value={s.NombreRedSocial}
-                onChange={e => update(i, "NombreRedSocial", e.target.value)} />
-              <button className="btn-icon btn-icon--danger" onClick={() => remove(i)}>✕</button>
+              <input className="field-input" placeholder="Usuario o URL" value={s.NombreRedSocial} onChange={e=>update(i,"NombreRedSocial",e.target.value)} />
+              <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}>✕</button>
             </div>
           ))}
           <button className="btn-ghost" onClick={add}>+ Agregar red</button>
         </div>
       ) : (
         <div className="redes-view-list">
-          {redesSociales.length === 0
+          {redesSociales.length===0
             ? <em className="field-empty">Sin redes registradas</em>
-            : redesSociales.map((s, i) => (
+            : redesSociales.map((s,i)=>(
               <div key={i} className="red-item">
-                <span className="red-icon">{REDES_CONFIG.find(r => r.label === s.redSocialSeleccionada)?.icon}</span>
+                <span className="red-icon">{REDES_CONFIG.find(r=>r.label===s.redSocialSeleccionada)?.icon}</span>
                 <span className="red-label">{s.redSocialSeleccionada}</span>
                 <span className="red-user">@{s.NombreRedSocial}</span>
               </div>
@@ -159,26 +156,25 @@ export const RedesSocialesRenderer = ({ isEditing, redesSociales = [], setRedesS
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
-const TimelineRenderer = ({ title, items = [], isEditing, setItems }) => {
-  const update = (i, field, val) => { const up = [...items]; up[i] = { ...up[i], [field]: val }; setItems(up); };
-  const add    = () => setItems([...items, { year: new Date().getFullYear().toString(), title: "", description: "" }]);
-  const remove = (i) => setItems(items.filter((_, idx) => idx !== i));
+const TimelineRenderer = ({ title, items=[], isEditing, setItems }) => {
+  const update = (i,field,val)=>{ const up=[...items]; up[i]={...up[i],[field]:val}; setItems(up); };
+  const add    = ()=>setItems([...items,{year:new Date().getFullYear().toString(),title:"",description:""}]);
+  const remove = (i)=>setItems(items.filter((_,idx)=>idx!==i));
   return (
     <div className="section-inner">
       <h3 className="section-title">{title}</h3>
       <div className="timeline">
-        {items.length === 0 && !isEditing && <em className="field-empty">Sin registros.</em>}
-        {items.map((item, i) => (
+        {items.length===0 && !isEditing && <em className="field-empty">Sin registros.</em>}
+        {items.map((item,i)=>(
           <div key={i} className="timeline-item">
-            <div className="timeline-dot" />
+            <div className="timeline-dot"/>
             <div className="timeline-body">
               {isEditing ? (
                 <>
-                  <input type="number" className="field-input field-input--year" value={item.year || ""} placeholder="Año" onChange={e => update(i, "year", e.target.value)} />
-                  <input className="field-input" value={item.title || ""} placeholder="Título" onChange={e => update(i, "title", e.target.value)} />
-                  <TextareaAutosize className="field-textarea" value={item.description || ""} placeholder="Descripción" onChange={e => update(i, "description", e.target.value)} />
-                  <button className="btn-icon btn-icon--danger" onClick={() => remove(i)}>✕ Eliminar</button>
+                  <input type="number" className="field-input field-input--year" value={item.year||""} placeholder="Año" onChange={e=>update(i,"year",e.target.value)} />
+                  <input className="field-input" value={item.title||""} placeholder="Título" onChange={e=>update(i,"title",e.target.value)} />
+                  <TextareaAutosize className="field-textarea" value={item.description||""} placeholder="Descripción" onChange={e=>update(i,"description",e.target.value)} />
+                  <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}>✕ Eliminar</button>
                 </>
               ) : (
                 <>
@@ -199,28 +195,27 @@ const TimelineRenderer = ({ title, items = [], isEditing, setItems }) => {
 export const EducationSectionRenderer  = (props) => <TimelineRenderer title="Educación"           {...props} items={props.educationItems}  setItems={props.setEducationItems} />;
 export const ExperienceSectionRenderer = (props) => <TimelineRenderer title="Experiencia Laboral" {...props} items={props.experienceItems} setItems={props.setExperienceItems} />;
 
-// ════════════════════════════════════════════════════════════════════════════════
-export const SkillSectionRenderer = ({ isEditing, habilidades = [], setHabilidades }) => {
-  const update = (i, f, v) => { const up = [...habilidades]; up[i] = { ...up[i], [f]: v }; setHabilidades(up); };
-  const add    = () => setHabilidades([...habilidades, { skillName: "", porcentaje: 50 }]);
-  const remove = (i) => setHabilidades(habilidades.filter((_, idx) => idx !== i));
+export const SkillSectionRenderer = ({ isEditing, habilidades=[], setHabilidades }) => {
+  const update = (i,f,v)=>{ const up=[...habilidades]; up[i]={...up[i],[f]:v}; setHabilidades(up); };
+  const add    = ()=>setHabilidades([...habilidades,{skillName:"",porcentaje:50}]);
+  const remove = (i)=>setHabilidades(habilidades.filter((_,idx)=>idx!==i));
   return (
     <div className="section-inner">
       <h3 className="section-title">Habilidades</h3>
       <div className="skills-list">
-        {habilidades.map((h, i) => (
+        {habilidades.map((h,i)=>(
           <div key={i} className="skill-item">
             {isEditing ? (
               <div className="skill-edit-row">
-                <input className="field-input" placeholder="Habilidad" value={h.skillName} onChange={e => update(i, "skillName", e.target.value)} />
-                <input type="range" min="0" max="100" value={h.porcentaje} onChange={e => update(i, "porcentaje", e.target.value)} className="skill-range" />
+                <input className="field-input" placeholder="Habilidad" value={h.skillName} onChange={e=>update(i,"skillName",e.target.value)} />
+                <input type="range" min="0" max="100" value={h.porcentaje} onChange={e=>update(i,"porcentaje",e.target.value)} className="skill-range" />
                 <span className="skill-pct">{h.porcentaje}%</span>
-                <button className="btn-icon btn-icon--danger" onClick={() => remove(i)}>✕</button>
+                <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}>✕</button>
               </div>
             ) : (
               <>
                 <div className="skill-header"><span className="skill-name">{h.skillName}</span><span className="skill-pct">{h.porcentaje}%</span></div>
-                <div className="skill-bar-track"><div className="skill-bar-fill" style={{ width: `${h.porcentaje}%` }} /></div>
+                <div className="skill-bar-track"><div className="skill-bar-fill" style={{width:`${h.porcentaje}%`}}/></div>
               </>
             )}
           </div>
@@ -231,122 +226,123 @@ export const SkillSectionRenderer = ({ isEditing, habilidades = [], setHabilidad
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
-export const RHSectionRenderer = ({ isEditing, RH, handleRHChange, listaEmpleados = [], openRHPicker, empleadoEncontrado }) => {
-  const h = RH?.HorarioLaboral ?? {};
+export const RHSectionRenderer = ({ isEditing, RH, handleRHChange, listaEmpleados=[], openRHPicker, empleadoEncontrado }) => {
+  const h            = RH?.HorarioLaboral ?? {};
   const isSuperAdmin = authService.isSuperAdmin();
   const jefeSeleccionado = listaEmpleados.find(e => e._id === RH?.JefeInmediato_id);
   const nombreJefe = jefeSeleccionado
     ? `${jefeSeleccionado.Nombre} ${jefeSeleccionado.ApelPaterno}`
     : RH?.JefeInmediato || "Sin asignar";
 
+  // ── FIX: resolver el PDF independientemente del formato en que llegue ──────
+  // Puede ser: string base64, data URL, array use-file-picker, objeto {content}
+  // resolveRawPDF lo normaliza a un string usable por PDFAttachment
+  const pdfResuelto = resolveRawPDF(RH?.ExpedienteDigitalPDF);
+
   return (
     <div className="section-inner">
       <h3 className="section-title">Recursos Humanos</h3>
+
       <div className="field-row">
         <span className="field-label">Puesto</span>
         {isEditing && isSuperAdmin
-          ? <input className="field-input" value={RH?.Puesto || ""} placeholder="Ej: Desarrollador Frontend" onChange={e => handleRHChange("Puesto", e.target.value)} />
-          : <span className="field-value">{RH?.Puesto || <em className="field-empty">Sin asignar</em>}</span>
+          ? <input className="field-input" value={RH?.Puesto||""} placeholder="Ej: Desarrollador Frontend" onChange={e=>handleRHChange("Puesto",e.target.value)} />
+          : <span className="field-value">{RH?.Puesto||<em className="field-empty">Sin asignar</em>}</span>
         }
       </div>
+
       <div className="field-row">
-        <span className="field-label">Jefe inmediato{!isSuperAdmin && <span className="field-readonly-hint"> · solo RH puede modificar</span>}</span>
+        <span className="field-label">
+          Jefe inmediato
+          {!isSuperAdmin && <span className="field-readonly-hint"> · solo RH puede modificar</span>}
+        </span>
         {isEditing && isSuperAdmin ? (
-          <select className="field-input" value={RH?.JefeInmediato_id || ""} onChange={e => {
-            const emp = listaEmpleados.find(x => x._id === e.target.value);
+          <select className="field-input" value={RH?.JefeInmediato_id||""} onChange={e=>{
+            const emp = listaEmpleados.find(x=>x._id===e.target.value);
             handleRHChange("JefeInmediato_id", e.target.value);
             handleRHChange("JefeInmediato", emp ? `${emp.Nombre} ${emp.ApelPaterno}` : "");
           }}>
             <option value="">— Sin jefe asignado —</option>
-            {listaEmpleados.filter(e => e._id !== empleadoEncontrado?._id).map(e => (
-              <option key={e._id} value={e._id}>{e.Nombre} {e.ApelPaterno}{e.Puesto ? ` · ${e.Puesto}` : ""}</option>
+            {listaEmpleados.filter(e=>e._id!==empleadoEncontrado?._id).map(e=>(
+              <option key={e._id} value={e._id}>{e.Nombre} {e.ApelPaterno}{e.Puesto?` · ${e.Puesto}`:""}</option>
             ))}
           </select>
         ) : <span className="field-value">{nombreJefe}</span>}
       </div>
+
       <div className="rh-horario">
-        <p className="field-label" style={{ marginBottom: 8 }}>Horario laboral</p>
+        <p className="field-label" style={{marginBottom:8}}>Horario laboral</p>
         <div className="horario-grid">
-          <Field label="Entrada"         value={h.HoraEntrada}    isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.HoraEntrada", v)}    type="time" />
-          <Field label="Salida"          value={h.HoraSalida}     isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.HoraSalida", v)}     type="time" />
-          <Field label="Tiempo comida"   value={h.TiempoComida}   isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.TiempoComida", v)} />
-          <Field label="Días trabajados" value={h.DiasTrabajados} isEditing={isEditing} onChange={v => handleRHChange("HorarioLaboral.DiasTrabajados", v)} />
+          <Field label="Entrada"         value={h.HoraEntrada}    isEditing={isEditing} onChange={v=>handleRHChange("HorarioLaboral.HoraEntrada",v)}    type="time" />
+          <Field label="Salida"          value={h.HoraSalida}     isEditing={isEditing} onChange={v=>handleRHChange("HorarioLaboral.HoraSalida",v)}     type="time" />
+          <Field label="Tiempo comida"   value={h.TiempoComida}   isEditing={isEditing} onChange={v=>handleRHChange("HorarioLaboral.TiempoComida",v)} />
+          <Field label="Días trabajados" value={h.DiasTrabajados} isEditing={isEditing} onChange={v=>handleRHChange("HorarioLaboral.DiasTrabajados",v)} />
         </div>
       </div>
-      {isEditing && isSuperAdmin && <button className="btn-ghost" onClick={openRHPicker}>📎 Subir expediente digital (PDF)</button>}
-      {RH?.ExpedienteDigitalPDF && <PDFAttachment raw={RH.ExpedienteDigitalPDF} label="Expediente digital RH" />}
+
+      {/* Botón subir PDF — solo en modo edición y superadmin */}
+      {isEditing && isSuperAdmin && (
+        <button className="btn-ghost" onClick={openRHPicker}>
+          📎 {pdfResuelto ? "Reemplazar expediente digital" : "Subir expediente digital (PDF)"}
+        </button>
+      )}
+
+      {/* ── FIX: pasar el PDF ya resuelto como string, no el raw ── */}
+      {pdfResuelto && (
+        <PDFAttachment raw={pdfResuelto} label="Expediente digital RH" />
+      )}
     </div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
 export const ExpedienteClinicoRenderer = ({ isEditing, expedienteclinico, setexpedienteclinico, openFilePicker }) => {
   const c   = expedienteclinico ?? {};
-  const upd = (f, v) => setexpedienteclinico({ ...c, [f]: v });
-  const tiposSangre = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+  const upd = (f,v) => setexpedienteclinico({...c,[f]:v});
+  const tiposSangre = ["A+","A-","B+","B-","AB+","AB-","O+","O-"];
+
+  const pdfResuelto = resolveRawPDF(c.PDFSegurodegastosmedicos);
+
   return (
     <div className="section-inner">
       <h3 className="section-title">Expediente Clínico</h3>
       <div className="field-row">
         <span className="field-label">Tipo de sangre</span>
         {isEditing
-          ? <select className="field-input" value={c.tipoSangre || ""} onChange={e => upd("tipoSangre", e.target.value)} style={{ appearance: "none" }}>
+          ? <select className="field-input" value={c.tipoSangre||""} onChange={e=>upd("tipoSangre",e.target.value)} style={{appearance:"none"}}>
               <option value="">Seleccionar</option>
-              {tiposSangre.map(t => <option key={t} value={t}>{t}</option>)}
+              {tiposSangre.map(t=><option key={t} value={t}>{t}</option>)}
             </select>
-          : <span className="field-value">{c.tipoSangre || <em className="field-empty">Sin registrar</em>}</span>
+          : <span className="field-value">{c.tipoSangre||<em className="field-empty">Sin registrar</em>}</span>
         }
       </div>
-      <Field label="NSS"              value={c.NumeroSeguroSocial}  isEditing={isEditing} onChange={v => upd("NumeroSeguroSocial", v)} />
-      <Field label="Padecimientos"    value={c.Padecimientos}       isEditing={isEditing} onChange={v => upd("Padecimientos", v)} />
-      <Field label="Seguro de gastos" value={c.Datossegurodegastos} isEditing={isEditing} onChange={v => upd("Datossegurodegastos", v)} />
-      {isEditing && <button className="btn-ghost" onClick={openFilePicker}>📎 Adjuntar póliza de seguro (PDF)</button>}
-      {c.PDFSegurodegastosmedicos && <PDFAttachment raw={c.PDFSegurodegastosmedicos} label="Póliza de seguro de gastos médicos" />}
+      <Field label="NSS"              value={c.NumeroSeguroSocial}  isEditing={isEditing} onChange={v=>upd("NumeroSeguroSocial",v)} />
+      <Field label="Padecimientos"    value={c.Padecimientos}       isEditing={isEditing} onChange={v=>upd("Padecimientos",v)} />
+      <Field label="Seguro de gastos" value={c.Datossegurodegastos} isEditing={isEditing} onChange={v=>upd("Datossegurodegastos",v)} />
+
+      {isEditing && (
+        <button className="btn-ghost" onClick={openFilePicker}>
+          📎 {pdfResuelto ? "Reemplazar póliza de seguro" : "Adjuntar póliza de seguro (PDF)"}
+        </button>
+      )}
+
+      {/* ── FIX: mismo patrón que RH ── */}
+      {pdfResuelto && (
+        <PDFAttachment raw={pdfResuelto} label="Póliza de seguro de gastos médicos" />
+      )}
     </div>
   );
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
-const ESTADO_COLORS = {
-  "Activo":  { bg: "#E6F1FB", color: "#185FA5" },
-  "Pausado": { bg: "#FAEEDA", color: "#854F0B" },
-  "Cerrado": { bg: "#EAF3DE", color: "#3B6D11" },
-};
-
-export const ProyectosRenderer = ({ proyectos = [] }) => (
-  <div className="section-inner">
-    <h3 className="section-title">Proyectos asignados</h3>
-    {proyectos.length === 0
-      ? <em className="field-empty">Sin proyectos asignados.</em>
-      : <div className="proyectos-list">{proyectos.map(p => {
-          const est = ESTADO_COLORS[p.estado] || ESTADO_COLORS["Activo"];
-          return (
-            <div key={p.id} className="proyecto-item">
-              <div className="proyecto-header">
-                <span className="proyecto-nombre">{p.nombre}</span>
-                <span className="proyecto-estado" style={{ background: est.bg, color: est.color }}>{p.estado}</span>
-              </div>
-              <div className="proyecto-avance-track"><div className="proyecto-avance-fill" style={{ width: `${p.avance}%`, background: p.avance === 100 ? "#639922" : "#0071e3" }} /></div>
-              <div className="proyecto-meta"><span>{p.avance}% completado</span><span>Entrega: {p.entrega}</span></div>
-            </div>
-          );
-        })}</div>
-    }
-  </div>
-);
-
-// ════════════════════════════════════════════════════════════════════════════════
-export const CVExportRenderer = ({ empleado, rh, descripcion, educationItems = [], experienciaItems = [], habilidades = [] }) => {
+export const CVExportRenderer = ({ empleado, rh, descripcion, educationItems=[], experienciaItems=[], habilidades=[] }) => {
   const handlePrint = () => {
-    const cvWindow = window.open("", "_blank");
-    const nombre = `${empleado?.Nombre || ""} ${empleado?.ApelPaterno || ""}`.trim();
+    const cvWindow = window.open("","_blank");
+    const nombre = `${empleado?.Nombre||""} ${empleado?.ApelPaterno||""}`.trim();
     cvWindow.document.write(`<!DOCTYPE html><html><head><title>CV — ${nombre}</title>
       <style>body{font-family:Arial,sans-serif;padding:40px;color:#111;max-width:800px;margin:0 auto}h1{font-size:28px;margin-bottom:4px}.puesto{color:#0071e3;font-size:16px;margin-bottom:20px}.desc{color:#555;margin-bottom:24px}h2{font-size:16px;border-bottom:2px solid #0071e3;padding-bottom:4px;margin-top:28px;color:#0071e3}.item{margin:12px 0}.item-year{font-size:12px;color:#888}.item-title{font-weight:bold}.item-desc{font-size:13px;color:#444}.skill-row{display:flex;align-items:center;gap:12px;margin:6px 0}.skill-name{width:160px;font-size:13px}.skill-bar{flex:1;height:8px;background:#eee;border-radius:4px}.skill-fill{height:100%;background:#0071e3;border-radius:4px}</style></head><body>
-      <h1>${nombre}</h1><div class="puesto">${rh?.Puesto || "Sin puesto"}</div><div class="desc">${descripcion || ""}</div>
-      ${educationItems.length ? `<h2>Educación</h2>${educationItems.map(i => `<div class="item"><div class="item-year">${i.year}</div><div class="item-title">${i.title}</div><div class="item-desc">${i.description}</div></div>`).join("")}` : ""}
-      ${experienciaItems.length ? `<h2>Experiencia</h2>${experienciaItems.map(i => `<div class="item"><div class="item-year">${i.year}</div><div class="item-title">${i.title}</div><div class="item-desc">${i.description}</div></div>`).join("")}` : ""}
-      ${habilidades.length ? `<h2>Habilidades</h2>${habilidades.map(h => `<div class="skill-row"><span class="skill-name">${h.skillName}</span><div class="skill-bar"><div class="skill-fill" style="width:${h.porcentaje}%"></div></div><span>${h.porcentaje}%</span></div>`).join("")}` : ""}
+      <h1>${nombre}</h1><div class="puesto">${rh?.Puesto||"Sin puesto"}</div><div class="desc">${descripcion||""}</div>
+      ${educationItems.length?`<h2>Educación</h2>${educationItems.map(i=>`<div class="item"><div class="item-year">${i.year}</div><div class="item-title">${i.title}</div><div class="item-desc">${i.description}</div></div>`).join("")}`:""}
+      ${experienciaItems.length?`<h2>Experiencia</h2>${experienciaItems.map(i=>`<div class="item"><div class="item-year">${i.year}</div><div class="item-title">${i.title}</div><div class="item-desc">${i.description}</div></div>`).join("")}`:""}
+      ${habilidades.length?`<h2>Habilidades</h2>${habilidades.map(h=>`<div class="skill-row"><span class="skill-name">${h.skillName}</span><div class="skill-bar"><div class="skill-fill" style="width:${h.porcentaje}%"></div></div><span>${h.porcentaje}%</span></div>`).join("")}`:""}
       </body></html>`);
     cvWindow.document.close();
     cvWindow.print();

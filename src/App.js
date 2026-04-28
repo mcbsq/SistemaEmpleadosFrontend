@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import "./styles.css";
 import { Route, Link, Routes, useNavigate, Navigate, useLocation } from "react-router-dom";
@@ -20,11 +19,56 @@ import DashboardMedico   from "./Components/dashboards/DashboardMedico";
 import DashboardJefeArea from "./Components/dashboards/DashboardJefeArea";
 
 import { authService }             from "./services/authService";
+import { encodeId }                from "./services/empleadoService";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { OrgProvider }             from "./context/OrgContext";
 import { useSidebarGlow }          from "./hooks/useRevealOnScroll";
 
 const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN"];
+
+// ─── Convierte nombre a slug URL-friendly ─────────────────────────────────────
+// "Juan Pérez López" → "juan-perez-lopez"
+// Se guarda el ID real en sessionStorage mapeado al slug para recuperarlo
+const toSlug = (str = "") =>
+  str.normalize("NFD")
+     .replace(/[\u0300-\u036f]/g, "")  // quitar acentos
+     .toLowerCase()
+     .trim()
+     .replace(/[^a-z0-9\s-]/g, "")
+     .replace(/\s+/g, "-");
+
+// ─── Mapa slug → ID (persiste en sessionStorage para la sesión) ───────────────
+const SLUG_MAP_KEY = "hr_slug_map";
+
+const getSlugMap = () => {
+  try { return JSON.parse(sessionStorage.getItem(SLUG_MAP_KEY) || "{}"); }
+  catch { return {}; }
+};
+
+export const registerSlug = (slug, id) => {
+  const map = getSlugMap();
+  map[slug] = id;
+  sessionStorage.setItem(SLUG_MAP_KEY, JSON.stringify(map));
+};
+
+export const resolveSlug = (slugOrEncoded) => {
+  // Si es ObjectId directo (24 hex) → usarlo tal cual
+  if (/^[a-f0-9]{24}$/i.test(slugOrEncoded)) return slugOrEncoded;
+
+  // Intentar como slug en el mapa
+  const map = getSlugMap();
+  if (map[slugOrEncoded]) return map[slugOrEncoded];
+
+  // Fallback: intentar decodificar como base64 (compatibilidad con links viejos)
+  try {
+    let b64 = slugOrEncoded.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const decoded = atob(b64);
+    if (/^[a-f0-9]{24}$/i.test(decoded)) return decoded;
+  } catch { /* no era base64 */ }
+
+  return slugOrEncoded; // devolver tal cual y dejar que el backend lo rechace
+};
 
 const PrivateRoute = ({ children }) =>
   authService.isAuthenticated() ? children : <Navigate to="/Login" replace />;
@@ -56,18 +100,27 @@ function AppInner() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
-  const navigate  = useNavigate();
-  const location  = useLocation();
-  const glowRef   = useRef(null);
-  const navRef    = useSidebarGlow();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const glowRef  = useRef(null);
+  const navRef   = useSidebarGlow();
 
   const isLoginPage   = location.pathname === "/Login" || location.pathname === "/";
   const isMonitorPage = location.pathname === "/monitor";
-  const isProfilePage = location.pathname.startsWith("/Perfil/");
-  const myEmpleadoId  = authService.getEmpleadoId();
   const isAdmin       = ROLES_ADMIN.includes(userRole);
   const isSuperAdmin  = userRole === "SUPER_ADMIN";
   const hasSpecialDashboard = ["CONTADOR","PROJECT_MANAGER","MEDICO","JEFE_AREA"].includes(userRole);
+
+  // ─── Slug del perfil propio ───────────────────────────────────────────────
+  // Construye /Perfil/juan-perez y registra el mapeo slug→id
+  const myEmpleadoId = authService.getEmpleadoId();
+  const myUserName   = sessionStorage.getItem("user_name") || "";
+  const mySlug = (() => {
+    if (!myEmpleadoId) return null;
+    const slug = toSlug(myUserName) || encodeId(myEmpleadoId);
+    registerSlug(slug, myEmpleadoId);
+    return slug;
+  })();
 
   // Parallax ambient glow
   useEffect(() => {
@@ -97,7 +150,7 @@ function AppInner() {
     } else {
       setIsAuthenticated(true); setUserRole(role);
     }
-  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [location.pathname]); // eslint-disable-line
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
@@ -109,39 +162,56 @@ function AppInner() {
 
   const scrollTo = useCallback((id) => {
     setSidebarOpen(false);
+    const isProfilePage = location.pathname.startsWith("/Perfil/");
     if (isProfilePage || location.pathname !== "/Dashboard") {
       navigate("/Dashboard");
       setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }), 200);
     } else {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [isProfilePage, navigate, location.pathname]);
+  }, [navigate, location.pathname]);
 
   const navGroups = [
     {
       section: "Principal",
       entries: [
-        ...(isAdmin || hasSpecialDashboard ? [{ label: "Dashboard", icon: "◈", action: () => scrollTo("admin-dashboard-section") }] : []),
+        ...(isAdmin || hasSpecialDashboard
+          ? [{ label: "Dashboard", icon: "◈", action: () => scrollTo("admin-dashboard-section") }]
+          : []),
         { label: "Mi equipo",   icon: "◉", action: () => scrollTo("home-section") },
         { label: "Organigrama", icon: "⬡", action: () => scrollTo("organigrama-section") },
       ],
     },
-    ...(isAdmin ? [{ section: "Gestión", entries: [{ label: "Empleados / RH", icon: "▤", isLink: true, to: "/empleados" }] }] : []),
-    ...(isSuperAdmin ? [{
-      section: "Sistema",
+    ...(isAdmin
+      ? [{ section: "Gestión", entries: [{ label: "Empleados / RH", icon: "▤", isLink: true, to: "/empleados" }] }]
+      : []),
+    ...(isSuperAdmin
+      ? [{
+          section: "Sistema",
+          entries: [
+            { label: "Configuración",    icon: "◆", isLink: true, to: "/settings" },
+            { label: "Gestión de roles", icon: "⚙", isLink: true, to: "/roles" },
+          ],
+        }]
+      : []),
+    {
+      section: "Cuenta",
       entries: [
-        { label: "Configuración",      icon: "◆", isLink: true, to: "/settings" },
-        { label: "Gestión de roles",   icon: "⚙", isLink: true, to: "/roles" },
+        // URL limpia: /Perfil/juan-perez
+        ...(mySlug ? [{ label: "Mi perfil", icon: "◎", isLink: true, to: `/Perfil/${mySlug}` }] : []),
       ],
-    }] : []),
-    { section: "Cuenta", entries: [...(myEmpleadoId ? [{ label: "Mi perfil", icon: "◎", isLink: true, to: `/Perfil/${myEmpleadoId}` }] : [])] },
+    },
   ];
 
   if (isMonitorPage) return <Routes><Route path="/monitor" element={<IncidentMonitor />} /></Routes>;
 
   if (isLoginPage) return (
     <Routes>
-      <Route path="/Login" element={isAuthenticated ? <Navigate to="/Dashboard" replace /> : <Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />} />
+      <Route path="/Login" element={
+        isAuthenticated
+          ? <Navigate to="/Dashboard" replace />
+          : <Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />
+      } />
       <Route path="*" element={<Navigate to="/Login" replace />} />
     </Routes>
   );
@@ -152,18 +222,13 @@ function AppInner() {
       <div className="ambient-glow" ref={glowRef} />
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
-      {/* ── Sidebar ─────────────────────────────────────────────── */}
       {isAuthenticated && (
         <aside className={`app-sidebar ${sidebarOpen ? "app-sidebar--open" : ""}`}>
           <div className="sb-header">
-            <Link to="/Dashboard" className="sb-logo-link" onClick={() => setSidebarOpen(false)}>
-              Cibercom
-            </Link>
+            <Link to="/Dashboard" className="sb-logo-link" onClick={() => setSidebarOpen(false)}>Cibercom</Link>
             <span className="sb-logo-sub">Sistemas</span>
           </div>
-
           <GlobalSearch userRole={userRole} />
-
           <nav className="sb-nav" ref={navRef}>
             {navGroups.map(group => group.entries.length > 0 && (
               <div key={group.section} className="sb-group">
@@ -182,28 +247,20 @@ function AppInner() {
               </div>
             ))}
           </nav>
-
           <div className="sb-footer">
             <button className="sb-theme-btn" onClick={toggleTheme}>
               <span className="sb-theme-icon">{theme === "dark" ? "☀" : "☾"}</span>
               <span className="sb-theme-label">{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
             </button>
-            <div className="sb-user-row">
-              <span className="sb-user-role">{userRole}</span>
-            </div>
+            <div className="sb-user-row"><span className="sb-user-role">{userRole}</span></div>
             <button className="sb-logout" onClick={handleLogout}>Cerrar sesión</button>
           </div>
         </aside>
       )}
 
-      {/* ── Topbar móvil — solo hamburger + logo, sin tema ───────── */}
       {isAuthenticated && (
         <header className="app-topbar">
-          <button
-            className="topbar-hamburger"
-            onClick={() => setSidebarOpen(p => !p)}
-            aria-label="Abrir menú"
-          >
+          <button className="topbar-hamburger" onClick={() => setSidebarOpen(p => !p)} aria-label="Abrir menú">
             <span className={`hamburger-line ${sidebarOpen ? "open" : ""}`} />
           </button>
           <Link to="/Dashboard" className="topbar-logo">Cibercom</Link>
@@ -213,14 +270,18 @@ function AppInner() {
 
       <main className="app-main">
         <Routes location={location} key={location.pathname}>
-          <Route path="/Login" element={isAuthenticated ? <Navigate to="/Dashboard" replace /> : <Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />} />
-          <Route path="/Dashboard" element={<PrivateRoute><DashboardPage userRole={userRole} /></PrivateRoute>} />
+          <Route path="/Login" element={
+            isAuthenticated
+              ? <Navigate to="/Dashboard" replace />
+              : <Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />
+          } />
+          <Route path="/Dashboard"  element={<PrivateRoute><DashboardPage userRole={userRole} /></PrivateRoute>} />
           <Route path="/Perfil/:id" element={<PrivateRoute><Perfil /></PrivateRoute>} />
-          <Route path="/empleados" element={<RoleRoute roles={ROLES_ADMIN}><div className="page-padded fade-in-page"><Empleados /></div></RoleRoute>} />
-          <Route path="/settings"  element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><OrgSettings /></div></RoleRoute>} />
-          <Route path="/roles"     element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><RoleManager /></div></RoleRoute>} />
-          <Route path="/monitor"   element={<RoleRoute roles={["SUPER_ADMIN"]}><IncidentMonitor /></RoleRoute>} />
-          <Route path="*" element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
+          <Route path="/empleados"  element={<RoleRoute roles={ROLES_ADMIN}><div className="page-padded fade-in-page"><Empleados /></div></RoleRoute>} />
+          <Route path="/settings"   element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><OrgSettings /></div></RoleRoute>} />
+          <Route path="/roles"      element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><RoleManager /></div></RoleRoute>} />
+          <Route path="/monitor"    element={<RoleRoute roles={["SUPER_ADMIN"]}><IncidentMonitor /></RoleRoute>} />
+          <Route path="*"           element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
         </Routes>
         <footer className="app-footer"><p>Copyright © 2026 | Cibercom Sistemas</p></footer>
       </main>

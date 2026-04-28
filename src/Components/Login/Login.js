@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import LoginForm from "./LoginForm";
 import { authService } from "../../services/authService";
 import "./Login.css";
 
@@ -10,19 +9,14 @@ function Login({ setIsAuthenticated, setUserRole }) {
   const [showPassword, setShowPassword] = useState(false);
   const [message,      setMessage]      = useState("");
   const [loading,      setLoading]      = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
 
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
-
-    if (!user || !password) {
-      setMessage("Ingresa usuario y contraseña.");
-      return;
-    }
-
+    if (!user || !password) { setMessage("Ingresa usuario y contraseña."); return; }
     setLoading(true);
     try {
       const data = await authService.login({ user, password });
@@ -38,7 +32,6 @@ function Login({ setIsAuthenticated, setUserRole }) {
 
   return (
     <div className="login-page">
-      {/* Fondo con partículas */}
       <div className="login-bg-particles" aria-hidden="true" />
       <div className="login-bg-glow login-bg-glow--a" aria-hidden="true" />
       <div className="login-bg-glow login-bg-glow--b" aria-hidden="true" />
@@ -59,7 +52,7 @@ function Login({ setIsAuthenticated, setUserRole }) {
           </div>
         </header>
 
-        {/* Card de acceso */}
+        {/* Card principal */}
         <div className="login-card">
           <h2 className="login-card-heading">Acceso al sistema</h2>
 
@@ -138,37 +131,40 @@ function Login({ setIsAuthenticated, setUserRole }) {
               </div>
             )}
 
-            <button
-              type="submit"
-              className="login-btn-primary"
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="login-spinner" aria-hidden="true" />
-              ) : null}
+            <button type="submit" className="login-btn-primary" disabled={loading}>
+              {loading && <span className="login-spinner" aria-hidden="true" />}
               {loading ? "Verificando..." : "Ingresar"}
             </button>
           </form>
 
-          <div className="login-divider"><span>o</span></div>
-
+          {/* Recuperar contraseña */}
           <button
             type="button"
-            className="login-btn-secondary"
-            onClick={() => setShowRegister(true)}
+            className="login-btn-recovery"
+            onClick={() => setShowRecovery(v => !v)}
           >
-            Crear cuenta nueva
+            ¿Olvidaste tu contraseña?
           </button>
+
+          {showRecovery && (
+            <div className="login-recovery-info">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{flexShrink:0, marginTop:2}}>
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>
+                La recuperación de contraseña está gestionada por el sistema de identidad corporativo.
+                Contacta a tu administrador de TI o accede al portal de autoservicio de tu organización.
+              </span>
+            </div>
+          )}
         </div>
 
         <p className="login-footer-note">
           © {new Date().getFullYear()} Cibernética en el Siglo XXI
         </p>
       </div>
-
-      {showRegister && (
-        <LoginForm onClose={() => setShowRegister(false)} />
-      )}
     </div>
   );
 }
