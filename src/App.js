@@ -26,15 +26,18 @@ import { useSidebarGlow }          from "./hooks/useRevealOnScroll";
 
 const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN"];
 
-// ─── Funciones Helper de Slugs ────────────────────────────────────────────────
+// ─── Convierte nombre a slug URL-friendly ─────────────────────────────────────
+// "Juan Pérez López" → "juan-perez-lopez"
+// Se guarda el ID real en sessionStorage mapeado al slug para recuperarlo
 const toSlug = (str = "") =>
   str.normalize("NFD")
-     .replace(/[\u0300-\u036f]/g, "")
+     .replace(/[\u0300-\u036f]/g, "")  // quitar acentos
      .toLowerCase()
      .trim()
      .replace(/[^a-z0-9\s-]/g, "")
      .replace(/\s+/g, "-");
 
+// ─── Mapa slug → ID (persiste en sessionStorage para la sesión) ───────────────
 const SLUG_MAP_KEY = "hr_slug_map";
 
 const getSlugMap = () => {
@@ -49,19 +52,24 @@ export const registerSlug = (slug, id) => {
 };
 
 export const resolveSlug = (slugOrEncoded) => {
+  // Si es ObjectId directo (24 hex) → usarlo tal cual
   if (/^[a-f0-9]{24}$/i.test(slugOrEncoded)) return slugOrEncoded;
+
+  // Intentar como slug en el mapa
   const map = getSlugMap();
   if (map[slugOrEncoded]) return map[slugOrEncoded];
+
+  // Fallback: intentar decodificar como base64 (compatibilidad con links viejos)
   try {
     let b64 = slugOrEncoded.replace(/-/g, "+").replace(/_/g, "/");
     while (b64.length % 4) b64 += "=";
     const decoded = atob(b64);
     if (/^[a-f0-9]{24}$/i.test(decoded)) return decoded;
-  } catch {}
-  return slugOrEncoded;
+  } catch { /* no era base64 */ }
+
+  return slugOrEncoded; // devolver tal cual y dejar que el backend lo rechace
 };
 
-// ─── Componentes de Ruta Protegida ────────────────────────────────────────────
 const PrivateRoute = ({ children }) =>
   authService.isAuthenticated() ? children : <Navigate to="/Login" replace />;
 
@@ -71,7 +79,6 @@ const RoleRoute = ({ children, roles }) => {
   return children;
 };
 
-// ─── Dashboard Dinámico ───────────────────────────────────────────────────────
 const DashboardPage = ({ userRole }) => {
   const isAdmin = ROLES_ADMIN.includes(userRole);
   return (
@@ -87,11 +94,14 @@ const DashboardPage = ({ userRole }) => {
   );
 };
 
-// ─── App Principal ────────────────────────────────────────────────────────────
 function AppInner() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => authService.isAuthenticated());
   const [userRole,    setUserRole]    = useState(() => authService.getRole());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Fix producción: forzar re-read de sessionStorage después del primer render
+  // En Vercel el lazy initializer de useState puede ejecutarse antes de que
+  // sessionStorage esté completamente disponible con los datos del login
+  const [roleReady, setRoleReady] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -99,13 +109,14 @@ function AppInner() {
   const glowRef  = useRef(null);
   const navRef   = useSidebarGlow();
 
-  // En producción, "/" debe tratarse como una redirección lógica
-  const isLoginPage   = location.pathname === "/Login";
+  const isLoginPage   = location.pathname === "/Login" || location.pathname === "/";
   const isMonitorPage = location.pathname === "/monitor";
   const isAdmin       = ROLES_ADMIN.includes(userRole);
   const isSuperAdmin  = userRole === "SUPER_ADMIN";
   const hasSpecialDashboard = ["CONTADOR","PROJECT_MANAGER","MEDICO","JEFE_AREA"].includes(userRole);
 
+  // ─── Slug del perfil propio ───────────────────────────────────────────────
+  // Construye /Perfil/juan-perez y registra el mapeo slug→id
   const myEmpleadoId = authService.getEmpleadoId();
   const myUserName   = sessionStorage.getItem("user_name") || "";
   const mySlug = (() => {
@@ -115,6 +126,7 @@ function AppInner() {
     return slug;
   })();
 
+  // Parallax ambient glow
   useEffect(() => {
     const el = glowRef.current;
     if (!el) return;
@@ -132,29 +144,30 @@ function AppInner() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Re-leer rol del sessionStorage al montar — fix para producción (Vercel)
+  useEffect(() => {
+    const role = authService.getRole();
+    if (role) setUserRole(role);
+    setRoleReady(true);
+  }, []);
+
   useEffect(() => {
     if (isMonitorPage) return;
     const token = authService.getToken();
     const role  = authService.getRole();
     if (!token) {
-      setIsAuthenticated(false); 
-      setUserRole(null);
-      // Solo navegar a login si no estamos ya en una ruta pública
-      if (location.pathname !== "/Login" && location.pathname !== "/") {
-        navigate("/Login", { replace: true });
-      }
+      setIsAuthenticated(false); setUserRole(null);
+      if (!isLoginPage) navigate("/Login", { replace: true });
     } else {
-      setIsAuthenticated(true); 
-      setUserRole(role);
+      setIsAuthenticated(true); setUserRole(role);
     }
-  }, [location.pathname, navigate, isMonitorPage]);
+  }, [location.pathname]); // eslint-disable-line
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   const handleLogout = useCallback(() => {
     authService.logout();
-    setIsAuthenticated(false); 
-    setUserRole(null);
+    setIsAuthenticated(false); setUserRole(null);
     navigate("/Login", { replace: true });
   }, [navigate]);
 
@@ -195,94 +208,96 @@ function AppInner() {
     {
       section: "Cuenta",
       entries: [
+        // URL limpia: /Perfil/juan-perez
         ...(mySlug ? [{ label: "Mi perfil", icon: "◎", isLink: true, to: `/Perfil/${mySlug}` }] : []),
       ],
     },
   ];
 
-  // Caso Monitor (Totalmente aislado)
+  // No renderizar el dashboard hasta que el rol esté confirmado desde sessionStorage
+  if (!roleReady && !isLoginPage && !isMonitorPage) return null;
+
   if (isMonitorPage) return <Routes><Route path="/monitor" element={<IncidentMonitor />} /></Routes>;
+
+  if (isLoginPage) return (
+    <Routes>
+      <Route path="/Login" element={
+        isAuthenticated
+          ? <Navigate to="/Dashboard" replace />
+          : <Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />
+      } />
+      <Route path="*" element={<Navigate to="/Login" replace />} />
+    </Routes>
+  );
 
   return (
     <div className="app-shell">
       <div className="noise-overlay" />
       <div className="ambient-glow" ref={glowRef} />
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
-      {/* Renderizado condicional del layout pero manteniendo el árbol de React */}
-      {isAuthenticated && location.pathname !== "/Login" && (
-        <>
-          {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
-          <aside className={`app-sidebar ${sidebarOpen ? "app-sidebar--open" : ""}`}>
-            <div className="sb-header">
-              <Link to="/Dashboard" className="sb-logo-link" onClick={() => setSidebarOpen(false)}>Cibercom</Link>
-              <span className="sb-logo-sub">Sistemas</span>
-            </div>
-            <GlobalSearch userRole={userRole} />
-            <nav className="sb-nav" ref={navRef}>
-              {navGroups.map(group => group.entries.length > 0 && (
-                <div key={group.section} className="sb-group">
-                  <div className="sb-group-label">{group.section}</div>
-                  {group.entries.map(item =>
-                    item.isLink
-                      ? <Link key={item.label} to={item.to}
-                          className={`sb-item ${location.pathname === item.to ? "sb-item--active" : ""}`}
-                          onClick={() => setSidebarOpen(false)}>
-                          <span className="sb-item-icon">{item.icon}</span>{item.label}
-                        </Link>
-                      : <button key={item.label} className="sb-item" onClick={item.action}>
-                          <span className="sb-item-icon">{item.icon}</span>{item.label}
-                        </button>
-                  )}
-                </div>
-              ))}
-            </nav>
-            <div className="sb-footer">
-              <button className="sb-theme-btn" onClick={toggleTheme}>
-                <span className="sb-theme-icon">{theme === "dark" ? "☀" : "☾"}</span>
-                <span className="sb-theme-label">{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
-              </button>
-              <div className="sb-user-row"><span className="sb-user-role">{userRole}</span></div>
-              <button className="sb-logout" onClick={handleLogout}>Cerrar sesión</button>
-            </div>
-          </aside>
-
-          <header className="app-topbar">
-            <button className="topbar-hamburger" onClick={() => setSidebarOpen(p => !p)} aria-label="Abrir menú">
-              <span className={`hamburger-line ${sidebarOpen ? "open" : ""}`} />
+      {isAuthenticated && (
+        <aside className={`app-sidebar ${sidebarOpen ? "app-sidebar--open" : ""}`}>
+          <div className="sb-header">
+            <Link to="/Dashboard" className="sb-logo-link" onClick={() => setSidebarOpen(false)}>Cibercom</Link>
+            <span className="sb-logo-sub">Sistemas</span>
+          </div>
+          <GlobalSearch userRole={userRole} />
+          <nav className="sb-nav" ref={navRef}>
+            {navGroups.map(group => group.entries.length > 0 && (
+              <div key={group.section} className="sb-group">
+                <div className="sb-group-label">{group.section}</div>
+                {group.entries.map(item =>
+                  item.isLink
+                    ? <Link key={item.label} to={item.to}
+                        className={`sb-item ${location.pathname === item.to ? "sb-item--active" : ""}`}
+                        onClick={() => setSidebarOpen(false)}>
+                        <span className="sb-item-icon">{item.icon}</span>{item.label}
+                      </Link>
+                    : <button key={item.label} className="sb-item" onClick={item.action}>
+                        <span className="sb-item-icon">{item.icon}</span>{item.label}
+                      </button>
+                )}
+              </div>
+            ))}
+          </nav>
+          <div className="sb-footer">
+            <button className="sb-theme-btn" onClick={toggleTheme}>
+              <span className="sb-theme-icon">{theme === "dark" ? "☀" : "☾"}</span>
+              <span className="sb-theme-label">{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
             </button>
-            <Link to="/Dashboard" className="topbar-logo">Cibercom</Link>
-            <span className="topbar-spacer" />
-          </header>
-        </>
+            <div className="sb-user-row"><span className="sb-user-role">{userRole}</span></div>
+            <button className="sb-logout" onClick={handleLogout}>Cerrar sesión</button>
+          </div>
+        </aside>
       )}
 
-      {/* Main Container con rutas unificadas */}
-      <main className={isAuthenticated && location.pathname !== "/Login" ? "app-main" : "app-main-login"}>
+      {isAuthenticated && (
+        <header className="app-topbar">
+          <button className="topbar-hamburger" onClick={() => setSidebarOpen(p => !p)} aria-label="Abrir menú">
+            <span className={`hamburger-line ${sidebarOpen ? "open" : ""}`} />
+          </button>
+          <Link to="/Dashboard" className="topbar-logo">Cibercom</Link>
+          <span className="topbar-spacer" />
+        </header>
+      )}
+
+      <main className="app-main">
         <Routes location={location} key={location.pathname}>
-          {/* Ruta raíz redirigiendo según Auth */}
-          <Route path="/" element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
-          
-          {/* Login */}
           <Route path="/Login" element={
             isAuthenticated
               ? <Navigate to="/Dashboard" replace />
               : <Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />
           } />
-
-          {/* Secciones Protegidas */}
           <Route path="/Dashboard"  element={<PrivateRoute><DashboardPage userRole={userRole} /></PrivateRoute>} />
           <Route path="/Perfil/:id" element={<PrivateRoute><Perfil /></PrivateRoute>} />
           <Route path="/empleados"  element={<RoleRoute roles={ROLES_ADMIN}><div className="page-padded fade-in-page"><Empleados /></div></RoleRoute>} />
           <Route path="/settings"   element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><OrgSettings /></div></RoleRoute>} />
           <Route path="/roles"      element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><RoleManager /></div></RoleRoute>} />
-          
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
+          <Route path="/monitor"    element={<RoleRoute roles={["SUPER_ADMIN"]}><IncidentMonitor /></RoleRoute>} />
+          <Route path="*"           element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
         </Routes>
-        
-        {isAuthenticated && location.pathname !== "/Login" && (
-          <footer className="app-footer"><p>Copyright © 2026 | Cibercom Sistemas</p></footer>
-        )}
+        <footer className="app-footer"><p>Copyright © 2026 | Cibercom Sistemas</p></footer>
       </main>
     </div>
   );
