@@ -13,6 +13,16 @@ const SEV_LABEL = {
   ok:       "OK",
 };
 
+// Catálogo de categorías de error (ver utils/incidentLogger.js)
+const CAT_LABEL = {
+  red:           "Red",
+  autenticacion: "Autenticación",
+  api:           "API",
+  cliente:       "JS Cliente",
+  promesa:       "Promesa",
+  render:        "Render",
+};
+
 const METHOD_COLOR = {
   GET:    "#5B8AF0",
   POST:   "#4ECAAC",
@@ -76,6 +86,7 @@ function IncidentMonitor() {
   const [keyError,   setKeyError]   = useState(false);
   const [incidents,  setIncidents]  = useState([]);
   const [filter,     setFilter]     = useState("all"); // all | critical | warning | info
+  const [catFilter,  setCatFilter]  = useState("all"); // all | red | autenticacion | api | cliente | promesa | render
   const [search,     setSearch]     = useState("");
   const [selected,   setSelected]   = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -89,10 +100,48 @@ function IncidentMonitor() {
     }
   }, []);
 
-  // Cargar y refrescar incidentes
-  const refresh = useCallback(() => {
-    const data = getIncidents();
-    setIncidents(data);
+  // Cargar y refrescar incidentes: locales (esta pestaña) + persistidos en el
+  // backend (errores de cualquier usuario/sesión), si hay sesión admin activa.
+  const refresh = useCallback(async () => {
+    const locales = getIncidents();
+
+    let remotos = [];
+    try {
+      const token = sessionStorage.getItem("access_token");
+      const base  = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
+      if (token && base) {
+        const r = await fetch(`${base}/monitor/incidents`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r.ok) {
+          const docs = await r.json();
+          remotos = (Array.isArray(docs) ? docs : []).map(d => ({
+            id:        `srv-${d._id}`,
+            timestamp: d.timestamp,
+            url:       d.endpoint || "—",
+            method:    d.method || "—",
+            status:    d.status || 0,
+            message:   d.message || "",
+            stack:     "",
+            role:      d.role || "—",
+            userAgent: "",
+            categoria: d.categoria || "api",
+            severidad: d.severity || "warning",
+            origen:    "servidor",
+          }));
+        }
+      }
+    } catch { /* sin backend disponible: solo locales */ }
+
+    const localesMarcados = locales.map(l => ({ ...l, origen: l.origen || "local" }));
+    // Merge simple: locales primero (más frescos), luego remotos que no dupliquen mensaje+timestamp
+    const clave = i => `${i.timestamp}|${i.message?.slice(0,60)}`;
+    const vistos = new Set(localesMarcados.map(clave));
+    const combinados = [...localesMarcados, ...remotos.filter(r => !vistos.has(clave(r)))]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 300);
+
+    setIncidents(combinados);
     setLastUpdate(new Date().toLocaleTimeString("es-MX"));
   }, []);
 
@@ -117,6 +166,7 @@ function IncidentMonitor() {
   // ─── Filtrado ────────────────────────────────────────────────────────────
   const filtered = incidents.filter(inc => {
     if (filter !== "all" && inc.severidad !== filter) return false;
+    if (catFilter !== "all" && (inc.categoria || "api") !== catFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -245,6 +295,32 @@ function IncidentMonitor() {
         />
       </div>
 
+      {/* ── Filtro por categoría (catálogo de errores) ───────────────────── */}
+      <div className="im-filters" style={{ marginTop: -8 }}>
+        <div className="im-filter-tabs" role="group" aria-label="Filtrar por categoría">
+          <button
+            className={`im-filter-tab ${catFilter === "all" ? "im-filter-tab--active" : ""}`}
+            onClick={() => setCatFilter("all")}
+          >
+            Todas las categorías
+          </button>
+          {Object.entries(CAT_LABEL).map(([key, label]) => {
+            const n = incidents.filter(i => (i.categoria || "api") === key).length;
+            if (n === 0 && catFilter !== key) return null;
+            return (
+              <button
+                key={key}
+                className={`im-filter-tab ${catFilter === key ? "im-filter-tab--active" : ""}`}
+                onClick={() => setCatFilter(key)}
+              >
+                {label}
+                <span className="im-filter-count">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* ── Tabla de incidentes ───────────────────────────────────────────── */}
       <div className="im-card im-table-wrap">
         {filtered.length === 0 ? (
@@ -258,6 +334,7 @@ function IncidentMonitor() {
             <thead>
               <tr>
                 <th>Severidad</th>
+                <th>Categoría</th>
                 <th>Timestamp</th>
                 <th>Método</th>
                 <th>Ruta</th>
@@ -276,6 +353,11 @@ function IncidentMonitor() {
                   <td>
                     <span className={`im-sev-badge im-sev-badge--${inc.severidad}`}>
                       {SEV_LABEL[inc.severidad]}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="im-role-badge" title={inc.origen === "servidor" ? "Persistido en el servidor" : "Sesión local"}>
+                      {CAT_LABEL[inc.categoria] || "API"}{inc.origen === "servidor" ? " ⬡" : ""}
                     </span>
                   </td>
                   <td className="im-cell-mono">{formatTime(inc.timestamp)}</td>
@@ -316,15 +398,17 @@ function IncidentMonitor() {
             <button className="im-detail-close" onClick={() => setSelected(null)}>✕</button>
           </div>
           <div className="im-detail-grid">
-            <div className="im-detail-row"><span className="im-detail-key">ID</span><code className="im-detail-val">{inc => inc.id}</code></div>
             {[
+              ["ID",           String(selected.id)],
+              ["Categoría",    CAT_LABEL[selected.categoria] || "API"],
+              ["Origen",       selected.origen === "servidor" ? "Servidor (persistido)" : "Sesión local"],
               ["Timestamp",    formatTime(selected.timestamp)],
               ["Método",       selected.method],
               ["URL completa", selected.url],
               ["Status HTTP",  selected.status || "Sin respuesta (error de red)"],
               ["Mensaje",      selected.message],
               ["Rol usuario",  selected.role],
-              ["User agent",   selected.userAgent],
+              ["User agent",   selected.userAgent || "—"],
               ["Severidad",    SEV_LABEL[selected.severidad]],
             ].map(([k, v]) => (
               <div key={k} className="im-detail-row">

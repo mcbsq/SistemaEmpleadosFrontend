@@ -73,8 +73,8 @@ const REDES_META = {
 const TIPOS_SANGRE = ["A+","A-","B+","B-","AB+","AB-","O+","O-"];
 
 const EMP_INIT  = { _id:"", Nombre:"", ApelPaterno:"", ApelMaterno:"", FecNacimiento:"" };
-const USER_INIT = { user:"", password:"" };
-const DIR_INIT  = { Calle:"", NumExterior:"", NumInterior:"", Municipio:"", Ciudad:"", CodigoP:"" };
+const USER_INIT = { user:"", password:"", email:"" };
+const DIR_INIT  = { Calle:"", NumExterior:"", NumInterior:"", Manzana:"", Lote:"", Municipio:"", Ciudad:"", CodigoP:"", Pais:"México" };
 const DC_INIT   = { TelFijo:"", TelCelular:"", IdWhatsApp:"", IdTelegram:"", ListaCorreos:"" };
 
 const getId = (item) => item?._id?.$oid || item?._id || "";
@@ -102,6 +102,52 @@ const AvatarCircle = ({ nombre = "", foto = null, size = 38, onClick }) => {
         {inicial}
       </div>
     </div>
+  );
+};
+
+// ─── IdentityCell — identidad persistente en todas las pestañas ──────────────
+// Patrón estándar de directorios de personal (BambooHR, Personio, Factorial):
+// en la pestaña principal, avatar + nombre + puesto; en las demás, modo
+// compacto: solo el avatar, con hover-card (también al enfocar con teclado)
+// que muestra nombre y puesto sin ocupar ancho de columna.
+const IdentityCell = ({ item, compact = false }) => {
+  const id   = getId(item);
+  const full = `${item.Nombre||""} ${item.ApelPaterno||""} ${item.ApelMaterno||""}`.trim();
+  const foto = item.Fotografias?.[0] || null;
+  const sub  = item._puesto || item.Cargo || "";
+
+  if (compact) {
+    return (
+      <td className="emp-td emp-td--identity emp-td--identity-compact">
+        <Link
+          to={buildProfileUrl(id, item.Nombre||"", item.ApelPaterno||"")}
+          className="emp-identity emp-identity--compact"
+          aria-label={`Abrir perfil de ${full}`}
+        >
+          <AvatarCircle nombre={full} foto={foto} size={36} />
+          <span className="emp-hovercard" role="tooltip">
+            <span className="emp-identity-name">{full || "Sin nombre"}</span>
+            {sub && <span className="emp-identity-sub">{sub}</span>}
+          </span>
+        </Link>
+      </td>
+    );
+  }
+
+  return (
+    <td className="emp-td emp-td--identity">
+      <Link
+        to={buildProfileUrl(id, item.Nombre||"", item.ApelPaterno||"")}
+        className="emp-identity"
+        aria-label={`Abrir perfil de ${full}`}
+      >
+        <AvatarCircle nombre={full} foto={foto} size={36} />
+        <span className="emp-identity-text">
+          <span className="emp-identity-name">{full || "Sin nombre"}</span>
+          {sub && <span className="emp-identity-sub">{sub}</span>}
+        </span>
+      </Link>
+    </td>
   );
 };
 
@@ -164,16 +210,25 @@ function DireccionCell({ empleadoId }) {
       .finally(() => setLoading(false));
   }, [empleadoId]);
 
-  if (loading) return <><td className="emp-td" colSpan={4}><span className="emp-dim">…</span></td></>;
-  if (!dir)    return <><td className="emp-td" colSpan={4}><span className="emp-dim">Sin dirección registrada</span></td></>;
+  if (loading) return <><td className="emp-td" colSpan={5}><span className="emp-dim">Cargando dirección…</span></td></>;
+  if (!dir)    return <><td className="emp-td" colSpan={5}><span className="emp-dim">Sin dirección registrada</span></td></>;
 
-  const calle = [dir.Calle, dir.NumExterior, dir.NumInterior?`Int.${dir.NumInterior}`:""].filter(Boolean).join(" ");
+  // Domicilio completo: calle, números, y manzana/lote cuando existen.
+  const calle = [
+    dir.Calle,
+    dir.NumExterior,
+    dir.NumInterior ? `Int. ${dir.NumInterior}` : "",
+    dir.Manzana     ? `Mz. ${dir.Manzana}`      : "",
+    dir.Lote        ? `Lt. ${dir.Lote}`         : "",
+  ].filter(Boolean).join(" ");
+
   return (
     <>
       <td className="emp-td">{calle || "—"}</td>
       <td className="emp-td">{dir.Municipio || "—"}</td>
       <td className="emp-td">{dir.Ciudad    || "—"}</td>
-      <td className="emp-td">{dir.CodigoP   || "—"}</td>
+      <td className="emp-td emp-td--num">{dir.CodigoP || "—"}</td>
+      <td className="emp-td">{dir.Pais || "—"}</td>
     </>
   );
 }
@@ -189,6 +244,17 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
   const puesto= rhItem?.Puesto || empleado._puesto || "";
   const depto = rhItem?.Departamento || empleado._departamento || "";
 
+  // Qué secciones tienen datos — se refleja como punto de estado en cada tab
+  // para que el admin vea de un vistazo qué falta por completar.
+  const seccionCompleta = {
+    rh:          !!rhItem,
+    clinico:     !!clinItem,
+    familia:     !!pcItem,
+    experiencia: !!(edItem?.Experiencia?.length),
+    educacion:   !!(edItem?.Educacion?.length),
+    skills:      !!(edItem?.Habilidades?.Programacion?.length),
+  };
+
   // Helpers de lectura
   const Field = ({ label, value }) => (
     <div className="exp-field">
@@ -197,8 +263,18 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
     </div>
   );
 
+  const EmptySection = ({ texto }) => (
+    <div className="exp-empty">
+      <p className="emp-dim">{texto}</p>
+      <Link to={buildProfileUrl(id, empleado.Nombre||"", empleado.ApelPaterno||"")} className="exp-empty-link">
+        Completar en el perfil →
+      </Link>
+    </div>
+  );
+
   return (
-    <Modal isOpen toggle={onClose} size="xl" centered className="exp-modal">
+    <Modal isOpen toggle={onClose} size="xl" centered className="exp-modal"
+      aria-label={`Expediente de ${full}`}>
 
       {/* ── Header ── */}
       <div className="exp-header">
@@ -206,22 +282,30 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
         <div className="exp-identity">
           <h3 className="exp-name">{full}</h3>
           <div className="exp-meta">
-            {puesto && <span className="emp-chip emp-chip--blue">{puesto}</span>}
-            {depto  && <span className="emp-chip emp-chip--cyan">{depto}</span>}
+            {puesto && <span className="emp-chip">{puesto}</span>}
+            {depto  && <span className="emp-chip">{depto}</span>}
             <ContratoChip firmado={empleado._contrato_firmado} tipo={empleado._tipo_contrato} />
-            <span className="emp-dim" style={{fontSize:"0.76rem"}}>ID ···{id.slice(-6)}</span>
           </div>
         </div>
-        <button className="exp-close-btn" onClick={onClose}><FaTimes /></button>
+        <button className="exp-close-btn" onClick={onClose} aria-label="Cerrar expediente">
+          <FaTimes aria-hidden="true" />
+        </button>
       </div>
 
-      {/* ── Sub-tabs ── */}
-      <div className="exp-tabs">
+      {/* ── Sub-tabs con indicador de completitud ── */}
+      <div className="exp-tabs" role="tablist" aria-label="Secciones del expediente">
         {EXP_SUBTABS.map(s => (
           <button key={s.id}
+            role="tab"
+            aria-selected={tab===s.id}
             className={`exp-tab${tab===s.id?" exp-tab--active":""}`}
             onClick={() => setTab(s.id)}>
+            <span className={`exp-tab-dot${seccionCompleta[s.id]?" exp-tab-dot--ok":""}`}
+              aria-hidden="true" />
             {s.label}
+            <span className="sr-only">
+              {seccionCompleta[s.id] ? " (con información)" : " (sin información)"}
+            </span>
           </button>
         ))}
       </div>
@@ -230,47 +314,55 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
       <ModalBody className="exp-body">
 
         {tab === "rh" && (
-          <div className="exp-section">
-            <div className="exp-grid-3">
-              <Field label="Puesto"          value={rhItem?.Puesto} />
-              <Field label="Jefe inmediato"  value={rhItem?.JefeInmediato} />
-              <Field label="Departamento"    value={rhItem?.Departamento} />
-              <Field label="Tipo de contrato" value={rhItem?.tipo_contrato} />
-              <Field label="Hora entrada"    value={rhItem?.HorarioLaboral?.HoraEntrada} />
-              <Field label="Hora salida"     value={rhItem?.HorarioLaboral?.HoraSalida} />
-              <Field label="Tiempo comida"   value={rhItem?.HorarioLaboral?.TiempoComida} />
-              <Field label="Días trabajados" value={rhItem?.HorarioLaboral?.DiasTrabajados} />
-            </div>
+          <div className="exp-section" role="tabpanel" aria-label="Información de RH">
+            {!rhItem ? <EmptySection texto="Este empleado aún no tiene información de RH registrada." /> : <>
+              <p className="exp-section-title">Posición</p>
+              <div className="exp-grid-3">
+                <Field label="Puesto"           value={rhItem?.Puesto} />
+                <Field label="Jefe inmediato"   value={rhItem?.JefeInmediato} />
+                <Field label="Departamento"     value={rhItem?.Departamento} />
+                <Field label="Tipo de contrato" value={rhItem?.tipo_contrato} />
+              </div>
+              <p className="exp-section-title">Jornada laboral</p>
+              <div className="exp-grid-3">
+                <Field label="Hora de entrada"  value={rhItem?.HorarioLaboral?.HoraEntrada} />
+                <Field label="Hora de salida"   value={rhItem?.HorarioLaboral?.HoraSalida} />
+                <Field label="Tiempo de comida" value={rhItem?.HorarioLaboral?.TiempoComida} />
+                <Field label="Días trabajados"  value={rhItem?.HorarioLaboral?.DiasTrabajados} />
+              </div>
+            </>}
           </div>
         )}
 
         {tab === "clinico" && (
-          <div className="exp-section">
-            <div className="exp-grid-3">
-              <Field label="Tipo de sangre"   value={clinItem?.tipoSangre} />
-              <Field label="NSS"              value={clinItem?.NumeroSeguroSocial} />
-              <Field label="Seguro de gastos" value={clinItem?.Segurodegastosmedicos} />
-              <Field label="Padecimientos"    value={clinItem?.Padecimientos} />
-            </div>
+          <div className="exp-section" role="tabpanel" aria-label="Expediente clínico">
+            {!clinItem ? <EmptySection texto="Sin expediente clínico registrado." /> :
+              <div className="exp-grid-3">
+                <Field label="Tipo de sangre"   value={clinItem?.tipoSangre} />
+                <Field label="NSS"              value={clinItem?.NumeroSeguroSocial} />
+                <Field label="Seguro de gastos" value={clinItem?.Segurodegastosmedicos} />
+                <Field label="Padecimientos"    value={clinItem?.Padecimientos} />
+              </div>}
           </div>
         )}
 
         {tab === "familia" && (
-          <div className="exp-section">
-            <div className="exp-grid-3">
-              <Field label="Nombre"      value={pcItem?.nombreContacto} />
-              <Field label="Parentesco"  value={pcItem?.parenstesco} />
-              <Field label="Teléfono"    value={pcItem?.telefonoContacto} />
-              <Field label="Correo"      value={pcItem?.correoContacto} />
-              <Field label="Dirección"   value={pcItem?.direccionContacto} />
-            </div>
+          <div className="exp-section" role="tabpanel" aria-label="Contacto de emergencia">
+            {!pcItem ? <EmptySection texto="Sin contacto de emergencia registrado." /> :
+              <div className="exp-grid-3">
+                <Field label="Nombre"      value={pcItem?.nombreContacto} />
+                <Field label="Parentesco"  value={pcItem?.parenstesco} />
+                <Field label="Teléfono"    value={pcItem?.telefonoContacto} />
+                <Field label="Correo"      value={pcItem?.correoContacto} />
+                <Field label="Dirección"   value={pcItem?.direccionContacto} />
+              </div>}
           </div>
         )}
 
         {tab === "experiencia" && (
-          <div className="exp-section">
+          <div className="exp-section" role="tabpanel" aria-label="Experiencia laboral">
             {!(edItem?.Experiencia?.length)
-              ? <p className="emp-dim">Sin experiencia registrada.</p>
+              ? <EmptySection texto="Sin experiencia registrada." />
               : (edItem.Experiencia||[]).map((exp,i) => (
                 <div key={i} className="exp-card">
                   <div className="exp-card-title">{exp.Titulo||exp.titulo||"—"}</div>
@@ -283,9 +375,9 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
         )}
 
         {tab === "educacion" && (
-          <div className="exp-section">
+          <div className="exp-section" role="tabpanel" aria-label="Educación">
             {!(edItem?.Educacion?.length)
-              ? <p className="emp-dim">Sin educación registrada.</p>
+              ? <EmptySection texto="Sin educación registrada." />
               : (edItem.Educacion||[]).map((ed,i) => (
                 <div key={i} className="exp-card">
                   <div className="exp-card-title">{ed.Titulo||ed.titulo||"—"}</div>
@@ -297,18 +389,23 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
         )}
 
         {tab === "skills" && (
-          <div className="exp-section">
+          <div className="exp-section" role="tabpanel" aria-label="Habilidades">
             {!(edItem?.Habilidades?.Programacion?.length)
-              ? <p className="emp-dim">Sin habilidades registradas.</p>
-              : (edItem.Habilidades.Programacion||[]).map((h,i) => (
-                <div key={i} className="exp-skill-row">
-                  <span className="exp-skill-name">{h.Titulo||h.titulo||"—"}</span>
-                  <div className="exp-skill-track">
-                    <div className="exp-skill-fill" style={{width:`${h.Porcentaje||h.porcentaje||0}%`}} />
+              ? <EmptySection texto="Sin habilidades registradas." />
+              : (edItem.Habilidades.Programacion||[]).map((h,i) => {
+                const pct = h.Porcentaje||h.porcentaje||0;
+                return (
+                  <div key={i} className="exp-skill-row">
+                    <span className="exp-skill-name">{h.Titulo||h.titulo||"—"}</span>
+                    <div className="exp-skill-track" role="meter" aria-valuenow={pct}
+                      aria-valuemin={0} aria-valuemax={100}
+                      aria-label={`${h.Titulo||h.titulo||"habilidad"}: ${pct}%`}>
+                      <div className="exp-skill-fill" style={{width:`${pct}%`}} />
+                    </div>
+                    <span className="exp-skill-pct">{pct}%</span>
                   </div>
-                  <span className="exp-skill-pct">{h.Porcentaje||h.porcentaje||0}%</span>
-                </div>
-              ))
+                );
+              })
             }
           </div>
         )}
@@ -385,7 +482,11 @@ function Empleados() {
   useEffect(()=>{ cargarTodo(); }, [cargarTodo]);
 
   // ─── Lookups ──────────────────────────────────────────────────────────────
-  const byEmpId = (arr, id) => arr.find(x => (x.empleado_id?.$oid||x.empleado_id||"") === id);
+  // datoscontacto guarda el vínculo como `EmpleadoId`; el resto usa `empleado_id`.
+  const byEmpId = (arr, id) => arr.find(x => {
+    const raw = x.empleado_id ?? x.EmpleadoId;
+    return (raw?.$oid || raw || "") === id;
+  });
 
   const getRH    = useCallback(id => byEmpId(rhData,       id), [rhData]);
   const getDC    = useCallback(id => byEmpId(datosContacto,id), [datosContacto]);
@@ -453,10 +554,23 @@ function Empleados() {
   };
 
   const paso2 = async () => {
-    if (!formUser.user||!formUser.password) return;
+    if (!formUser.user||!formUser.password||!formUser.email) return;
     setGuardando(true);
     try {
-      await usuarioService.create({...formUser, role:"USER", empleado_id:formEmp._id});
+      const res = await usuarioService.create({...formUser, role:"USER", empleado_id:formEmp._id});
+      if (res?.email_sent) {
+        window.alert(
+          `La contraseña temporal se envió por correo a ${formUser.email}.\n` +
+          "El empleado deberá cambiarla en su primer inicio de sesión."
+        );
+      } else if (res?.temp_password) {
+        // Sin SMTP configurado: la contraseña la genera el sistema de identidad
+        // y se muestra una sola vez para entregarla en mano.
+        window.alert(
+          `Contraseña temporal para ${formUser.user}:\n\n${res.temp_password}\n\n` +
+          "Entrégala al empleado. Deberá cambiarla en su primer inicio de sesión."
+        );
+      }
       setModal("direccion");
     } finally { setGuardando(false); }
   };
@@ -485,12 +599,14 @@ function Empleados() {
   // ─── Columna expediente (solo privilegiados) ──────────────────────────────
   const ExpCol = ({ item }) => {
     if (!isPrivileged) return null;
-    const id = getId(item);
+    const nombre = `${item.Nombre||""} ${item.ApelPaterno||""}`.trim();
     return (
-      <td className="emp-td emp-td--center" style={{width:52}}>
-        <button className="emp-folder-btn" title="Ver expediente"
+      <td className="emp-td emp-td--center" style={{width:64}}>
+        <button className="emp-folder-btn"
+          aria-label={`Ver expediente de ${nombre}`}
+          title={`Ver expediente de ${nombre}`}
           onClick={() => setExpEmpleado(item)}>
-          <CiFolderOn />
+          <CiFolderOn aria-hidden="true" />
         </button>
       </td>
     );
@@ -529,9 +645,11 @@ function Empleados() {
         </div>
 
         {/* Tabs */}
-        <div className="emp-tabs">
+        <div className="emp-tabs" role="tablist" aria-label="Vistas del directorio de empleados">
           {TABS.map(t => (
             <button key={t.id}
+              role="tab"
+              aria-selected={activeTab===t.id}
               className={`emp-tab${activeTab===t.id?" emp-tab--active":""}`}
               onClick={()=>cambiarTab(t.id)}>
               {t.label}
@@ -548,117 +666,101 @@ function Empleados() {
             </div>
           ) : (
             <table className="emp-table">
+              <caption className="sr-only">
+                Directorio de empleados — vista {TABS.find(t=>t.id===activeTab)?.label}.
+                La primera columna identifica al empleado con foto, nombre y puesto.
+              </caption>
               <thead>
                 <tr>
-                  {/* ── Col foto: siempre presente ── */}
-                  <th className="emp-th" style={{width:52}}></th>
+                  {/* ── Identidad: completa en General; solo avatar (con hover-card) en las demás ── */}
+                  <th className={`emp-th emp-th--identity${activeTab!==1?" emp-th--identity-compact":""}`} scope="col">
+                    {activeTab===1 ? "Empleado" : <span className="sr-only">Empleado</span>}
+                  </th>
 
                   {activeTab===1 && <>
-                    <th className="emp-th">Puesto</th>
-                    <th className="emp-th">Jefe inmediato</th>
-                    <th className="emp-th">Departamento</th>
-                    <th className="emp-th">Contrato</th>
-                    <th className="emp-th">Ingreso</th>
+                    <th className="emp-th" scope="col">Jefe inmediato</th>
+                    <th className="emp-th" scope="col">Departamento</th>
+                    <th className="emp-th" scope="col">Contrato</th>
+                    <th className="emp-th" scope="col">Ingreso</th>
                   </>}
 
                   {activeTab===2 && <>
-                    <th className="emp-th">Empleado</th>
-                    <th className="emp-th">Cargo</th>
-                    <th className="emp-th">F. Nacimiento</th>
-                    <th className="emp-th">Departamento</th>
-                    <th className="emp-th emp-th--center" style={{width:60}}>Perfil</th>
+                    <th className="emp-th" scope="col">Cargo</th>
+                    <th className="emp-th" scope="col">Fecha de nacimiento</th>
+                    <th className="emp-th" scope="col">Departamento</th>
                   </>}
 
                   {activeTab===3 && <>
-                    <th className="emp-th">Empleado</th>
-                    <th className="emp-th">Calle</th>
-                    <th className="emp-th">Municipio</th>
-                    <th className="emp-th">Ciudad</th>
-                    <th className="emp-th">CP</th>
+                    <th className="emp-th" scope="col">Domicilio</th>
+                    <th className="emp-th" scope="col">Municipio</th>
+                    <th className="emp-th" scope="col">Ciudad / Estado</th>
+                    <th className="emp-th" scope="col">C.P.</th>
+                    <th className="emp-th" scope="col">País</th>
                   </>}
 
                   {activeTab===4 && <>
-                    <th className="emp-th">Empleado</th>
-                    <th className="emp-th">Contacto</th>
-                    <th className="emp-th">Redes sociales</th>
+                    <th className="emp-th" scope="col">Medios de contacto</th>
+                    <th className="emp-th" scope="col">Redes sociales</th>
                   </>}
 
                   {/* ── Col expediente: solo privilegiados ── */}
-                  {isPrivileged && <th className="emp-th emp-th--center" style={{width:52}}></th>}
+                  {isPrivileged && (
+                    <th className="emp-th emp-th--center" scope="col" style={{width:64}}>
+                      <span className="sr-only">Expediente</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {pageData.map((item, idx) => {
                   const id   = getId(item);
-                  const full = `${item.Nombre||""} ${item.ApelPaterno||""} ${item.ApelMaterno||""}`.trim();
-                  const foto = item.Fotografias?.[0] || null;
                   const dc   = getDC(id);
                   const redes= getRedes(id);
 
                   return (
-                    <tr key={id||idx}>
+                    <tr key={id||idx} className="emp-row">
 
-                      {/* Col foto — siempre */}
-                      <td className="emp-td" style={{width:52, padding:"8px 10px"}}>
-                        <AvatarCircle nombre={full} foto={foto} size={36}
-                          onClick={()=>window.location.href=buildProfileUrl(id, item.Nombre||'', item.ApelPaterno||'')} />
-                      </td>
+                      {/* Identidad — completa en General, compacta (avatar + hover-card) en el resto */}
+                      <IdentityCell item={item} compact={activeTab!==1} />
 
                       {/* Tab 1 — General */}
                       {activeTab===1 && <>
-                        <td className="emp-td">
-                          {item._puesto
-                            ? <span className="emp-chip emp-chip--blue">{item._puesto}</span>
-                            : <span className="emp-chip">Sin asignar</span>}
-                        </td>
                         <td className="emp-td">
                           <span className={item._jefe?"":"emp-dim"}>{item._jefe||"—"}</span>
                         </td>
                         <td className="emp-td">
                           {item._departamento
-                            ? <span className="emp-chip emp-chip--cyan">{item._departamento}</span>
+                            ? <span className="emp-chip">{item._departamento}</span>
                             : <span className="emp-dim">—</span>}
                         </td>
                         <td className="emp-td">
                           <ContratoChip firmado={item._contrato_firmado} tipo={item._tipo_contrato}/>
                         </td>
-                        <td className="emp-td">
-                          <span className="emp-dim" style={{fontSize:"0.8rem"}}>
-                            {item.FecIngreso||item.FecNacimiento||"—"}
-                          </span>
+                        <td className="emp-td emp-td--num">
+                          <span className="emp-dim">{item.FecIngreso||item.FecNacimiento||"—"}</span>
                         </td>
                       </>}
 
                       {/* Tab 2 — Datos Básicos */}
                       {activeTab===2 && <>
-                        <td className="emp-td"><span className="emp-name">{full}</span></td>
                         <td className="emp-td">
-                          {item.Cargo
-                            ? <span className="emp-chip emp-chip--blue">{item.Cargo}</span>
-                            : <span className="emp-dim">—</span>}
+                          <span className={item.Cargo?"":"emp-dim"}>{item.Cargo||"—"}</span>
                         </td>
-                        <td className="emp-td">
-                          <span className="emp-dim" style={{fontSize:"0.82rem"}}>{item.FecNacimiento||"—"}</span>
+                        <td className="emp-td emp-td--num">
+                          <span className="emp-dim">{item.FecNacimiento||"—"}</span>
                         </td>
                         <td className="emp-td">
                           {item._departamento
-                            ? <span className="emp-chip emp-chip--cyan">{item._departamento}</span>
+                            ? <span className="emp-chip">{item._departamento}</span>
                             : <span className="emp-dim">—</span>}
-                        </td>
-                        <td className="emp-td emp-td--center">
-                          <Link to={buildProfileUrl(id, item.Nombre||'', item.ApelPaterno||'')} className="emp-btn emp-btn--profile"><CiUser /></Link>
                         </td>
                       </>}
 
                       {/* Tab 3 — Direcciones */}
-                      {activeTab===3 && <>
-                        <td className="emp-td"><span className="emp-name">{full}</span></td>
-                        <DireccionCell empleadoId={id} />
-                      </>}
+                      {activeTab===3 && <DireccionCell empleadoId={id} />}
 
                       {/* Tab 4 — Contactos */}
                       {activeTab===4 && <>
-                        <td className="emp-td"><span className="emp-name">{full}</span></td>
                         <td className="emp-td"><ContactoIcons dc={dc}/></td>
                         <td className="emp-td">
                           <div className="emp-social-row">
@@ -748,6 +850,11 @@ function Empleados() {
             <input className="form-control" placeholder="nombre.usuario" value={formUser.user}
               onChange={e=>setFormUser(p=>({...p,user:e.target.value}))}/>
           </div>
+          <div className="mb-3">
+            <label className="form-label">Correo electrónico</label>
+            <input className="form-control" type="email" placeholder="nombre@empresa.com" value={formUser.email}
+              onChange={e=>setFormUser(p=>({...p,email:e.target.value}))}/>
+          </div>
           <div>
             <label className="form-label">Contraseña temporal</label>
             <input className="form-control" type="password" value={formUser.password}
@@ -755,7 +862,7 @@ function Empleados() {
           </div>
         </ModalBody>
         <div className="modal-footer border-0 pt-4">
-          <button className="btn btn-primary w-100" onClick={paso2} disabled={guardando||!formUser.user}>
+          <button className="btn btn-primary w-100" onClick={paso2} disabled={guardando||!formUser.user||!formUser.email}>
             {guardando?"Validando...":"Continuar → Paso 3"}
           </button>
         </div>
@@ -769,9 +876,12 @@ function Empleados() {
               {label:"Calle",col:"col-8",field:"Calle"},
               {label:"Núm. ext.",col:"col-2",field:"NumExterior"},
               {label:"Núm. int.",col:"col-2",field:"NumInterior"},
+              {label:"Manzana",col:"col-3",field:"Manzana"},
+              {label:"Lote",col:"col-3",field:"Lote"},
               {label:"Municipio",col:"col-6",field:"Municipio"},
-              {label:"Ciudad",col:"col-6",field:"Ciudad"},
-              {label:"Código postal",col:"col-4",field:"CodigoP"},
+              {label:"Ciudad / Estado",col:"col-6",field:"Ciudad"},
+              {label:"Código postal",col:"col-3",field:"CodigoP"},
+              {label:"País",col:"col-3",field:"Pais"},
             ].map(({label,col,field})=>(
               <div key={field} className={col}>
                 <label className="form-label">{label}</label>

@@ -1,40 +1,32 @@
-import { API_URL, defaultHeaders } from "./apiConfig";
+// services/contactoService.js
+// Migrado a apiFetch: agrega el Bearer token automáticamente en todas las
+// llamadas (antes iban sin sesión y el backend las rechazaba en silencio).
+import { apiFetch } from "./apiConfig";
 
 export const contactoService = {
   createDatos: (datos) =>
-    fetch(`${API_URL}/datoscontacto`, {
-      method: "POST",
-      headers: defaultHeaders,
-      body: JSON.stringify(datos),
-    }).then(res => {
-      if (!res.ok) throw new Error("Error al crear datos de contacto");
-      return res.json();
-    }),
+    apiFetch("/datoscontacto", { method: "POST", body: JSON.stringify(datos) }),
 
-  getDatos: () =>
-    fetch(`${API_URL}/datoscontacto`).then(res => res.json()),
+  getDatos: () => apiFetch("/datoscontacto"),
 
-  getDatosByEmpleado: (id) =>
-    fetch(`${API_URL}/datoscontacto/empleado/${id}`).then(res => res.json()),
+  getDatosByEmpleado: (id) => apiFetch(`/datoscontacto/empleado/${id}`),
 
-  getPersonas: () =>
-    fetch(`${API_URL}/personascontacto`).then(res => res.json()),
+  getPersonas: () => apiFetch("/personascontacto"),
 
-  getPersonasByEmpleado: (id) =>
-    fetch(`${API_URL}/personascontacto/empleado/${id}`).then(res => res.json()),
+  getPersonasByEmpleado: (id) => apiFetch(`/personascontacto/empleado/${id}`),
 
-  getRedes: () =>
-    fetch(`${API_URL}/redsocial`).then(res => res.json()),
+  createPersona: (datos) =>
+    apiFetch("/personascontacto", { method: "POST", body: JSON.stringify(datos) }),
 
-  getRedesByEmpleado: (id) =>
-    fetch(`${API_URL}/redsocial/empleado/${id}`).then(res => res.json()),
+  getRedes: () => apiFetch("/redsocial"),
 
-  // FIX: mapea los campos del estado local (telefonoF, IDwhatsapp...)
-  //      a los campos que espera Flask (TelFijo, IdWhatsApp...)
+  getRedesByEmpleado: (id) => apiFetch(`/redsocial/empleado/${id}`),
+
+  // Mapea los campos del estado local (telefonoF, IDwhatsapp...)
+  // a los campos que espera Flask (TelFijo, IdWhatsApp...)
   updateDatos: (id, datos) =>
-    fetch(`${API_URL}/datoscontacto/empleado/${id}`, {
+    apiFetch(`/datoscontacto/empleado/${id}`, {
       method: "PUT",
-      headers: defaultHeaders,
       body: JSON.stringify({
         TelFijo:      datos.telefonoF   || "",
         TelCelular:   datos.telefonoC   || "",
@@ -43,9 +35,9 @@ export const contactoService = {
         ListaCorreos: datos.correo      || "",
         empleado_id:  id,
       }),
-    }).then(res => res.json()),
+    }),
 
-  deleteDatos:    (id) => fetch(`${API_URL}/datoscontacto/${id}`,    { method: "DELETE", headers: defaultHeaders }),
-  deletePersonas: (id) => fetch(`${API_URL}/personascontacto/${id}`, { method: "DELETE", headers: defaultHeaders }),
-  deleteRedes:    (id) => fetch(`${API_URL}/redsocial/${id}`,        { method: "DELETE", headers: defaultHeaders }),
+  deleteDatos:    (id) => apiFetch(`/datoscontacto/${id}`,    { method: "DELETE" }),
+  deletePersonas: (id) => apiFetch(`/personascontacto/${id}`, { method: "DELETE" }),
+  deleteRedes:    (id) => apiFetch(`/redsocial/${id}`,        { method: "DELETE" }),
 };

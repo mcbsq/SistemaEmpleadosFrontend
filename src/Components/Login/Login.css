@@ -644,3 +644,12 @@
   line-height: 1.5;
   animation: loginFadeUp 0.2s ease both;
 }
+/* ════════════════════════════════════════════════════════════════════════
+   FIX UX — iconos al lado derecho del input (no encima del texto).
+   El campo de contraseña conserva solo el botón de ver/ocultar; el icono
+   decorativo se oculta ahí para no chocar con el ojo.
+   ════════════════════════════════════════════════════════════════════════ */
+.login-input-icon { left: auto; right: 14px; }
+.login-input      { padding: 13px 44px 13px 14px; }
+.login-input--password { padding-right: 44px; padding-left: 14px; }
+.login-input-wrap:has(.login-eye-btn) .login-input-icon { display: none; }

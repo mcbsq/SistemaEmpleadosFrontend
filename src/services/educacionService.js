@@ -1,31 +1,26 @@
-import { API_URL, defaultHeaders } from "./apiConfig";
+// services/educacionService.js
+// Migrado a apiFetch: agrega el Bearer token automáticamente.
+import { apiFetch } from "./apiConfig";
 
 export const educacionService = {
-  getAll: () =>
-    fetch(`${API_URL}/educacion`, { headers: defaultHeaders })
-      .then(res => res.json()),
+  getAll: () => apiFetch("/educacion"),
 
-  getByEmpleado: (id) =>
-    fetch(`${API_URL}/educacion/empleado/${id}`, { headers: defaultHeaders })
-      .then(res => res.json()),
+  getByEmpleado: (id) => apiFetch(`/educacion/empleado/${id}`),
 
   // upsert: PUT con fallback a POST si no existe
   update: async (id, datos) => {
-    const res = await fetch(`${API_URL}/educacion/${id}`, {
-      method: "PUT",
-      headers: defaultHeaders,
-      body: JSON.stringify({ ...datos, empleado_id: id }),
-    });
-    if (res.status === 404) {
-      return fetch(`${API_URL}/educacion`, {
-        method: "POST",
-        headers: defaultHeaders,
+    try {
+      return await apiFetch(`/educacion/${id}`, {
+        method: "PUT",
         body: JSON.stringify({ ...datos, empleado_id: id }),
-      }).then(r => r.json());
+      });
+    } catch {
+      return apiFetch("/educacion", {
+        method: "POST",
+        body: JSON.stringify({ ...datos, empleado_id: id }),
+      });
     }
-    return res.json();
   },
 
-  delete: (id) =>
-    fetch(`${API_URL}/educacion/${id}`, { method: "DELETE", headers: defaultHeaders }),
+  delete: (id) => apiFetch(`/educacion/${id}`, { method: "DELETE" }),
 };

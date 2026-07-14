@@ -1,33 +1,24 @@
-import { API_URL, defaultHeaders } from "./apiConfig";
+// services/rhService.js
+// Migrado a apiFetch: agrega el Bearer token automáticamente (las rutas /rh
+// están protegidas — el fetch crudo sin token hacía que todo RH llegara vacío).
+import { apiFetch } from "./apiConfig";
 
 export const rhService = {
-  getAll: () =>
-    fetch(`${API_URL}/rh`, { headers: defaultHeaders })
-      .then(res => res.ok ? res.json() : []),
+  getAll: () => apiFetch("/rh"),
 
-  // FIX: era /rh/empleado/${id} → ruta Flask real es /rh/<empleado_id>
-  getByEmpleado: (id) =>
-    fetch(`${API_URL}/rh/${id}`, { headers: defaultHeaders })
-      .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); }),
+  // Ruta Flask real es /rh/<empleado_id>
+  getByEmpleado: (id) => apiFetch(`/rh/${id}`),
 
-  getJerarquia: () =>
-    fetch(`${API_URL}/jerarquia`, { headers: defaultHeaders })
-      .then(res => res.json()),
+  getJerarquia: () => apiFetch("/jerarquia"),
 
   saveJerarquia: (datos) =>
-    fetch(`${API_URL}/jerarquia`, {
-      method: "POST",
-      headers: defaultHeaders,
-      body: JSON.stringify(datos),
-    }).then(res => res.json()),
+    apiFetch("/jerarquia", { method: "POST", body: JSON.stringify(datos) }),
 
   update: (id, datos) =>
-    fetch(`${API_URL}/rh/${id}`, {
+    apiFetch(`/rh/${id}`, {
       method: "PUT",
-      headers: defaultHeaders,
       body: JSON.stringify({ ...datos, empleado_id: id }),
-    }).then(res => res.json()),
+    }),
 
-  delete: (id) =>
-    fetch(`${API_URL}/rh/${id}`, { method: "DELETE", headers: defaultHeaders }),
+  delete: (id) => apiFetch(`/rh/${id}`, { method: "DELETE" }),
 };

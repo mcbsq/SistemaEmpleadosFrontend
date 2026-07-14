@@ -299,13 +299,15 @@ function RoleManager() {
     setPaso(1);
   };
 
-  const usuariosFiltrados = usuarios.filter(u => {
-    if (!asignBusq) return true;
-    const q   = asignBusq.toLowerCase();
-    const emp = empleados.find(e => getId(e) === (u.empleado_id?.$oid || u.empleado_id));
-    const nombre = emp ? `${emp.Nombre} ${emp.ApelPaterno}`.toLowerCase() : "";
-    return u.user?.toLowerCase().includes(q) || nombre.includes(q);
-  });
+  const usuariosFiltrados = usuarios
+    .filter(u => {
+      if (!asignBusq) return true;
+      const q   = asignBusq.toLowerCase();
+      const emp = empleados.find(e => getId(e) === (u.empleado_id?.$oid || u.empleado_id));
+      const nombre = emp ? `${emp.Nombre} ${emp.ApelPaterno}`.toLowerCase() : "";
+      return u.user?.toLowerCase().includes(q) || nombre.includes(q) || (u.email || "").toLowerCase().includes(q);
+    })
+    .sort((a, b) => (a.user || "").localeCompare(b.user || "", "es"));
 
   if (loading) return (
     <div className="rm-root">
@@ -616,6 +618,15 @@ function RoleManager() {
                         <span className="rm-asignar-nombre">{nombre}</span>
                         <span className="rm-asignar-user">@{u.user}</span>
                         <span className="rm-asignar-rol-actual">{u.role}</span>
+                        {u.aegis !== undefined && (
+                          u.aegis === null
+                            ? <span style={{ fontSize: "0.7rem", color: "#e5484d" }}>Sin identidad Aegis</span>
+                            : !u.aegis.is_active
+                              ? <span style={{ fontSize: "0.7rem", color: "#e5484d" }}>Aegis: inactiva</span>
+                              : u.aegis.must_change_password
+                                ? <span style={{ fontSize: "0.7rem", color: "#f5a524" }}>Aegis: contraseña temporal</span>
+                                : <span style={{ fontSize: "0.7rem", color: "#30a46c" }}>Aegis: activa</span>
+                        )}
                       </div>
                       <button
                         className={`rm-btn-asignar ${yaTiene?"rm-btn-asignar--ya":""}`}
@@ -628,6 +639,11 @@ function RoleManager() {
                 })}
                 {usuariosFiltrados.length === 0 && (
                   <p className="rm-empty">Sin usuarios que coincidan.</p>
+                )}
+                {usuariosFiltrados.length > 10 && (
+                  <p className="rm-empty" role="status">
+                    Mostrando 10 de {usuariosFiltrados.length} — escribe para afinar la búsqueda.
+                  </p>
                 )}
               </div>
             </div>

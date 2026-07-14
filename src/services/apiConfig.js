@@ -69,6 +69,21 @@ export async function apiFetch(endpoint, options = {}) {
     // Si el status es 204 (No Content), regresamos éxito
     if (response.status === 204) return true;
 
+    // Sesión expirada o revocada: limpiar y volver al login en vez de dejar
+    // pantallas vacías. Se excluyen /login (credenciales incorrectas) y
+    // /change-password (contraseña actual incorrecta), donde el 401 es
+    // parte del flujo normal.
+    if (
+      response.status === 401 &&
+      token &&
+      !cleanEndpoint.startsWith("/login") &&
+      !cleanEndpoint.startsWith("/change-password")
+    ) {
+      sessionStorage.clear();
+      window.location.href = "/Login";
+      throw new Error("Sesión expirada. Inicia sesión de nuevo.");
+    }
+
     // Si la respuesta no es OK (200-299)
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

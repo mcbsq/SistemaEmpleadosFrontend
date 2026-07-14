@@ -1,4 +1,7 @@
-import { API_URL, defaultHeaders } from "./apiConfig";
+// services/clinicoService.js
+// Migrado a apiFetch: agrega el Bearer token automáticamente (dato sensible —
+// el backend exige sesión en todas las rutas de expediente clínico).
+import { apiFetch } from "./apiConfig";
 
 export const clinicoService = {
 
@@ -6,9 +9,7 @@ export const clinicoService = {
   // Devuelve [] para no romper el Promise.all de Empleados.js
   getAll: () => Promise.resolve([]),
 
-  getByEmpleado: (id) =>
-    fetch(`${API_URL}/expedienteclinico/empleado/${id}`, { headers: defaultHeaders })
-      .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); }),
+  getByEmpleado: (id) => apiFetch(`/expedienteclinico/empleado/${id}`),
 
   // upsert con normalización de PDF (use-file-picker devuelve array)
   update: async (id, datos) => {
@@ -26,24 +27,19 @@ export const clinicoService = {
       PDFSegurodegastosmedicos: pdfBase64                  || null,
     };
 
-    const res = await fetch(`${API_URL}/expedienteclinico/empleado/${id}`, {
-      method: "PUT",
-      headers: defaultHeaders,
-      body: JSON.stringify(payload),
-    });
-    if (res.status === 404) {
-      return fetch(`${API_URL}/expedienteclinico`, {
-        method: "POST",
-        headers: defaultHeaders,
+    try {
+      return await apiFetch(`/expedienteclinico/empleado/${id}`, {
+        method: "PUT",
         body: JSON.stringify(payload),
-      }).then(r => r.json());
+      });
+    } catch {
+      // No existía: crear (upsert)
+      return apiFetch("/expedienteclinico", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
     }
-    return res.json();
   },
 
-  delete: (id) =>
-    fetch(`${API_URL}/expedienteclinico/${id}`, {
-      method: "DELETE",
-      headers: defaultHeaders,
-    }),
+  delete: (id) => apiFetch(`/expedienteclinico/${id}`, { method: "DELETE" }),
 };

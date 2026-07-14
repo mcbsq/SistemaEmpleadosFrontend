@@ -593,3 +593,246 @@ select.form-control {
   .exp-footer { padding:12px 16px; flex-direction:column; gap:10px; align-items:stretch; }
   .confirm-delete-actions { flex-direction:column; }
 }
+/* ════════════════════════════════════════════════════════════════════════
+   REDISEÑO TABLA RH — identidad persistente, accesibilidad y liquid glass
+   Patrones de referencia: BambooHR / Personio / Factorial (columna de
+   identidad fija, chips monocromáticos, foco visible, glass sutil).
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Utilidad: texto solo para lectores de pantalla ── */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ── Columna de identidad (avatar + nombre + puesto) ── */
+.emp-th--identity { min-width: 220px; }
+.emp-td--identity { min-width: 220px; }
+.emp-identity {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: inherit;
+  border-radius: var(--hr-radius-sm);
+  padding: 2px 4px; margin: -2px -4px;
+  transition: background var(--hr-duration-xs) var(--hr-ease);
+}
+.emp-identity:hover { background: rgba(255,255,255,0.05); }
+[data-theme="light"] .emp-identity:hover { background: rgba(0,0,0,0.04); }
+.emp-identity-text { display: flex; flex-direction: column; min-width: 0; }
+.emp-identity-name {
+  font-weight: 570; color: var(--hr-text); font-size: var(--hr-font-md);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.emp-identity-sub {
+  color: var(--hr-muted); font-size: var(--hr-font-xs);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Primera columna fija al hacer scroll horizontal (móvil / tablas anchas) */
+.emp-table .emp-th--identity,
+.emp-table .emp-td--identity {
+  position: sticky; left: 0; z-index: 2;
+  background: var(--hr-bg);
+}
+.emp-table thead .emp-th--identity { z-index: 3; }
+
+/* ── Números alineados y tabulares (fechas, CP) ── */
+.emp-td--num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ── Hover y foco de fila ── */
+.emp-row { transition: background var(--hr-duration-xs) var(--hr-ease); }
+.emp-row:hover  { background: rgba(255,255,255,0.03); }
+.emp-row:focus-within { background: rgba(255,255,255,0.05); }
+[data-theme="light"] .emp-row:hover  { background: rgba(0,0,0,0.025); }
+[data-theme="light"] .emp-row:focus-within { background: rgba(0,0,0,0.045); }
+.emp-row:hover .emp-td--identity,
+.emp-row:focus-within .emp-td--identity { background: transparent; }
+
+/* ── Foco visible consistente (teclado) ── */
+.emp-identity:focus-visible,
+.emp-tab:focus-visible,
+.exp-tab:focus-visible,
+.emp-folder-btn:focus-visible,
+.emp-btn:focus-visible,
+.emp-pag-btn:focus-visible,
+.emp-toggle-btn:focus-visible,
+.btn-emp:focus-visible,
+.emp-search-input:focus-visible,
+.exp-close-btn:focus-visible,
+.exp-close-action:focus-visible,
+.emp-icon-btn:focus-visible,
+.emp-social-btn:focus-visible {
+  outline: 2px solid var(--hr-accent);
+  outline-offset: 2px;
+}
+
+/* ── Toolbar y tabs con liquid glass sutil ── */
+.emp-toolbar {
+  position: sticky; top: 0; z-index: 4;
+  padding: 10px 12px; margin: 0 -12px 20px;
+  background: var(--hr-glass-bg);
+  -webkit-backdrop-filter: blur(var(--hr-blur, 14px)) saturate(1.4);
+  backdrop-filter: blur(var(--hr-blur, 14px)) saturate(1.4);
+  border-bottom: 0.5px solid var(--hr-glass-border, var(--hr-border));
+  border-radius: 0 0 var(--hr-radius) var(--hr-radius);
+}
+.emp-tabs {
+  -webkit-backdrop-filter: blur(var(--hr-blur, 14px));
+  backdrop-filter: blur(var(--hr-blur, 14px));
+}
+
+/* ── Punto de completitud en subtabs del expediente ── */
+.exp-tab { display: inline-flex; align-items: center; gap: 7px; }
+.exp-tab-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: var(--hr-border);
+  transition: background var(--hr-duration-xs);
+}
+.exp-tab-dot--ok { background: var(--hr-success); box-shadow: 0 0 4px rgba(78,202,172,0.5); }
+
+/* ── Secciones y vacíos del expediente ── */
+.exp-section-title {
+  font-size: var(--hr-font-xs); font-weight: 650; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--hr-muted);
+  margin: 18px 0 10px;
+}
+.exp-section-title:first-child { margin-top: 0; }
+.exp-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 36px 16px; text-align: center;
+}
+.exp-empty-link {
+  color: var(--hr-accent); font-size: var(--hr-font-sm);
+  text-decoration: none; font-weight: 550;
+}
+.exp-empty-link:hover { text-decoration: underline; }
+.exp-empty-link:focus-visible { outline: 2px solid var(--hr-accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ── Respeto a usuarios con movimiento reducido ── */
+@media (prefers-reduced-motion: reduce) {
+  .emp-row, .emp-identity, .emp-tab, .exp-tab-dot,
+  .btn-emp, .emp-folder-btn, .emp-btn { transition: none; }
+  .btn-emp--primary:hover { transform: none; }
+  .emp-btn--profile:hover { transform: none; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ITERACIÓN UX 2 — identidad compacta con hover-card, modal expediente
+   amplio en desktop, iconos de input al lado derecho.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Identidad compacta (pestañas ≠ General): solo avatar ── */
+.emp-th--identity-compact,
+.emp-td--identity-compact { min-width: 64px; width: 64px; }
+.emp-identity--compact {
+  position: relative;
+  display: inline-flex;
+  padding: 2px; margin: -2px;
+}
+
+/* Hover-card: aparece al pasar el mouse o enfocar con teclado */
+.emp-hovercard {
+  position: absolute;
+  left: calc(100% + 10px); top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  display: flex; flex-direction: column; gap: 1px;
+  min-width: 180px; max-width: 260px;
+  padding: 10px 14px;
+  background: var(--hr-glass-bg, rgba(30,32,44,0.92));
+  -webkit-backdrop-filter: blur(var(--hr-blur, 14px)) saturate(1.4);
+  backdrop-filter: blur(var(--hr-blur, 14px)) saturate(1.4);
+  border: 0.5px solid var(--hr-glass-border, var(--hr-border));
+  border-radius: var(--hr-radius);
+  box-shadow: var(--hr-shadow-lg);
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--hr-duration-sm) var(--hr-ease),
+              transform var(--hr-duration-sm) var(--hr-ease),
+              visibility var(--hr-duration-sm);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 30;
+}
+.emp-identity--compact:hover .emp-hovercard,
+.emp-identity--compact:focus-visible .emp-hovercard,
+.emp-identity--compact:focus .emp-hovercard {
+  opacity: 1; visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+[data-theme="light"] .emp-hovercard { background: rgba(255,255,255,0.95); }
+@media (prefers-reduced-motion: reduce) { .emp-hovercard { transition: opacity 0.01s; } }
+
+/* ── Modal de expediente amplio y más legible en desktop ── */
+/* reactstrap pone exp-modal EN el .modal-dialog y hay una regla global
+   .modal-dialog{max-width:540px!important} — por eso selector compuesto + !important */
+@media (min-width: 992px) {
+  .modal-dialog.exp-modal { max-width: min(1280px, 92vw) !important; }
+  .exp-modal .exp-body   { padding: 28px 36px; }
+  .exp-modal .exp-header { padding: 24px 36px; }
+  .exp-modal .exp-field-label { font-size: 0.78rem; }
+  .exp-modal .exp-field-value { font-size: 1.02rem; line-height: 1.45; }
+  .exp-modal .exp-grid-3 { gap: 20px 28px; }
+  .exp-modal .exp-tabs { padding: 0 36px; }
+}
+
+/* ── Búsqueda: icono a la derecha (no encima del texto) ── */
+.emp-search-icon  { left: auto; right: 14px; }
+.emp-search-input { padding: 11px 44px 11px 14px; }
+.emp-search-clear { right: 42px; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   RESPONSIVE PRIORITARIO — iPhone (≤430px) e iPad (768–1024px)
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── iPad vertical y horizontal ── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .emp-th--identity, .emp-td--identity { min-width: 190px; }
+  .emp-td { padding: 12px 14px; }
+  .modal-dialog.exp-modal { max-width: 94vw !important; }
+  /* La tabla completa scrollea horizontal con identidad fija */
+  .emp-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ── iPhone y móviles pequeños ── */
+@media (max-width: 640px) {
+  /* Objetivos táctiles mínimos de 44px (guía de Apple HIG) */
+  .emp-folder-btn, .emp-btn, .emp-pag-btn, .btn-emp { min-width: 44px; min-height: 44px; }
+  .emp-tab { padding: 10px 16px; min-height: 40px; }
+  .emp-icon-btn { width: 38px; height: 38px; }
+
+  /* Identidad compacta ocupa menos y el hover-card se vuelve inferior
+     (a la derecha se saldría de pantalla) */
+  .emp-th--identity, .emp-td--identity { min-width: 160px; }
+  .emp-hovercard {
+    left: 50%; top: calc(100% + 8px);
+    transform: translateX(-50%) translateY(-4px);
+  }
+  .emp-identity--compact:hover .emp-hovercard,
+  .emp-identity--compact:focus .emp-hovercard,
+  .emp-identity--compact:focus-visible .emp-hovercard {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Toolbar apilable y con respiro para el notch */
+  .emp-toolbar {
+    flex-wrap: wrap;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  .emp-search-wrap { flex-basis: 100%; order: 3; }
+
+  /* Expediente prácticamente a pantalla completa */
+  .modal-dialog.exp-modal {
+    max-width: 100vw !important;
+    margin: 0 !important;
+    min-height: 100vh;
+    display: flex; align-items: stretch;
+  }
+  .modal-dialog.exp-modal .modal-content {
+    border-radius: 0 !important;
+    min-height: 100vh;
+  }
+  .exp-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Paginación cómoda con pulgar */
+  .emp-pagination { gap: 14px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+}

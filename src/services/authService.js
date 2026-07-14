@@ -67,6 +67,17 @@ export const authService = {
     }
   },
 
+  // ─── Cambio de contraseña (Aegis: obligatorio si la actual es temporal) ──
+  async changePassword(currentPassword, newPassword) {
+    return apiFetch("/change-password", {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password:     newPassword,
+      }),
+    });
+  },
+
   // ─── Logout ───────────────────────────────────────────────────────────────
   logout() {
     sessionStorage.removeItem("access_token");

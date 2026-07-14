@@ -289,3 +289,35 @@
 [data-theme="light"] .info-card-content p  { color: var(--hr-muted); }
 [data-theme="light"] .card { background: rgba(255,255,255,0.08); }
 [data-theme="light"] .card-name { color: #fff; }
+/* ── Pulido fino del carrusel (mismo diseño, mejor acabado) ────────────── */
+/* Atenuación más sutil de las tarjetas no enfocadas: mantiene legible el
+   contexto sin el "apagón" del blur fuerte. */
+.card:not(:hover) {
+  filter: brightness(0.72) blur(0.4px);
+}
+/* Brillo de borde superior tipo vidrio pulido */
+.card {
+  box-shadow: var(--hr-shadow-lg),
+              inset 0 1px 0 rgba(255,255,255,0.09);
+}
+.card:hover {
+  box-shadow: var(--hr-shadow-lg),
+              inset 0 1px 0 rgba(255,255,255,0.16),
+              0 0 40px rgba(255,255,255,0.04);
+}
+/* Imagen con transición suave al enfocar la tarjeta */
+.card img { transition: transform var(--hr-duration-lg) var(--hr-ease); }
+.card:hover img { transform: scale(1.02); }
+
+/* Accesibilidad: foco visible al navegar con teclado */
+.card .btn-direction:focus-visible {
+  outline: 2px solid var(--hr-accent, #5B8AF0);
+  outline-offset: 3px;
+}
+
+/* Usuarios con movimiento reducido: sin blur/zoom animados */
+@media (prefers-reduced-motion: reduce) {
+  .card, .card img, .card .btn-direction { transition: none; }
+  .card:not(:hover) { filter: brightness(0.8); }
+  .card:hover img { transform: none; }
+}

@@ -232,6 +232,16 @@ function Perfil() {
         Departamento:         rhData?.Departamento     ||"",
         contrato_firmado:     rhData?.contrato_firmado ||false,
         tipo_contrato:        rhData?.tipo_contrato    ||"",
+        // ── Información laboral estándar ──
+        FechaIngreso:         rhData?.FechaIngreso     ||"",
+        NumeroEmpleado:       rhData?.NumeroEmpleado   ||"",
+        CURP:                 rhData?.CURP             ||"",
+        RFC:                  rhData?.RFC              ||"",
+        EstadoCivil:          rhData?.EstadoCivil      ||"",
+        Nacionalidad:         rhData?.Nacionalidad     ||"",
+        Salario:              rhData?.Salario          ||"",
+        // Campos libres definidos por el admin
+        CamposPersonalizados: rhData?.CamposPersonalizados || {},
       });
 
       setExpediente({

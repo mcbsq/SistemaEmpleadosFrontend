@@ -11,7 +11,20 @@ function Login({ setIsAuthenticated, setUserRole }) {
   const [loading,      setLoading]      = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
 
+  // Contraseña temporal (Aegis): el backend manda must_change_password=true
+  // y obligamos a definir una nueva antes de entrar al sistema.
+  const [mustChange,   setMustChange]   = useState(false);
+  const [newPass,      setNewPass]      = useState("");
+  const [newPass2,     setNewPass2]     = useState("");
+  const [pendingRole,  setPendingRole]  = useState(null);
+
   const navigate = useNavigate();
+
+  const enterApp = (role) => {
+    setIsAuthenticated(true);
+    setUserRole(role);
+    navigate("/Dashboard", { replace: true });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,11 +33,30 @@ function Login({ setIsAuthenticated, setUserRole }) {
     setLoading(true);
     try {
       const data = await authService.login({ user, password });
-      setIsAuthenticated(true);
-      setUserRole(data.role);
-      navigate("/Dashboard", { replace: true });
+      if (data.must_change_password) {
+        setPendingRole(data.role);
+        setMustChange(true);
+        return;
+      }
+      enterApp(data.role);
     } catch (error) {
       setMessage(error.message || "No se pudo conectar con el servidor.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    if (newPass.length < 12) { setMessage("La nueva contraseña debe tener al menos 12 caracteres."); return; }
+    if (newPass !== newPass2) { setMessage("Las contraseñas no coinciden."); return; }
+    setLoading(true);
+    try {
+      await authService.changePassword(password, newPass);
+      enterApp(pendingRole);
+    } catch (error) {
+      setMessage(error.message || "No se pudo cambiar la contraseña.");
     } finally {
       setLoading(false);
     }
@@ -54,6 +86,60 @@ function Login({ setIsAuthenticated, setUserRole }) {
 
         {/* Card principal */}
         <div className="login-card">
+          {mustChange ? (
+            <>
+              <h2 className="login-card-heading">Define tu nueva contraseña</h2>
+              <p style={{ fontSize: "0.85rem", color: "var(--hr-muted, #86868b)", marginBottom: 16 }}>
+                Tu contraseña actual es temporal. Elige una nueva de al menos 12 caracteres para continuar.
+              </p>
+              <form onSubmit={handleChangePassword} noValidate>
+                <div className="login-field">
+                  <label className="login-label" htmlFor="login-newpass">Nueva contraseña</label>
+                  <div className="login-input-wrap">
+                    <input
+                      id="login-newpass"
+                      type="password"
+                      className="login-input"
+                      placeholder="Mínimo 12 caracteres"
+                      value={newPass}
+                      onChange={e => setNewPass(e.target.value)}
+                      autoComplete="new-password"
+                      autoFocus
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                <div className="login-field">
+                  <label className="login-label" htmlFor="login-newpass2">Confirmar contraseña</label>
+                  <div className="login-input-wrap">
+                    <input
+                      id="login-newpass2"
+                      type="password"
+                      className="login-input"
+                      placeholder="Repite la nueva contraseña"
+                      value={newPass2}
+                      onChange={e => setNewPass2(e.target.value)}
+                      autoComplete="new-password"
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+                {message && (
+                  <div className="login-error" role="alert">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    {message}
+                  </div>
+                )}
+                <button type="submit" className="login-btn-primary" disabled={loading}>
+                  {loading && <span className="login-spinner" aria-hidden="true" />}
+                  {loading ? "Guardando..." : "Guardar y entrar"}
+                </button>
+              </form>
+            </>
+          ) : (
+          <>
           <h2 className="login-card-heading">Acceso al sistema</h2>
 
           <form onSubmit={handleSubmit} noValidate>
@@ -158,6 +244,8 @@ function Login({ setIsAuthenticated, setUserRole }) {
                 Contacta a tu administrador de TI o accede al portal de autoservicio de tu organización.
               </span>
             </div>
+          )}
+          </>
           )}
         </div>
 

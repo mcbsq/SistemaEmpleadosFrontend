@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import "./AdminDashboard.css";
 import { empleadoService } from "../services/empleadoService";
+import { authService }     from "../services/authService";
 import { rhService }        from "../services/rhService";
 import { clinicoService }   from "../services/clinicoService";
 import { educacionService } from "../services/educacionService";
@@ -127,27 +128,37 @@ function AdminDashboard() {
   const [educacion, setEducacion] = useState([]);
   const [contactos, setContactos] = useState([]);
   const [loading,   setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reintento, setReintento] = useState(0);
 
   useEffect(() => {
+    setLoading(true);
+    setLoadError(false);
     Promise.all([
-      empleadoService.getAll(),
+      // Si /empleados falla (red, sesión), mostramos error con reintento en
+      // vez de un dashboard vacío en silencio.
+      empleadoService.getAll().catch(() => null),
       rhService.getAll().catch(() => []),
       clinicoService.getAll().catch(() => []),
       educacionService.getAll().catch(() => []),
       contactoService.getDatos().catch(() => []),
     ]).then(([emps, rh, clin, edu, cont]) => {
+      if (emps === null) { setLoadError(true); return; }
       setEmpleados(Array.isArray(emps) ? emps  : []);
       setRhData(   Array.isArray(rh)   ? rh    : []);
       setClinico(  Array.isArray(clin) ? clin  : []);
       setEducacion(Array.isArray(edu)  ? edu   : []);
       setContactos(Array.isArray(cont) ? cont  : []);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [reintento]);
 
   const stats = useMemo(() => {
     const total   = empleados.length;
     const clinIds = new Set(clinico.map(c  => c.empleado_id?.$oid  || c.empleado_id  || ""));
-    const contIds = new Set(contactos.map(c => c.empleado_id?.$oid || c.empleado_id || ""));
+    const contIds = new Set(contactos.map(c => {
+      const raw = c.empleado_id ?? c.EmpleadoId;
+      return raw?.$oid || raw || "";
+    }));
     const rhIds   = new Set(rhData.map(r   => r.empleado_id?.$oid  || r.empleado_id  || ""));
 
     // Distribución por puesto
@@ -226,6 +237,40 @@ function AdminDashboard() {
       <div className="ad-loading">
         <div className="ad-spinner" />
         <span>Cargando analíticos…</span>
+      </div>
+    );
+  }
+
+  // Un ADMIN sin áreas asignadas no ve empleados por diseño del backend:
+  // explicárselo es mejor que mostrar un dashboard lleno de ceros.
+  if (!loading && !loadError && empleados.length === 0 && authService.getRole() === "ADMIN") {
+    return (
+      <div className="ad-loading" role="status">
+        <span style={{ fontSize: "1rem", fontWeight: 600 }}>No tienes áreas asignadas</span>
+        <span style={{ maxWidth: 420, textAlign: "center", opacity: 0.75, marginTop: 8 }}>
+          Tu cuenta de administrador aún no administra ningún área, por lo que no hay
+          empleados que mostrar. Pide a un Super Admin que te asigne áreas desde
+          Gestión de usuarios.
+        </span>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="ad-loading" role="alert">
+        <span>No se pudieron cargar los datos del dashboard.</span>
+        <button
+          type="button"
+          onClick={() => setReintento(n => n + 1)}
+          style={{
+            marginTop: 12, padding: "8px 20px", borderRadius: 8,
+            border: "1px solid var(--hr-border, #d2d2d7)", background: "transparent",
+            color: "inherit", cursor: "pointer", fontSize: "0.85rem",
+          }}
+        >
+          Reintentar
+        </button>
       </div>
     );
   }

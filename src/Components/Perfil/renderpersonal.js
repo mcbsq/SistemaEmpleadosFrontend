@@ -226,6 +226,65 @@ export const SkillSectionRenderer = ({ isEditing, habilidades=[], setHabilidades
   );
 };
 
+// ── Campos personalizados del expediente RH ─────────────────────────────────
+// Pares nombre→valor libres: el admin documenta cualquier dato del empleado
+// (talla de uniforme, número de gafete, licencias, lo que necesite) sin pedir
+// cambios de código. Se guardan en rh.CamposPersonalizados.
+const CustomFieldsBlock = ({ campos, isEditing, onChange }) => {
+  const [nuevoNombre, setNuevoNombre] = React.useState("");
+  const entradas = Object.entries(campos || {});
+
+  const setValor = (k, v) => onChange({ ...campos, [k]: v });
+  const eliminar = (k) => {
+    const c = { ...campos };
+    delete c[k];
+    onChange(c);
+  };
+  const agregar = () => {
+    const k = nuevoNombre.trim();
+    if (!k || campos[k] !== undefined) return;
+    onChange({ ...campos, [k]: "" });
+    setNuevoNombre("");
+  };
+
+  if (!isEditing && entradas.length === 0) return null;
+
+  return (
+    <div className="rh-horario">
+      <p className="field-label" style={{marginBottom:8}}>Información adicional</p>
+
+      {entradas.length === 0 && !isEditing ? null : entradas.map(([k, v]) => (
+        <div className="field-row" key={k}>
+          <span className="field-label">{k}</span>
+          {isEditing ? (
+            <span style={{display:"flex", gap:8, alignItems:"center", flex:1}}>
+              <input className="field-input" value={v}
+                onChange={e => setValor(k, e.target.value)}
+                aria-label={`Valor de ${k}`} />
+              <button type="button" className="btn-ghost" style={{padding:"4px 10px"}}
+                onClick={() => eliminar(k)} aria-label={`Eliminar campo ${k}`}>✕</button>
+            </span>
+          ) : (
+            <span className="field-value">{v || <em className="field-empty">Sin valor</em>}</span>
+          )}
+        </div>
+      ))}
+
+      {isEditing && (
+        <div className="field-row" style={{alignItems:"center", gap:8}}>
+          <input className="field-input" value={nuevoNombre}
+            placeholder="Nombre del nuevo campo (ej. Núm. de gafete)"
+            onChange={e => setNuevoNombre(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && agregar()}
+            aria-label="Nombre del nuevo campo personalizado" />
+          <button type="button" className="btn-ghost" onClick={agregar}
+            disabled={!nuevoNombre.trim()}>+ Agregar campo</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const RHSectionRenderer = ({ isEditing, RH, handleRHChange, listaEmpleados=[], openRHPicker, empleadoEncontrado }) => {
   const h            = RH?.HorarioLaboral ?? {};
   const isSuperAdmin = authService.isSuperAdmin();
@@ -279,6 +338,29 @@ export const RHSectionRenderer = ({ isEditing, RH, handleRHChange, listaEmpleado
           <Field label="Días trabajados" value={h.DiasTrabajados} isEditing={isEditing} onChange={v=>handleRHChange("HorarioLaboral.DiasTrabajados",v)} />
         </div>
       </div>
+
+      {/* ── Información laboral estándar (paridad con HRIS del mercado) ── */}
+      <div className="rh-horario">
+        <p className="field-label" style={{marginBottom:8}}>Información laboral</p>
+        <div className="horario-grid">
+          <Field label="Fecha de ingreso"  value={RH?.FechaIngreso}   isEditing={isEditing && isSuperAdmin} onChange={v=>handleRHChange("FechaIngreso",v)}   type="date" />
+          <Field label="Núm. de empleado"  value={RH?.NumeroEmpleado} isEditing={isEditing && isSuperAdmin} onChange={v=>handleRHChange("NumeroEmpleado",v)} />
+          <Field label="CURP"              value={RH?.CURP}           isEditing={isEditing && isSuperAdmin} onChange={v=>handleRHChange("CURP",v)} placeholder="18 caracteres" />
+          <Field label="RFC"               value={RH?.RFC}            isEditing={isEditing && isSuperAdmin} onChange={v=>handleRHChange("RFC",v)} placeholder="Con homoclave" />
+          <Field label="Estado civil"      value={RH?.EstadoCivil}    isEditing={isEditing && isSuperAdmin} onChange={v=>handleRHChange("EstadoCivil",v)} />
+          <Field label="Nacionalidad"      value={RH?.Nacionalidad}   isEditing={isEditing && isSuperAdmin} onChange={v=>handleRHChange("Nacionalidad",v)} />
+          {isSuperAdmin && (
+            <Field label="Salario" value={RH?.Salario} isEditing={isEditing && isSuperAdmin} onChange={v=>handleRHChange("Salario",v)} placeholder="Mensual bruto" />
+          )}
+        </div>
+      </div>
+
+      {/* ── Campos personalizados: el admin agrega la información que guste ── */}
+      <CustomFieldsBlock
+        campos={RH?.CamposPersonalizados || {}}
+        isEditing={isEditing && isSuperAdmin}
+        onChange={campos => handleRHChange("CamposPersonalizados", campos)}
+      />
 
       {/* Botón subir PDF — solo en modo edición y superadmin */}
       {isEditing && isSuperAdmin && (

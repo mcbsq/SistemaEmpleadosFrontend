@@ -11,8 +11,16 @@ if (!API_URL) {
 }
 
 // ─── Headers comunes ──────────────────────────────────────────────────────────
+// El Bearer token va en cada request: las rutas del backend están protegidas
+// y sin él responden 401 (antes estas llamadas iban sin sesión y fallaban
+// en silencio, dejando el perfil vacío).
 const jsonHeaders = {
   'Content-Type': 'application/json',
+};
+
+const authHeaders = () => {
+  const token = sessionStorage.getItem('access_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
 // ─── Función base para fetch con manejo de errores ───────────────────────────
@@ -21,6 +29,7 @@ async function apiFetch(endpoint, options = {}) {
     ...options,
     headers: {
       ...jsonHeaders,
+      ...authHeaders(),
       ...options.headers,
     },
   });
@@ -39,7 +48,7 @@ async function apiFetch(endpoint, options = {}) {
 // Verifica si ya existe un recurso con GET; si existe → PUT, si no → POST.
 // Evita duplicar esta lógica en cada módulo.
 async function upsert({ checkEndpoint, createEndpoint, updateEndpoint, data }) {
-  const exists = await fetch(`${API_URL}${checkEndpoint}`)
+  const exists = await fetch(`${API_URL}${checkEndpoint}`, { headers: authHeaders() })
     .then((r) => r.ok)
     .catch(() => false);
 
@@ -119,6 +128,7 @@ export const cargarRHPorEmpleado = async (empleadoId) => {
   return {
     Puesto:           rhData.Puesto || '',
     JefeInmediato:    rhData.JefeInmediato || '',
+    JefeInmediato_id: rhData.JefeInmediato_id || '',
     HorarioLaboral: {
       HoraEntrada:    rhData.HorarioLaboral?.HoraEntrada    || '',
       HoraSalida:     rhData.HorarioLaboral?.HoraSalida     || '',
@@ -127,6 +137,19 @@ export const cargarRHPorEmpleado = async (empleadoId) => {
     },
     ExpedienteDigitalPDF: rhData.ExpedienteDigitalPDF || null,
     empleadoid:           rhData.empleado_id || empleadoId,
+    // ── Información laboral estándar ──
+    FechaIngreso:   rhData.FechaIngreso   || '',
+    NumeroEmpleado: rhData.NumeroEmpleado || '',
+    CURP:           rhData.CURP           || '',
+    RFC:            rhData.RFC            || '',
+    EstadoCivil:    rhData.EstadoCivil    || '',
+    Nacionalidad:   rhData.Nacionalidad   || '',
+    Salario:        rhData.Salario        || '',
+    contrato_firmado: rhData.contrato_firmado || false,
+    tipo_contrato:    rhData.tipo_contrato    || '',
+    Departamento:     rhData.Departamento     || '',
+    // Campos libres definidos por el admin
+    CamposPersonalizados: rhData.CamposPersonalizados || {},
   };
 };
 
