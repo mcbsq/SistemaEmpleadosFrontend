@@ -1,0 +1,55 @@
+.ot-overlay {
+  position: fixed; inset: 0; z-index: 9997;
+  animation: hr-fade-in 0.2s ease;
+}
+.ot-overlay--dark { background: rgba(6, 7, 12, 0.78); }
+
+.ot-spotlight {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(6, 7, 12, 0.78);
+  z-index: 9997;
+  pointer-events: none;
+  transition: top 0.3s ease, left 0.3s ease, width 0.3s ease, height 0.3s ease;
+  border: 2px solid rgba(91, 138, 240, 0.6);
+}
+
+.ot-tooltip {
+  position: fixed;
+  z-index: 9999;
+  width: 300px;
+  background: rgba(14, 15, 22, 0.98);
+  border: 0.5px solid var(--hr-glass-border);
+  border-radius: var(--hr-radius-lg);
+  padding: 20px 20px 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  animation: hr-scale-in 0.2s ease;
+}
+[data-theme="light"] .ot-tooltip { background: #fff; }
+
+.ot-close {
+  position: absolute; top: 12px; right: 12px;
+  background: none; border: none; cursor: pointer;
+  color: var(--hr-muted); width: 26px; height: 26px;
+  border-radius: 6px; display: flex; align-items: center; justify-content: center;
+}
+.ot-close:hover { background: rgba(255,255,255,0.06); color: var(--hr-text); }
+
+.ot-tooltip-titulo { font-size: var(--hr-font-md); font-weight: 700; color: var(--hr-text); margin-bottom: 6px; padding-right: 20px; }
+.ot-tooltip-texto { font-size: var(--hr-font-sm); color: var(--hr-muted); line-height: 1.5; margin-bottom: 16px; }
+
+.ot-tooltip-footer { display: flex; align-items: center; justify-content: space-between; }
+.ot-tooltip-progreso { font-size: var(--hr-font-xs); color: var(--hr-muted); }
+.ot-tooltip-nav { display: flex; gap: 6px; }
+
+.ot-btn-primary {
+  background: var(--hr-accent); color: #fff; border: none;
+  padding: 7px 14px; border-radius: var(--hr-radius-sm);
+  font-size: var(--hr-font-sm); font-weight: 600; cursor: pointer;
+}
+.ot-btn-ghost {
+  background: none; border: 0.5px solid var(--hr-border); color: var(--hr-muted);
+  width: 32px; border-radius: var(--hr-radius-sm); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.ot-btn-ghost:hover { color: var(--hr-text); }

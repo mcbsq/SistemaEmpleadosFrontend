@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
+import { useOrg } from "../../context/OrgContext";
 import "./Login.css";
 
 function Login({ setIsAuthenticated, setUserRole }) {
+  const { orgConfig } = useOrg();
+  const orgName = orgConfig?.name || "CibercomHR";
   const [user,         setUser]         = useState("");
   const [password,     setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -79,7 +82,7 @@ function Login({ setIsAuthenticated, setUserRole }) {
             </svg>
           </div>
           <div>
-            <h1 className="login-brand-title">CibercomHR</h1>
+            <h1 className="login-brand-title">{orgName}</h1>
             <p className="login-brand-sub">Cibernética en el Siglo XXI</p>
           </div>
         </header>

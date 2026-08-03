@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { FiX } from "react-icons/fi";
 
 let leafletLoaded = false;
 
@@ -187,7 +188,7 @@ function MapaPopupFullscreen({ direccion, lat, lng, isEditing, onCoordsChange, o
             </svg>
             {label || "Domicilio del empleado"}
           </div>
-          <button className="mapa-fs-close" onClick={onClose} title="Cerrar (Esc)">✕</button>
+          <button className="mapa-fs-close" onClick={onClose} title="Cerrar (Esc)"><FiX /></button>
         </div>
 
         {/* Mapa ocupa todo el espacio restante */}

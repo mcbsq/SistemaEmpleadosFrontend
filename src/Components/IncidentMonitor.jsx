@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { FiZap, FiX } from "react-icons/fi";
 import "./IncidentMonitor.css";
 import { getIncidents, clearIncidents } from "../utils/incidentLogger";
+import { useOrg } from "../context/OrgContext";
 
 // ─── Backdoor key: /monitor?key=cibercom2026 ─────────────────────────────────
 // Accesible sin login. Ruta: /monitor
@@ -81,6 +83,8 @@ const ErrorSparkline = ({ incidents }) => {
 
 // ════════════════════════════════════════════════════════════════════════════════
 function IncidentMonitor() {
+  const { orgConfig } = useOrg();
+  const orgName = orgConfig?.name || "Cibercom";
   const [authorized, setAuthorized] = useState(false);
   const [keyInput,   setKeyInput]   = useState("");
   const [keyError,   setKeyError]   = useState(false);
@@ -192,9 +196,9 @@ function IncidentMonitor() {
     return (
       <div className="im-lock-screen">
         <div className="im-lock-card">
-          <div className="im-lock-icon">⚡</div>
+          <div className="im-lock-icon"><FiZap /></div>
           <h2 className="im-lock-title">Monitor de incidencias</h2>
-          <p className="im-lock-sub">Cibercom Sistemas · Acceso restringido</p>
+          <p className="im-lock-sub">{orgName} Sistemas · Acceso restringido</p>
           <form onSubmit={handleKeySubmit} className="im-lock-form">
             <input
               type="password"
@@ -220,7 +224,7 @@ function IncidentMonitor() {
         <div>
           <h1 className="im-title">Monitor de incidencias</h1>
           <p className="im-subtitle">
-            Cibercom Sistemas · Última actualización: {lastUpdate || "—"}
+            {orgName} Sistemas · Última actualización: {lastUpdate || "—"}
           </p>
         </div>
         <div className="im-header-actions">
@@ -395,7 +399,7 @@ function IncidentMonitor() {
         <div className="im-detail-panel">
           <div className="im-detail-header">
             <span className="im-detail-title">Detalle del incidente</span>
-            <button className="im-detail-close" onClick={() => setSelected(null)}>✕</button>
+            <button className="im-detail-close" onClick={() => setSelected(null)}><FiX /></button>
           </div>
           <div className="im-detail-grid">
             {[
@@ -427,7 +431,7 @@ function IncidentMonitor() {
       )}
 
       <div className="im-footer">
-        Cibercom Sistemas · Monitor de incidencias · {filtered.length} de {incidents.length} registros visibles
+        {orgName} Sistemas · Monitor de incidencias · {filtered.length} de {incidents.length} registros visibles
       </div>
     </div>
   );

@@ -64,10 +64,8 @@
   transform-style: preserve-3d;
   backface-visibility: hidden;
   border-radius: 30px;
-  background: var(--glass-white);
+  background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
   border: 1px solid var(--hr-glass-border);
-  backdrop-filter: var(--hr-blur);
-  -webkit-backdrop-filter: var(--hr-blur);
   padding: 15px;
   display: flex;
   flex-direction: column;
@@ -76,7 +74,8 @@
   transition: all var(--hr-duration-lg) var(--hr-ease);
 }
 .card:not(:hover) {
-  filter: brightness(0.6) blur(1px);
+  filter: brightness(0.88);
+  opacity: 0.85;
 }
 
 .card img {
@@ -87,6 +86,22 @@
   background: #111;
   border: 1px solid rgba(255,255,255,0.05);
   pointer-events: none;
+}
+
+/* Avatar por default cuando el empleado no tiene foto — iniciales sobre un
+   círculo de color, en vez de un asset que puede faltar y romperse. */
+.card-avatar-fallback {
+  width: 100%;
+  height: 180px;
+  border-radius: 20px;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+  opacity: 0.92;
 }
 
 .card-info {
@@ -177,19 +192,13 @@
   border-radius: 50%;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
+  color: var(--hr-text);
+  font-size: 1.3rem;
+  padding: 0;
   transition: all var(--hr-duration) var(--hr-ease);
 }
-.button:hover { background: var(--hr-text); transform: scale(1.1); }
-.button::before {
-  content: "";
-  width: 10px; height: 10px;
-  border-top: 2px solid var(--hr-text);
-  border-right: 2px solid var(--hr-text);
-  transition: border-color var(--hr-duration-sm);
-}
-.button:hover::before { border-color: var(--hr-bg); }
-.button.prev::before { transform: rotate(-135deg) translate(2px, 0); }
-.button.next::before { transform: rotate(45deg) translate(-2px, 0); }
+.button:hover { background: var(--hr-text); color: var(--hr-bg); transform: scale(1.1); }
+.button:active { transform: scale(0.96); }
 
 /* ── Loading ──────────────────────────────────────────────────── */
 .home-loading {
@@ -290,10 +299,11 @@
 [data-theme="light"] .card { background: rgba(255,255,255,0.08); }
 [data-theme="light"] .card-name { color: #fff; }
 /* ── Pulido fino del carrusel (mismo diseño, mejor acabado) ────────────── */
-/* Atenuación más sutil de las tarjetas no enfocadas: mantiene legible el
-   contexto sin el "apagón" del blur fuerte. */
+/* Atenuación sutil de las tarjetas no enfocadas — sin blur, para que sigan
+   siendo legibles incluso apagadas (evita que el carrusel se vea "vacío"). */
 .card:not(:hover) {
-  filter: brightness(0.72) blur(0.4px);
+  filter: brightness(0.88);
+  opacity: 0.85;
 }
 /* Brillo de borde superior tipo vidrio pulido */
 .card {
@@ -301,9 +311,12 @@
               inset 0 1px 0 rgba(255,255,255,0.09);
 }
 .card:hover {
+  filter: brightness(1);
+  opacity: 1;
   box-shadow: var(--hr-shadow-lg),
               inset 0 1px 0 rgba(255,255,255,0.16),
-              0 0 40px rgba(255,255,255,0.04);
+              0 0 40px rgba(91,138,240,0.18);
+  border-color: rgba(91,138,240,0.4);
 }
 /* Imagen con transición suave al enfocar la tarjeta */
 .card img { transition: transform var(--hr-duration-lg) var(--hr-ease); }

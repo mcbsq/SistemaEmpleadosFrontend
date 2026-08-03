@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { FiX, FiFileText } from "react-icons/fi";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function normalizePDF(raw) {
@@ -60,7 +61,7 @@ function PDFViewer({ pdf, onClose, label }) {
           <span className="pdf-title">{pdf.name}</span>
           <div className="pdf-toolbar-actions">
             <button className="pdf-action-btn" onClick={handleDownload}>⬇ Descargar</button>
-            <button className="pdf-close-btn" onClick={onClose} title="Cerrar">✕</button>
+            <button className="pdf-close-btn" onClick={onClose} title="Cerrar"><FiX /></button>
           </div>
         </div>
 
@@ -101,7 +102,7 @@ export function PDFAttachment({ raw, label = "Documento adjunto" }) {
   return (
     <>
       <button className="pdf-badge-btn" onClick={() => setOpen(true)}>
-        <span className="pdf-badge-icon">📄</span>
+        <span className="pdf-badge-icon"><FiFileText /></span>
         <span className="pdf-badge-name">{pdf.name}</span>
         <span className="pdf-badge-hint">Vista previa</span>
       </button>

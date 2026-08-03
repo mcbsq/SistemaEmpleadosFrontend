@@ -6,10 +6,11 @@ import {
   CiFacebook, CiLinkedin, CiYoutube,
   CiUser, CiSearch, CiFileOn, CiBoxList, CiFolderOn
 } from "react-icons/ci";
+import { FiCheck, FiX, FiUsers, FiUserCheck, FiUserX, FiGrid, FiChevronUp, FiChevronDown } from "react-icons/fi";
 import {
   FaInstagram, FaTiktok, FaPlus,
   FaChevronLeft, FaChevronRight, FaFileExcel, FaGithub,
-  FaUserSlash, FaUsers, FaWhatsapp, FaTelegram, FaEnvelope,
+  FaUserSlash, FaWhatsapp, FaTelegram, FaEnvelope,
   FaPhone, FaTimes
 } from "react-icons/fa";
 import { useFilePicker } from "use-file-picker";
@@ -78,6 +79,24 @@ const DIR_INIT  = { Calle:"", NumExterior:"", NumInterior:"", Manzana:"", Lote:"
 const DC_INIT   = { TelFijo:"", TelCelular:"", IdWhatsApp:"", IdTelegram:"", ListaCorreos:"" };
 
 const getId = (item) => item?._id?.$oid || item?._id || "";
+
+// Antigüedad legible (ej. "2 años 3 meses") — patrón estándar de directorios
+// de RH de mercado, calculado a partir de FechaIngreso sin guardar un campo
+// redundante en la base de datos.
+const formatAntiguedad = (fechaIngreso) => {
+  if (!fechaIngreso) return "";
+  const ingreso = new Date(`${fechaIngreso}T00:00:00`);
+  if (isNaN(ingreso.getTime())) return "";
+  const hoy = new Date();
+  let meses = (hoy.getFullYear() - ingreso.getFullYear()) * 12 + (hoy.getMonth() - ingreso.getMonth());
+  if (hoy.getDate() < ingreso.getDate()) meses -= 1;
+  if (meses < 0) return "";
+  const anios = Math.floor(meses / 12);
+  const restoMeses = meses % 12;
+  if (anios === 0) return `${restoMeses} ${restoMeses === 1 ? "mes" : "meses"}`;
+  if (restoMeses === 0) return `${anios} ${anios === 1 ? "año" : "años"}`;
+  return `${anios} ${anios === 1 ? "año" : "años"} ${restoMeses} ${restoMeses === 1 ? "mes" : "meses"}`;
+};
 
 const formatTel = (raw = "") => {
   const d = raw.replace(/\D/g,"").slice(0,10);
@@ -155,7 +174,7 @@ const IdentityCell = ({ item, compact = false }) => {
 const ContratoChip = ({ firmado, tipo }) => (
   <span className={`emp-contrato emp-contrato--${firmado?"ok":"no"}`}>
     {firmado
-      ? tipo==="digital" ? "Digital ✓" : tipo==="autografa" ? "Autógrafa ✓" : "Firmado ✓"
+      ? <>{tipo==="digital" ? "Digital" : tipo==="autografa" ? "Autógrafa" : "Firmado"} <FiCheck style={{ verticalAlign: "-2px" }} /></>
       : "Pendiente"}
   </span>
 );
@@ -447,6 +466,8 @@ function Empleados() {
   const [guardando,    setGuardando]    = useState(false);
   const [verInactivos, setVerInactivos] = useState(false);
   const [expEmpleado,  setExpEmpleado]  = useState(null);
+  const [deptoFiltro,  setDeptoFiltro]  = useState("");
+  const [orden,        setOrden]        = useState({ campo: null, dir: 1 });
 
   // ─── Registro ─────────────────────────────────────────────────────────────
   const [formEmp,  setFormEmp]  = useState(EMP_INIT);
@@ -506,8 +527,20 @@ function Empleados() {
       _departamento:     rh?.Departamento     || emp.depto_id || "",
       _contrato_firmado: rh?.contrato_firmado ?? false,
       _tipo_contrato:    rh?.tipo_contrato    || "",
+      _relacion_laboral: rh?.TipoRelacionLaboral || "nomina",
+      _tiene_rh:         !!rh,
+      _numero_empleado:  rh?.NumeroEmpleado   || "",
+      _fecha_ingreso:    rh?.FechaIngreso     || "",
+      _antiguedad:       formatAntiguedad(rh?.FechaIngreso),
+      _estado:           (emp.estado || "activo").toLowerCase(),
     };
   }), [empleados, getRH]);
+
+  // ── Departamentos únicos, para el filtro rápido ────────────────────────────
+  const departamentos = useMemo(() => {
+    const set = new Set(empleadosRich.map(e => e._departamento).filter(Boolean));
+    return Array.from(set).sort();
+  }, [empleadosRich]);
 
   const porEstado = useMemo(() =>
     empleadosRich.filter(e => {
@@ -517,24 +550,53 @@ function Empleados() {
   [empleadosRich, verInactivos]);
 
   const filtered = useMemo(() => {
-    if (!filtro.trim()) return porEstado;
-    const q = filtro.toLowerCase();
-    return porEstado.filter(e =>
-      (e.Nombre||"").toLowerCase().includes(q) ||
-      (e.ApelPaterno||"").toLowerCase().includes(q)
-    );
-  }, [porEstado, filtro]);
+    let out = porEstado;
+    if (deptoFiltro) out = out.filter(e => e._departamento === deptoFiltro);
+    if (filtro.trim()) {
+      const q = filtro.toLowerCase();
+      out = out.filter(e =>
+        (e.Nombre||"").toLowerCase().includes(q) ||
+        (e.ApelPaterno||"").toLowerCase().includes(q)
+      );
+    }
+    return out;
+  }, [porEstado, filtro, deptoFiltro]);
 
-  const totalPags = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const pageData  = filtered.slice(pagina*ITEMS_PER_PAGE, (pagina+1)*ITEMS_PER_PAGE);
+  // ── Orden por columna — clic en encabezado alterna asc/desc ───────────────
+  const ORDEN_ACCESSORS = {
+    nombre:       e => `${e.Nombre||""} ${e.ApelPaterno||""}`.toLowerCase(),
+    departamento: e => (e._departamento||"").toLowerCase(),
+    antiguedad:   e => e._fecha_ingreso || "",
+    estado:       e => e._estado || "",
+  };
+  const sorted = useMemo(() => {
+    if (!orden.campo) return filtered;
+    const acc = ORDEN_ACCESSORS[orden.campo];
+    if (!acc) return filtered;
+    return [...filtered].sort((a,b) => {
+      const av = acc(a), bv = acc(b);
+      if (av < bv) return -1*orden.dir;
+      if (av > bv) return  1*orden.dir;
+      return 0;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, orden]);
+
+  const toggleOrden = (campo) => {
+    setOrden(o => o.campo === campo ? { campo, dir: o.dir*-1 } : { campo, dir: 1 });
+  };
+
+  const totalPags = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
+  const pageData  = sorted.slice(pagina*ITEMS_PER_PAGE, (pagina+1)*ITEMS_PER_PAGE);
   const cambiarTab = id => { setActiveTab(id); setPagina(0); setFiltro(""); };
 
   // ─── Excel ────────────────────────────────────────────────────────────────
   const exportarExcel = () => {
     const ws = XLSX.utils.json_to_sheet(empleadosRich.map(e=>({
-      Nombre:e.Nombre, Paterno:e.ApelPaterno, Materno:e.ApelMaterno,
+      NumEmpleado:e._numero_empleado, Nombre:e.Nombre, Paterno:e.ApelPaterno, Materno:e.ApelMaterno,
       Puesto:e._puesto, Jefe:e._jefe, Depto:e._departamento,
       Estado:e.estado||"activo",
+      FechaIngreso:e._fecha_ingreso, Antiguedad:e._antiguedad,
       Contrato:e._contrato_firmado?`Firmado(${e._tipo_contrato})`:"Pendiente",
     })));
     const wb = XLSX.utils.book_new();
@@ -596,6 +658,28 @@ function Empleados() {
   const totalActivos   = empleadosRich.filter(e=>(e.estado||"activo")==="activo").length;
   const totalInactivos = empleadosRich.filter(e=>(e.estado||"activo")==="inactivo").length;
 
+  // ─── Encabezado ordenable — clic para alternar asc/desc ───────────────────
+  const SortableTh = ({ campo, children, ...rest }) => (
+    <th className="emp-th emp-th--sortable" scope="col" {...rest}
+      aria-sort={orden.campo===campo ? (orden.dir===1?"ascending":"descending") : "none"}>
+      <button type="button" className="emp-th-sort-btn" onClick={()=>toggleOrden(campo)}>
+        {children}
+        <span className="emp-th-sort-icon">
+          {orden.campo===campo
+            ? (orden.dir===1 ? <FiChevronUp/> : <FiChevronDown/>)
+            : <FiChevronDown style={{opacity:0.25}}/>}
+        </span>
+      </button>
+    </th>
+  );
+
+  // ─── Badge de estado (activo/inactivo) ─────────────────────────────────────
+  const EstadoBadge = ({ estado }) => (
+    <span className={`emp-chip emp-chip--${estado==="activo"?"green":"red"}`}>
+      {estado==="activo" ? "Activo" : "Inactivo"}
+    </span>
+  );
+
   // ─── Columna expediente (solo privilegiados) ──────────────────────────────
   const ExpCol = ({ item }) => {
     if (!isPrivileged) return null;
@@ -626,6 +710,36 @@ function Empleados() {
         />
       )}
 
+      <div className="hr-page-header">
+        <div>
+          <h2 className="hr-title">Empleados / RH</h2>
+          <p className="hr-subtitle">Directorio del personal — identidad, posición, relación laboral y expediente</p>
+        </div>
+      </div>
+
+      <div className="emp-kpi-grid">
+        <div className="emp-kpi">
+          <span className="emp-kpi-icon"><FiUsers/></span>
+          <span className="emp-kpi-val">{empleadosRich.length}</span>
+          <span className="emp-kpi-lbl">Total registrados</span>
+        </div>
+        <div className="emp-kpi">
+          <span className="emp-kpi-icon emp-kpi-icon--success"><FiUserCheck/></span>
+          <span className="emp-kpi-val">{totalActivos}</span>
+          <span className="emp-kpi-lbl">Activos</span>
+        </div>
+        <div className="emp-kpi">
+          <span className="emp-kpi-icon emp-kpi-icon--danger"><FiUserX/></span>
+          <span className="emp-kpi-val">{totalInactivos}</span>
+          <span className="emp-kpi-lbl">Inactivos</span>
+        </div>
+        <div className="emp-kpi">
+          <span className="emp-kpi-icon emp-kpi-icon--accent2"><FiGrid/></span>
+          <span className="emp-kpi-val">{departamentos.length}</span>
+          <span className="emp-kpi-lbl">Departamentos</span>
+        </div>
+      </div>
+
       <div className="CRUDS">
 
         {/* Toolbar */}
@@ -639,8 +753,16 @@ function Empleados() {
             <CiSearch className="emp-search-icon" />
             <input type="text" className="emp-search-input" placeholder="Buscar por nombre..."
               value={filtro} onChange={e=>{setFiltro(e.target.value);setPagina(0);}} />
-            {filtro && <button className="emp-search-clear" onClick={()=>setFiltro("")}>✕</button>}
+            {filtro && <button className="emp-search-clear" onClick={()=>setFiltro("")}><FiX /></button>}
           </div>
+          {departamentos.length > 0 && (
+            <select className="emp-depto-filter" value={deptoFiltro}
+              onChange={e=>{setDeptoFiltro(e.target.value);setPagina(0);}}
+              aria-label="Filtrar por departamento">
+              <option value="">Todos los departamentos</option>
+              {departamentos.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          )}
           <button className="btn-emp btn-emp--excel" onClick={exportarExcel}><FaFileExcel /></button>
         </div>
 
@@ -679,9 +801,11 @@ function Empleados() {
 
                   {activeTab===1 && <>
                     <th className="emp-th" scope="col">Jefe inmediato</th>
-                    <th className="emp-th" scope="col">Departamento</th>
+                    <SortableTh campo="departamento">Departamento</SortableTh>
+                    <th className="emp-th" scope="col">Relación laboral</th>
                     <th className="emp-th" scope="col">Contrato</th>
-                    <th className="emp-th" scope="col">Ingreso</th>
+                    <SortableTh campo="antiguedad">Antigüedad</SortableTh>
+                    <SortableTh campo="estado">Estado</SortableTh>
                   </>}
 
                   {activeTab===2 && <>
@@ -734,10 +858,20 @@ function Empleados() {
                             : <span className="emp-dim">—</span>}
                         </td>
                         <td className="emp-td">
+                          {!item._tiene_rh
+                            ? <span className="emp-dim">Sin RH</span>
+                            : item._relacion_laboral === "prestador_servicios"
+                              ? <span className="emp-chip">Prestador de servicios</span>
+                              : <span className="emp-chip">Nómina</span>}
+                        </td>
+                        <td className="emp-td">
                           <ContratoChip firmado={item._contrato_firmado} tipo={item._tipo_contrato}/>
                         </td>
-                        <td className="emp-td emp-td--num">
-                          <span className="emp-dim">{item.FecIngreso||item.FecNacimiento||"—"}</span>
+                        <td className="emp-td">
+                          <span className={item._antiguedad?"":"emp-dim"}>{item._antiguedad||"—"}</span>
+                        </td>
+                        <td className="emp-td">
+                          <EstadoBadge estado={item._estado} />
                         </td>
                       </>}
 
@@ -788,7 +922,7 @@ function Empleados() {
             <button className="emp-pag-btn" onClick={()=>setPagina(p=>Math.max(0,p-1))} disabled={pagina===0}><FaChevronLeft/></button>
             <span className="emp-pag-info">
               Página <strong>{pagina+1}</strong> de <strong>{totalPags}</strong>
-              <span style={{marginLeft:8,color:"var(--hr-hint)"}}>· {filtered.length} registros</span>
+              <span style={{marginLeft:8,color:"var(--hr-hint)"}}>· {sorted.length} registros</span>
             </span>
             <button className="emp-pag-btn" onClick={()=>setPagina(p=>Math.min(totalPags-1,p+1))} disabled={pagina+1>=totalPags}><FaChevronRight/></button>
           </div>
@@ -799,7 +933,7 @@ function Empleados() {
           <button className={`emp-toggle-btn${verInactivos?" emp-toggle-btn--on":""}`}
             onClick={()=>{setVerInactivos(v=>!v);setPagina(0);}}>
             {verInactivos
-              ? <><FaUsers style={{marginRight:6}}/>Ver activos ({totalActivos})</>
+              ? <><FiUsers style={{marginRight:6}}/>Ver activos ({totalActivos})</>
               : <><FaUserSlash style={{marginRight:6}}/>Ver inactivos ({totalInactivos})</>}
           </button>
         </div>

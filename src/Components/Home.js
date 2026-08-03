@@ -1,12 +1,16 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { FiX, FiChevronLeft, FiChevronRight, FiUser, FiMail, FiPhone, FiMessageCircle, FiSend } from "react-icons/fi";
 import "./Home.css";
 import { empleadoService } from "../services/empleadoService";
 import { contactoService }  from "../services/contactoService";
 import { authService }      from "../services/authService";
 import { rhService }        from "../services/rhService";
 
-const DEFAULT_AVATAR = "/default-avatar.png";
+// Sin PNG externo — un ícono simple es más robusto que un asset que puede
+// faltar (y evita el parpadeo de "imagen rota" antes de que dispare onError).
+const AVATAR_BG = ["#5B8AF0","#4ECAAC","#F5A623","#B57EDC","#E86B5F","#59C1E8"];
+const colorForName = (str = "") => AVATAR_BG[(str.charCodeAt(0) || 0) % AVATAR_BG.length];
 
 // ─── Helper: extraer todos los IDs de empleados de un subárbol ───────────────
 const extraerIdsDeArbol = (nodo, ids = new Set()) => {
@@ -37,6 +41,7 @@ function Home() {
 
   const autoRotateRef = useRef(null);
   const touchStartX   = useRef(null);
+  const closeTimeoutRef = useRef(null);
 
   const isSuperAdmin = authService.isSuperAdmin();
   const empleadoId   = authService.getEmpleadoId();
@@ -161,6 +166,16 @@ function Home() {
     setIsPaused(false);
   };
 
+  // El overlay vive lejos de la tarjeta en pantalla (arriba a la derecha),
+  // así que un mouseleave de la tarjeta no debe cerrarlo de inmediato —
+  // le da tiempo al cursor de llegar hasta el overlay antes de decidir que
+  // el usuario realmente se fue.
+  const programarCierre = () => {
+    clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = setTimeout(cerrarInfo, 250);
+  };
+  const cancelarCierre = () => clearTimeout(closeTimeoutRef.current);
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
   const getFullName = (emp) =>
     [emp?.Nombre, emp?.ApelPaterno, emp?.ApelMaterno].filter(Boolean).join(" ");
@@ -206,7 +221,9 @@ function Home() {
               >
                 {empleados.map((emp, index) => {
                   const itemAngle = (360 / empleados.length) * index;
-                  const foto = emp.Fotografias?.[0] || emp.Fotografia || DEFAULT_AVATAR;
+                  const foto = emp.Fotografias?.[0] || emp.Fotografia || null;
+                  const nombreCompleto = getFullName(emp) || emp.Nombre || "";
+                  const inicial = (nombreCompleto.trim()[0] || "?").toUpperCase();
 
                   return (
                     <div
@@ -214,20 +231,25 @@ function Home() {
                       className="card"
                       style={{ transform: `rotateY(${itemAngle}deg) translateZ(${radius}px)` }}
                       onMouseEnter={() => {
-                        if (!isMobile) { fetchDatosContacto(emp._id); setIsPaused(true); }
+                        if (!isMobile) { cancelarCierre(); fetchDatosContacto(emp._id); setIsPaused(true); }
                       }}
                       onMouseLeave={() => {
-                        if (!isMobile) cerrarInfo();
+                        if (!isMobile) programarCierre();
                       }}
                       onClick={() => {
                         if (isMobile) fetchDatosContacto(emp._id);
                       }}
                     >
-                      <img
-                        src={foto}
-                        alt={getFullName(emp)}
-                        onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
-                      />
+                      {foto ? (
+                        <img
+                          src={foto}
+                          alt={nombreCompleto}
+                          onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+                        />
+                      ) : null}
+                      <div className="card-avatar-fallback" style={{ display: foto ? "none" : "flex", background: colorForName(nombreCompleto) }}>
+                        {nombreCompleto ? <span>{inicial}</span> : <FiUser />}
+                      </div>
                       <div className="card-info">
                         <p className="card-name">{emp.Nombre}</p>
                         <Link to={`/Perfil/${emp._id}`} className="btn-direction">
@@ -241,30 +263,35 @@ function Home() {
             </div>
 
             <div className="button-container">
-              <div className="button prev" onClick={handlePrevClick} />
-              <div className="button next" onClick={handleNextClick} />
+              <button className="button prev" onClick={handlePrevClick} aria-label="Anterior"><FiChevronLeft /></button>
+              <button className="button next" onClick={handleNextClick} aria-label="Siguiente"><FiChevronRight /></button>
             </div>
           </div>
         )}
 
-        {/* ── Info card ── */}
+        {/* ── Info card — el mouseenter cancela el cierre programado al salir
+             de la tarjeta, así se puede interactuar con este panel ── */}
         {datosContacto && hoveredEmpleado && (
-          <div className="info-card-overlay">
-            <button className="close-info" onClick={cerrarInfo}>✕</button>
+          <div
+            className="info-card-overlay"
+            onMouseEnter={cancelarCierre}
+            onMouseLeave={() => !isMobile && programarCierre()}
+          >
+            <button className="close-info" onClick={cerrarInfo}><FiX /></button>
             <div className="info-card-content">
               <h4>{getFullName(hoveredEmpleado)}</h4>
               <hr />
               {datosContacto.ListaCorreos && (
-                <p><strong>Email</strong>{datosContacto.ListaCorreos}</p>
+                <p><strong><FiMail style={{verticalAlign:"-2px",marginRight:4}}/>Email</strong>{datosContacto.ListaCorreos}</p>
               )}
               {datosContacto.TelCelular && (
-                <p><strong>Celular</strong>{datosContacto.TelCelular}</p>
+                <p><strong><FiPhone style={{verticalAlign:"-2px",marginRight:4}}/>Celular</strong>{datosContacto.TelCelular}</p>
               )}
               {datosContacto.IdWhatsApp && (
-                <p><strong>WhatsApp</strong>{datosContacto.IdWhatsApp}</p>
+                <p><strong><FiMessageCircle style={{verticalAlign:"-2px",marginRight:4}}/>WhatsApp</strong>{datosContacto.IdWhatsApp}</p>
               )}
               {datosContacto.IdTelegram && (
-                <p><strong>Telegram</strong>{datosContacto.IdTelegram}</p>
+                <p><strong><FiSend style={{verticalAlign:"-2px",marginRight:4}}/>Telegram</strong>{datosContacto.IdTelegram}</p>
               )}
               {!datosContacto.ListaCorreos && !datosContacto.TelCelular && (
                 <p className="no-contact">Sin datos de contacto registrados.</p>

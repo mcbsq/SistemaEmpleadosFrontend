@@ -1,10 +1,33 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import TextareaAutosize from "react-textarea-autosize";
+import { useFilePicker } from "use-file-picker";
+import { FileAmountLimitValidator, FileSizeValidator } from "use-file-picker/validators";
 import { CiFacebook, CiLinkedin, CiYoutube } from "react-icons/ci";
 import { FaInstagram, FaTiktok, FaGithub } from "react-icons/fa";
+import { FiX, FiPaperclip, FiFileText, FiCalendar, FiGift } from "react-icons/fi";
 import { authService } from "../../services/authService";
+import { documentosFinancierosService } from "../../services/documentosFinancierosService";
+import { vacacionesService } from "../../services/vacacionesService";
+import { prestamoService } from "../../services/prestamoService";
 import { PDFAttachment } from "./PDFAttachment";
 import MapaDomicilio from "./MapaDomicilio";
+import { API_URL } from "../../services/apiConfig";
+
+// Descarga un .ics autenticado (fetch + blob, ya que un <a href> normal no
+// puede llevar el header Authorization).
+async function descargarIcs(path, filename) {
+  try {
+    const token = sessionStorage.getItem("access_token");
+    const res = await fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch { /* silencioso — botón secundario, no crítico */ }
+}
 
 const REDES_CONFIG = [
   { label: "Facebook",  icon: <CiFacebook /> },
@@ -133,7 +156,7 @@ export const RedesSocialesRenderer = ({ isEditing, redesSociales = [], setRedesS
                 {REDES_CONFIG.map(r=><option key={r.label} value={r.label}>{r.label}</option>)}
               </select>
               <input className="field-input" placeholder="Usuario o URL" value={s.NombreRedSocial} onChange={e=>update(i,"NombreRedSocial",e.target.value)} />
-              <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}>✕</button>
+              <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}><FiX /></button>
             </div>
           ))}
           <button className="btn-ghost" onClick={add}>+ Agregar red</button>
@@ -174,7 +197,7 @@ const TimelineRenderer = ({ title, items=[], isEditing, setItems }) => {
                   <input type="number" className="field-input field-input--year" value={item.year||""} placeholder="Año" onChange={e=>update(i,"year",e.target.value)} />
                   <input className="field-input" value={item.title||""} placeholder="Título" onChange={e=>update(i,"title",e.target.value)} />
                   <TextareaAutosize className="field-textarea" value={item.description||""} placeholder="Descripción" onChange={e=>update(i,"description",e.target.value)} />
-                  <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}>✕ Eliminar</button>
+                  <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}><FiX style={{verticalAlign:"-2px",marginRight:4}}/>Eliminar</button>
                 </>
               ) : (
                 <>
@@ -210,7 +233,7 @@ export const SkillSectionRenderer = ({ isEditing, habilidades=[], setHabilidades
                 <input className="field-input" placeholder="Habilidad" value={h.skillName} onChange={e=>update(i,"skillName",e.target.value)} />
                 <input type="range" min="0" max="100" value={h.porcentaje} onChange={e=>update(i,"porcentaje",e.target.value)} className="skill-range" />
                 <span className="skill-pct">{h.porcentaje}%</span>
-                <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}>✕</button>
+                <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}><FiX /></button>
               </div>
             ) : (
               <>
@@ -262,7 +285,7 @@ const CustomFieldsBlock = ({ campos, isEditing, onChange }) => {
                 onChange={e => setValor(k, e.target.value)}
                 aria-label={`Valor de ${k}`} />
               <button type="button" className="btn-ghost" style={{padding:"4px 10px"}}
-                onClick={() => eliminar(k)} aria-label={`Eliminar campo ${k}`}>✕</button>
+                onClick={() => eliminar(k)} aria-label={`Eliminar campo ${k}`}><FiX /></button>
             </span>
           ) : (
             <span className="field-value">{v || <em className="field-empty">Sin valor</em>}</span>
@@ -352,6 +375,26 @@ export const RHSectionRenderer = ({ isEditing, RH, handleRHChange, listaEmpleado
           {isSuperAdmin && (
             <Field label="Salario" value={RH?.Salario} isEditing={isEditing && isSuperAdmin} onChange={v=>handleRHChange("Salario",v)} placeholder="Mensual bruto" />
           )}
+          {isSuperAdmin && (
+            <div className="field-row">
+              <span className="field-label">
+                Relación laboral
+                <span className="field-readonly-hint"> · define su sección financiera</span>
+              </span>
+              {isEditing ? (
+                <select className="field-input" style={{ appearance: "none", cursor: "pointer" }}
+                  value={RH?.TipoRelacionLaboral || "nomina"}
+                  onChange={e => handleRHChange("TipoRelacionLaboral", e.target.value)}>
+                  <option value="nomina">Nómina</option>
+                  <option value="prestador_servicios">Prestador de servicios (CFDI)</option>
+                </select>
+              ) : (
+                <span className="field-value">
+                  {RH?.TipoRelacionLaboral === "prestador_servicios" ? "Prestador de servicios (CFDI)" : "Nómina"}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -365,7 +408,7 @@ export const RHSectionRenderer = ({ isEditing, RH, handleRHChange, listaEmpleado
       {/* Botón subir PDF — solo en modo edición y superadmin */}
       {isEditing && isSuperAdmin && (
         <button className="btn-ghost" onClick={openRHPicker}>
-          📎 {pdfResuelto ? "Reemplazar expediente digital" : "Subir expediente digital (PDF)"}
+          <FiPaperclip style={{verticalAlign:"-2px",marginRight:4}}/>{pdfResuelto ? "Reemplazar expediente digital" : "Subir expediente digital (PDF)"}
         </button>
       )}
 
@@ -403,7 +446,7 @@ export const ExpedienteClinicoRenderer = ({ isEditing, expedienteclinico, setexp
 
       {isEditing && (
         <button className="btn-ghost" onClick={openFilePicker}>
-          📎 {pdfResuelto ? "Reemplazar póliza de seguro" : "Adjuntar póliza de seguro (PDF)"}
+          <FiPaperclip style={{verticalAlign:"-2px",marginRight:4}}/>{pdfResuelto ? "Reemplazar póliza de seguro" : "Adjuntar póliza de seguro (PDF)"}
         </button>
       )}
 
@@ -433,7 +476,482 @@ export const CVExportRenderer = ({ empleado, rh, descripcion, educationItems=[],
     <div className="section-inner">
       <h3 className="section-title">CV / Portafolio</h3>
       <p className="description-text">Genera un CV con tu información actual — educación, experiencia y habilidades.</p>
-      <button className="btn-ghost btn-ghost--accent" onClick={handlePrint}>📄 Exportar CV como PDF</button>
+      <button className="btn-ghost btn-ghost--accent" onClick={handlePrint}><FiFileText style={{verticalAlign:"-2px",marginRight:4}}/>Exportar CV como PDF</button>
+    </div>
+  );
+};
+// ── FinancialSectionRenderer — nómina o CFDI según TipoRelacionLaboral ───────
+// Autónomo: carga y guarda directo contra la API (no pasa por el flujo de
+// "Guardar cambios" del resto del perfil, cada documento se sube al vuelo).
+const MESES = [
+  "01","02","03","04","05","06","07","08","09","10","11","12",
+];
+
+const formatPeriodo = (p) => {
+  if (!p || !/^\d{4}-\d{2}$/.test(p)) return p || "—";
+  const [y, m] = p.split("-");
+  const nombres = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const idx = MESES.indexOf(m);
+  return idx >= 0 ? `${nombres[idx]} ${y}` : p;
+};
+
+export const FinancialSectionRenderer = ({ empleadoId, tipoRelacionLaboral, isOwnProfile }) => {
+  const [docs, setDocs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [subiendo, setSubiendo] = useState(false);
+  const [periodo, setPeriodo] = useState("");
+  const [monto, setMonto] = useState("");
+
+  const isAdmin = authService.isAdmin();
+  const isContador = authService.getRole() === "CONTADOR";
+  const esNomina = tipoRelacionLaboral !== "prestador_servicios";
+  // Quién puede SUBIR: nómina -> admin o contador; CFDI -> el propio empleado (o admin, en su nombre).
+  const puedeSubir = esNomina ? (isAdmin || isContador) : (isOwnProfile || isAdmin);
+  // Nadie ve esta sección si no es su propio perfil, admin, o tiene acceso financiero.
+  const puedeVer = isOwnProfile || isAdmin || authService.getRole() === "CONTADOR";
+
+  const { openFilePicker, filesContent, clear } = useFilePicker({
+    readAs: "DataURL", accept: "application/pdf", multiple: false,
+    validators: [new FileAmountLimitValidator({ max: 1 }), new FileSizeValidator({ maxFileSize: 8 * 1024 * 1024 })],
+  });
+
+  const cargar = useCallback(() => {
+    if (!empleadoId || !puedeVer) { setLoading(false); return; }
+    setLoading(true);
+    const tipoEsperado = esNomina ? "nomina" : "cfdi";
+    documentosFinancierosService.getByEmpleado(empleadoId)
+      .then(d => setDocs(Array.isArray(d) ? d.filter(x => x.tipo === tipoEsperado) : []))
+      .catch(() => setDocs([]))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empleadoId, esNomina]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const subir = async () => {
+    if (!periodo || filesContent.length === 0) {
+      setError("Selecciona el periodo (AAAA-MM) y adjunta el PDF.");
+      return;
+    }
+    setError("");
+    setSubiendo(true);
+    try {
+      await documentosFinancierosService.create({
+        empleado_id: empleadoId,
+        tipo: esNomina ? "nomina" : "cfdi",
+        periodo,
+        monto: monto || undefined,
+        archivo_pdf: filesContent[0].content,
+        nombre_archivo: filesContent[0].name,
+      });
+      setPeriodo(""); setMonto(""); clear();
+      cargar();
+    } catch (e) {
+      setError(e.message || "No se pudo subir el documento.");
+    } finally {
+      setSubiendo(false);
+    }
+  };
+
+  const marcarPagado = async (docId) => {
+    try {
+      await documentosFinancierosService.updateEstado(docId, "pagado");
+      cargar();
+    } catch (e) {
+      setError(e.message || "No se pudo actualizar el estado.");
+    }
+  };
+
+  const eliminar = async (docId) => {
+    try {
+      await documentosFinancierosService.delete(docId);
+      cargar();
+    } catch (e) {
+      setError(e.message || "No se pudo eliminar el documento.");
+    }
+  };
+
+  if (!puedeVer) return null;
+
+  return (
+    <div className="section-inner">
+      <h3 className="section-title">{esNomina ? "Recibos de nómina" : "Facturas (CFDI)"}</h3>
+
+      {loading ? (
+        <p className="emp-dim">Cargando documentos…</p>
+      ) : docs.length === 0 ? (
+        <p className="emp-dim">
+          {esNomina ? "Aún no hay recibos de nómina registrados." : "Aún no has subido ninguna factura."}
+        </p>
+      ) : (
+        <div className="fin-doc-list">
+          {docs.map(d => (
+            <div key={d._id} className="fin-doc-row">
+              <span className="fin-doc-periodo">{formatPeriodo(d.periodo)}</span>
+              {!esNomina && (
+                <span className={`fin-doc-estado fin-doc-estado--${d.estado}`}>
+                  {d.estado === "pagado" ? "Pagado" : "Pendiente"}
+                </span>
+              )}
+              {d.monto && <span className="emp-dim">${d.monto}</span>}
+              <PDFAttachment raw={d.archivo_pdf} label={d.nombre_archivo} />
+              {isAdmin && !esNomina && d.estado === "pendiente" && (
+                <button className="btn-ghost" style={{ padding: "4px 10px" }} onClick={() => marcarPagado(d._id)}>
+                  Marcar pagado
+                </button>
+              )}
+              {(isAdmin || (isOwnProfile && !esNomina && d.estado === "pendiente")) && (
+                <button className="btn-ghost" style={{ padding: "4px 10px" }}
+                  aria-label={`Eliminar documento ${formatPeriodo(d.periodo)}`}
+                  onClick={() => eliminar(d._id)}><FiX /></button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {puedeSubir && (
+        <div className="rh-horario" style={{ marginTop: 14 }}>
+          <p className="field-label" style={{ marginBottom: 8 }}>
+            {esNomina ? "Subir recibo de nómina" : "Subir factura CFDI"}
+          </p>
+          <div className="horario-grid">
+            <div className="field-row">
+              <span className="field-label">Periodo</span>
+              <input className="field-input" type="month" value={periodo}
+                onChange={e => setPeriodo(e.target.value)} />
+            </div>
+            {!esNomina && (
+              <div className="field-row">
+                <span className="field-label">Monto (opcional)</span>
+                <input className="field-input" type="text" value={monto}
+                  placeholder="Ej. 12500.00" onChange={e => setMonto(e.target.value)} />
+              </div>
+            )}
+          </div>
+          <button className="btn-ghost" onClick={openFilePicker} style={{ marginTop: 8 }}>
+            <FiPaperclip style={{verticalAlign:"-2px",marginRight:4}}/>{filesContent.length > 0 ? filesContent[0].name : "Seleccionar PDF"}
+          </button>
+          {error && <p style={{ color: "var(--hr-danger, #e86b5f)", fontSize: "0.82rem", marginTop: 6 }}>{error}</p>}
+          <button className="btn-ghost btn-ghost--accent" style={{ marginTop: 10 }}
+            disabled={subiendo} onClick={subir}>
+            {subiendo ? "Subiendo…" : "Guardar documento"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── RelacionLaboralHeader — antigüedad, aniversario y salario ────────────────
+// Vive fuera del velo "sensible" salvo el salario, que se oculta si no hay
+// permiso. La antigüedad/aniversario no es información sensible y siempre
+// se muestra: es parte de "conocer a tu gente", no un dato financiero.
+export const RelacionLaboralHeader = ({ RH, puedeVerSalario, empleadoId }) => {
+  const fechaIngreso = RH?.FechaIngreso;
+  const tipo = RH?.TipoRelacionLaboral || "nomina";
+
+  const antiguedad = (() => {
+    if (!fechaIngreso) return null;
+    const ingreso = new Date(fechaIngreso + "T00:00:00");
+    if (isNaN(ingreso.getTime())) return null;
+    const hoy = new Date();
+    let anios = hoy.getFullYear() - ingreso.getFullYear();
+    const cumplioEsteAnio = (hoy.getMonth() > ingreso.getMonth())
+      || (hoy.getMonth() === ingreso.getMonth() && hoy.getDate() >= ingreso.getDate());
+    if (!cumplioEsteAnio) anios -= 1;
+    const esAniversarioHoy = hoy.getMonth() === ingreso.getMonth() && hoy.getDate() === ingreso.getDate() && anios >= 1;
+    return { anios: Math.max(anios, 0), esAniversarioHoy };
+  })();
+
+  const salario = Number(RH?.Salario) || 0;
+
+  return (
+    <div className="section-inner">
+      <h3 className="section-title">Relación laboral</h3>
+
+      {antiguedad && antiguedad.esAniversarioHoy && (
+        <div className="rl-aniversario" role="status">
+          <FiGift style={{verticalAlign:"-2px",marginRight:6}}/>¡Hoy cumple {antiguedad.anios} {antiguedad.anios === 1 ? "año" : "años"} en la empresa!
+        </div>
+      )}
+
+      <div className="horario-grid">
+        <div className="field-row">
+          <span className="field-label">Antigüedad</span>
+          <span className="field-value">
+            {antiguedad
+              ? `${antiguedad.anios} ${antiguedad.anios === 1 ? "año" : "años"}`
+              : <em className="field-empty">Sin fecha de ingreso</em>}
+          </span>
+        </div>
+        <div className="field-row">
+          <span className="field-label">Tipo de relación</span>
+          <span className="field-value">
+            {tipo === "prestador_servicios" ? "Prestador de servicios" : "Nómina"}
+          </span>
+        </div>
+        {puedeVerSalario && salario > 0 && tipo !== "prestador_servicios" && (
+          <>
+            <div className="field-row">
+              <span className="field-label">Sueldo mensual</span>
+              <span className="field-value">${salario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="field-row">
+              <span className="field-label">Sueldo quincenal</span>
+              <span className="field-value">${(salario / 2).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            </div>
+          </>
+        )}
+        {puedeVerSalario && salario > 0 && tipo === "prestador_servicios" && (
+          <div className="field-row">
+            <span className="field-label">Monto acordado por servicio</span>
+            <span className="field-value">${salario.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+          </div>
+        )}
+        {puedeVerSalario && salario === 0 && (
+          <div className="field-row">
+            <span className="field-label">{tipo === "prestador_servicios" ? "Monto acordado" : "Sueldo"}</span>
+            <span className="field-value"><em className="field-empty">Sin registrar</em></span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── VacacionesRenderer — balance, solicitud y bitácora ───────────────────────
+export const VacacionesRenderer = ({ empleadoId, isOwnProfile, esAprobador }) => {
+  const [balance, setBalance] = useState(null);
+  const [solicitudes, setSolicitudes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fInicio, setFInicio] = useState("");
+  const [fFin, setFFin] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState("");
+
+  const puedeVer = isOwnProfile || authService.isAdmin() || esAprobador;
+
+  const cargar = useCallback(() => {
+    if (!empleadoId || !puedeVer) { setLoading(false); return; }
+    setLoading(true);
+    Promise.all([
+      vacacionesService.getBalance(empleadoId).catch(() => null),
+      vacacionesService.getByEmpleado(empleadoId).catch(() => []),
+    ]).then(([b, s]) => {
+      setBalance(b);
+      setSolicitudes(Array.isArray(s) ? s : []);
+    }).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empleadoId]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const solicitar = async () => {
+    if (!fInicio || !fFin) { setError("Selecciona fecha de inicio y fin."); return; }
+    setError(""); setEnviando(true);
+    try {
+      await vacacionesService.crear({ fecha_inicio: fInicio, fecha_fin: fFin, motivo });
+      setFInicio(""); setFFin(""); setMotivo("");
+      cargar();
+    } catch (e) {
+      setError(e.message || "No se pudo enviar la solicitud.");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  if (!puedeVer) return null;
+
+  const ESTADO_LABEL = { pendiente: "Pendiente", aprobada: "Aprobada", rechazada: "Rechazada" };
+
+  return (
+    <div className="section-inner">
+      <h3 className="section-title">Vacaciones</h3>
+
+      {loading ? (
+        <p className="emp-dim">Cargando…</p>
+      ) : !balance || balance.antiguedad_anios === null ? (
+        <p className="emp-dim">{balance?.mensaje || "Sin información suficiente para calcular el balance."}</p>
+      ) : (
+        <div className="rl-vac-balance">
+          <div className="rl-vac-stat"><span className="rl-vac-num">{balance.dias_disponibles}</span><span className="rl-vac-lbl">Disponibles</span></div>
+          <div className="rl-vac-stat"><span className="rl-vac-num">{balance.dias_usados_anio}</span><span className="rl-vac-lbl">Usados este año</span></div>
+          <div className="rl-vac-stat"><span className="rl-vac-num">{balance.dias_totales_anio}</span><span className="rl-vac-lbl">Total del año</span></div>
+        </div>
+      )}
+
+      {solicitudes.length > 0 && (
+        <div className="fin-doc-list" style={{ marginTop: 14 }}>
+          {solicitudes.map(s => (
+            <div key={s._id} className="fin-doc-row">
+              <span className="fin-doc-periodo">{s.fecha_inicio} → {s.fecha_fin}</span>
+              <span className="emp-dim">{s.dias_solicitados} días</span>
+              <span className={`fin-doc-estado fin-doc-estado--${s.estado === "aprobada" ? "pagado" : s.estado === "rechazada" ? "" : "pendiente"}`}
+                style={s.estado === "rechazada" ? { background: "var(--critical-soft, #f5e3e1)", color: "var(--hr-danger,#b5453a)" } : undefined}>
+                {ESTADO_LABEL[s.estado] || s.estado}
+              </span>
+              {s.motivo && <span className="emp-dim">· {s.motivo}</span>}
+              {s.estado === "aprobada" && (
+                <button
+                  className="btn-ghost"
+                  style={{ marginLeft: "auto" }}
+                  onClick={() => descargarIcs(`/vacaciones/${s._id}/ics`, `vacaciones-${s._id}.ics`)}
+                >
+                  <FiCalendar style={{verticalAlign:"-2px",marginRight:4}}/>.ics
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isOwnProfile && (
+        <div className="rh-horario" style={{ marginTop: 14 }}>
+          <p className="field-label" style={{ marginBottom: 8 }}>Solicitar vacaciones</p>
+          <div className="horario-grid">
+            <div className="field-row">
+              <span className="field-label">Del</span>
+              <input className="field-input" type="date" value={fInicio} onChange={e => setFInicio(e.target.value)} />
+            </div>
+            <div className="field-row">
+              <span className="field-label">Al</span>
+              <input className="field-input" type="date" value={fFin} onChange={e => setFFin(e.target.value)} />
+            </div>
+          </div>
+          <div className="field-row">
+            <span className="field-label">Motivo (opcional)</span>
+            <input className="field-input" value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej. viaje familiar" />
+          </div>
+          {error && <p style={{ color: "var(--hr-danger, #e86b5f)", fontSize: "0.82rem", marginTop: 4 }}>{error}</p>}
+          <button className="btn-ghost btn-ghost--accent" style={{ marginTop: 8 }} disabled={enviando} onClick={solicitar}>
+            {enviando ? "Enviando…" : "Enviar solicitud"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── PrestamosRenderer — backend ya existía, solo faltaba esta UI ────────────
+export const PrestamosRenderer = ({ empleadoId, isOwnProfile }) => {
+  const [prestamos, setPrestamos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [monto, setMonto] = useState("");
+  const [tasa, setTasa] = useState("0");
+  const [plazo, setPlazo] = useState("12");
+  const [metodo, setMetodo] = useState("Descuento vía nómina");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+
+  const isAdmin = authService.isAdmin();
+  const puedeVer = isOwnProfile || isAdmin;
+
+  const cargar = useCallback(() => {
+    if (!empleadoId || !puedeVer) { setLoading(false); return; }
+    setLoading(true);
+    prestamoService.getByEmpleado(empleadoId)
+      .then(d => setPrestamos(Array.isArray(d) ? d : []))
+      .catch(() => setPrestamos([]))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empleadoId]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const crear = async () => {
+    const montoNum = Number(monto);
+    const tasaNum = Number(tasa) || 0;
+    const plazoNum = Number(plazo);
+    if (!montoNum || !plazoNum) { setError("Monto y plazo son obligatorios."); return; }
+    setError(""); setGuardando(true);
+    try {
+      const hoy = new Date();
+      const vencimiento = new Date(hoy); vencimiento.setMonth(vencimiento.getMonth() + plazoNum);
+      const cuota = (montoNum * (1 + tasaNum / 100)) / plazoNum;
+      await prestamoService.create({
+        empleado_id: empleadoId,
+        MontoPrestamo: montoNum,
+        TasaInteres: tasaNum,
+        FecSolicitud: hoy.toISOString().slice(0, 10),
+        FecAprobacion: hoy.toISOString().slice(0, 10),
+        FecVencimiento: vencimiento.toISOString().slice(0, 10),
+        PlazoMeses: plazoNum,
+        MontoPendiente: montoNum,
+        PagosRealizados: 0,
+        CuotaMensual: Math.round(cuota * 100) / 100,
+        MetodoPago: metodo,
+      });
+      setMonto(""); setTasa("0"); setPlazo("12"); setMostrarForm(false);
+      cargar();
+    } catch (e) {
+      setError(e.message || "No se pudo registrar el préstamo.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  if (!puedeVer) return null;
+
+  return (
+    <div className="section-inner">
+      <h3 className="section-title">Préstamos</h3>
+
+      {loading ? (
+        <p className="emp-dim">Cargando…</p>
+      ) : prestamos.length === 0 ? (
+        <p className="emp-dim">Sin préstamos registrados.</p>
+      ) : (
+        <div className="fin-doc-list">
+          {prestamos.map(p => (
+            <div key={p._id} className="fin-doc-row">
+              <span className="fin-doc-periodo">${Number(p.MontoPrestamo).toLocaleString("es-MX")}</span>
+              <span className="emp-dim">{p.PlazoMeses} meses · ${Number(p.CuotaMensual).toLocaleString("es-MX", { minimumFractionDigits: 2 })}/mes</span>
+              <span className="emp-dim">Pendiente: ${Number(p.MontoPendiente).toLocaleString("es-MX")}</span>
+              <span className="emp-dim">{p.PagosRealizados} pagos realizados</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{ marginTop: 14 }}>
+          {!mostrarForm ? (
+            <button className="btn-ghost" onClick={() => setMostrarForm(true)}>+ Registrar préstamo</button>
+          ) : (
+            <div className="rh-horario">
+              <div className="horario-grid">
+                <div className="field-row">
+                  <span className="field-label">Monto</span>
+                  <input className="field-input" type="number" value={monto} onChange={e => setMonto(e.target.value)} placeholder="10000" />
+                </div>
+                <div className="field-row">
+                  <span className="field-label">Tasa de interés anual (%)</span>
+                  <input className="field-input" type="number" value={tasa} onChange={e => setTasa(e.target.value)} />
+                </div>
+                <div className="field-row">
+                  <span className="field-label">Plazo (meses)</span>
+                  <input className="field-input" type="number" value={plazo} onChange={e => setPlazo(e.target.value)} />
+                </div>
+                <div className="field-row">
+                  <span className="field-label">Método de pago</span>
+                  <input className="field-input" value={metodo} onChange={e => setMetodo(e.target.value)} />
+                </div>
+              </div>
+              {error && <p style={{ color: "var(--hr-danger, #e86b5f)", fontSize: "0.82rem" }}>{error}</p>}
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button className="btn-ghost btn-ghost--accent" disabled={guardando} onClick={crear}>
+                  {guardando ? "Guardando…" : "Guardar préstamo"}
+                </button>
+                <button className="btn-ghost" onClick={() => setMostrarForm(false)}>Cancelar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

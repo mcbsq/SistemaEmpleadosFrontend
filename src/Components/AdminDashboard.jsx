@@ -7,6 +7,10 @@ import { rhService }        from "../services/rhService";
 import { clinicoService }   from "../services/clinicoService";
 import { educacionService } from "../services/educacionService";
 import { contactoService }  from "../services/contactoService";
+import { useOrg } from "../context/OrgContext";
+import { ReportesCard } from "./Analitica";
+import { apiFetch } from "../services/apiConfig";
+import { FiClock, FiActivity, FiCheckCircle } from "react-icons/fi";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getId = (item) => item?._id?.$oid || item?._id || "";
@@ -122,6 +126,7 @@ const Gauge = ({ pct }) => {
 
 // ════════════════════════════════════════════════════════════════════════════════
 function AdminDashboard() {
+  const { getActiveKpis } = useOrg();
   const [empleados, setEmpleados] = useState([]);
   const [rhData,    setRhData]    = useState([]);
   const [clinico,   setClinico]   = useState([]);
@@ -130,6 +135,17 @@ function AdminDashboard() {
   const [loading,   setLoading]   = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reintento, setReintento] = useState(0);
+  const [pendientesVac, setPendientesVac] = useState([]);
+  const [actividad,     setActividad]     = useState([]);
+
+  const esSuperAdmin = authService.isSuperAdmin();
+
+  useEffect(() => {
+    apiFetch("/vacaciones/pendientes").then(d => setPendientesVac(Array.isArray(d) ? d : [])).catch(() => {});
+    if (esSuperAdmin) {
+      apiFetch("/auditoria?limite=5").then(d => setActividad(Array.isArray(d) ? d : [])).catch(() => {});
+    }
+  }, [esSuperAdmin, reintento]);
 
   useEffect(() => {
     setLoading(true);
@@ -278,23 +294,20 @@ function AdminDashboard() {
   return (
     <div className="ad-root">
 
-      {/* ── KPIs ─────────────────────────────────────────────── */}
+      {/* ── KPIs — configurables desde Configuración → KPIs ─────── */}
       <div className="ad-kpi-grid">
-        <KpiCard label="Total empleados"    value={stats.total}      color="#5B8AF0" />
-        <KpiCard label="Áreas registradas"  value={stats.areaCount}  color="#4ECAAC" />
-        <KpiCard
-          label="Cumpleaños este mes"
-          value={stats.cumplesMes}
-          sub={`${stats.cumpleProx} en próximos 7 días`}
-          color="#F5A623"
-        />
-        <KpiCard
-          label="Perfiles incompletos"
-          value={stats.sinClinico}
-          sub={`${stats.pctCompleto}% con expediente`}
-          color="#E86B5F"
-        />
-        <KpiCard label="Sin puesto asignado" value={stats.sinPuesto} color="#9B7FE8" />
+        {getActiveKpis().map(kpi => {
+          const datos = {
+            total_empleados:   { value: stats.total,      sub: null },
+            areas_registradas: { value: stats.areaCount,  sub: null },
+            cumpleanos_mes:    { value: stats.cumplesMes, sub: `${stats.cumpleProx} en próximos 7 días` },
+            sin_expediente:    { value: stats.sinClinico, sub: `${stats.pctCompleto}% con expediente` },
+            sin_puesto:        { value: stats.sinPuesto,  sub: null },
+          }[kpi.id] || { value: "—", sub: null };
+          return (
+            <KpiCard key={kpi.id} label={kpi.label} value={datos.value} sub={datos.sub} color={kpi.color} />
+          );
+        })}
       </div>
 
       {/* ── Fila central ─────────────────────────────────────── */}
@@ -344,6 +357,64 @@ function AdminDashboard() {
 
       </div>
 
+      {/* ── Aprobaciones pendientes / Actividad reciente ────────── */}
+      <div className="ad-mid-row">
+        <div className="ad-card">
+          <div className="ad-card-title">
+            <FiCheckCircle style={{ verticalAlign: "-2px", marginRight: 6 }} />
+            Aprobaciones pendientes
+          </div>
+          {pendientesVac.length === 0
+            ? <p className="ad-empty">Sin solicitudes de vacaciones pendientes.</p>
+            : (
+              <ul className="ad-alert-list">
+                {pendientesVac.slice(0, 5).map(s => (
+                  <li key={s._id} className="ad-alert-item">
+                    <span className="ad-alert-name">{s.empleado_nombre || "Empleado"}</span>
+                    <Tag type="amber">{s.dias_solicitados} día{s.dias_solicitados === 1 ? "" : "s"}</Tag>
+                  </li>
+                ))}
+              </ul>
+            )
+          }
+          {pendientesVac.length > 0 && (
+            <Link to="/vacaciones" className="ad-emp-link" style={{ display: "inline-block", marginTop: 10 }}>
+              Ver todas ({pendientesVac.length}) →
+            </Link>
+          )}
+        </div>
+
+        {esSuperAdmin && (
+          <div className="ad-card">
+            <div className="ad-card-title">
+              <FiActivity style={{ verticalAlign: "-2px", marginRight: 6 }} />
+              Actividad reciente
+            </div>
+            {actividad.length === 0
+              ? <p className="ad-empty">Sin actividad registrada.</p>
+              : (
+                <ul className="ad-alert-list">
+                  {actividad.map(a => (
+                    <li key={a._id} className="ad-alert-item">
+                      <span className="ad-alert-name">
+                        <FiClock style={{ verticalAlign: "-2px", marginRight: 4, opacity: 0.6 }} />
+                        {a.usuario || "Sistema"} · {a.accion} {a.entidad}
+                      </span>
+                      <Tag type="blue">
+                        {a.creado_en ? new Date(a.creado_en).toLocaleDateString() : ""}
+                      </Tag>
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
+            <Link to="/settings" className="ad-emp-link" style={{ display: "inline-block", marginTop: 10 }}>
+              Ver bitácora completa →
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* ── Fila inferior ────────────────────────────────────── */}
       <div className="ad-bottom-row">
 
@@ -383,6 +454,12 @@ function AdminDashboard() {
           }
         </div>
 
+      </div>
+
+      {/* ── Analítica exportable ─────────────────────────────── */}
+      <div className="ad-card" style={{ marginTop: 20 }}>
+        <div className="ad-card-title">Analítica y reportes</div>
+        <ReportesCard compact />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CiFolderOn } from "react-icons/ci";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 
 /**
  * EmpleadoAvatar
@@ -134,7 +135,7 @@ const EmpleadoAvatar = ({
                   className="ea-secret-action ea-secret-action--edit"
                   onClick={(e) => { e.stopPropagation(); setSecret(false); onEdit(); }}
                 >
-                  ✏️ Editar empleado
+                  <FiEdit2 style={{ marginRight: 6, verticalAlign: "-2px" }} />Editar empleado
                 </button>
               )}
               {onDelete && (
@@ -142,7 +143,7 @@ const EmpleadoAvatar = ({
                   className="ea-secret-action ea-secret-action--delete"
                   onClick={(e) => { e.stopPropagation(); setSecret(false); onDelete(); }}
                 >
-                  🗑 Eliminar empleado
+                  <FiTrash2 style={{ marginRight: 6, verticalAlign: "-2px" }} />Eliminar empleado
                 </button>
               )}
             </div>

@@ -6,6 +6,7 @@
 // 4. Vista previa del dashboard que verá el rol
 
 import React, { useEffect, useState, useCallback } from "react";
+import { FiCheck, FiX } from "react-icons/fi";
 import "./RoleManager.css";
 import { usuarioService }  from "../services/usuarioService";
 import { empleadoService } from "../services/empleadoService";
@@ -415,7 +416,7 @@ function RoleManager() {
                       <button className="rm-btn-action rm-btn-action--edit"
                         onClick={() => abrirEditar(rol)}>Editar</button>
                       <button className="rm-btn-action rm-btn-action--danger"
-                        onClick={() => eliminarRol(rol)}>✕</button>
+                        onClick={() => eliminarRol(rol)}><FiX /></button>
                     </>
                   )}
                 </div>
@@ -439,14 +440,14 @@ function RoleManager() {
                     <React.Fragment key={s}>
                       <div className={`rm-step ${paso===s?"rm-step--active":""} ${paso>s?"rm-step--done":""}`}
                         onClick={() => paso > s && setPaso(s)}>
-                        {paso > s ? "✓" : s}
+                        {paso > s ? <FiCheck /> : s}
                       </div>
                       {s < 3 && <div className={`rm-step-line ${paso>s?"rm-step-line--done":""}`}/>}
                     </React.Fragment>
                   ))}
                 </div>
               </div>
-              <button className="rm-modal-close" onClick={cerrarModal}>✕</button>
+              <button className="rm-modal-close" onClick={cerrarModal}><FiX /></button>
             </div>
 
             {paso === 1 && (
@@ -480,7 +481,7 @@ function RoleManager() {
                         style={{ background: c.bg }}
                         onClick={() => setForm(p => ({...p, color: c.id}))}>
                         <span style={{color:c.fg, fontWeight:700, fontSize:"0.68rem"}}>{c.label}</span>
-                        {form.color===c.id && <span className="rm-color-check">✓</span>}
+                        {form.color===c.id && <span className="rm-color-check"><FiCheck /></span>}
                       </button>
                     ))}
                   </div>
@@ -570,7 +571,7 @@ function RoleManager() {
                   Rol de sistema — solo se pueden editar los permisos
                 </p>
               </div>
-              <button className="rm-modal-close" onClick={cerrarModal}>✕</button>
+              <button className="rm-modal-close" onClick={cerrarModal}><FiX /></button>
             </div>
             <PanelPermisos />
             <div className="rm-modal-footer">
@@ -598,7 +599,7 @@ function RoleManager() {
                   }}>{asignando.nombre}</span>
                 </p>
               </div>
-              <button className="rm-modal-close" onClick={cerrarModal}>✕</button>
+              <button className="rm-modal-close" onClick={cerrarModal}><FiX /></button>
             </div>
             <div className="rm-modal-body">
               <input className="rm-input" type="text"

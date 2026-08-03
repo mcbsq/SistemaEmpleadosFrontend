@@ -368,6 +368,45 @@ select {
 .section-card .leaflet-popup-tip { background: var(--hr-glass-bg); }
 .section-card .leaflet-control-attribution { background: rgba(0,0,0,0.45) !important; color: rgba(255,255,255,0.5) !important; font-size: 10px !important; }
 
+/* ── Popups de secciones del perfil (contacto emergencia, redes, domicilio) ── */
+.pm-overlay {
+  position: fixed; inset: 0; z-index: 9998;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  animation: hr-fade-in var(--hr-duration-sm) var(--hr-ease);
+}
+.pm-card {
+  width: 100%; max-width: 480px; max-height: 82vh; overflow-y: auto;
+  background: rgba(14,15,22,0.98);
+  border: 0.5px solid var(--hr-glass-border);
+  border-radius: var(--hr-radius-lg);
+  padding: 28px 28px 24px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+  animation: hr-scale-in var(--hr-duration) var(--hr-ease);
+  position: relative;
+}
+[data-theme="light"] .pm-card { background: #fff; }
+.pm-close {
+  position: absolute; top: 16px; right: 16px;
+  background: none; border: none; cursor: pointer;
+  color: var(--hr-muted); font-size: 1.1rem;
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pm-close:hover { background: rgba(255,255,255,0.06); color: var(--hr-text); }
+
+.pm-trigger-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; cursor: pointer;
+  background: none; border: none; width: 100%; text-align: left;
+}
+.pm-trigger-title { font-size: var(--hr-font-md); font-weight: 700; color: var(--hr-text); }
+.pm-trigger-sub { font-size: var(--hr-font-xs); color: var(--hr-muted); margin-top: 2px; }
+.pm-trigger-arrow { color: var(--hr-muted); font-size: 1.1rem; flex-shrink: 0; }
+.pm-trigger-card:hover .pm-trigger-arrow { color: var(--hr-accent); }
+
 /* ── Modal de verificación de contraseña ────────────────────── */
 .vp-overlay {
   position: fixed; inset: 0; z-index: 9999;
@@ -739,3 +778,33 @@ select {
 @media (max-width: 640px) {
   .pdf-window { width: 100vw; height: 100vh; border-radius: 0; }
 }
+/* ── Sección financiera del perfil (recibos de nómina / CFDI) ──────────── */
+.fin-doc-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.fin-doc-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 12px; border-radius: var(--hr-radius-sm);
+  border: 0.5px solid var(--hr-border); background: rgba(255,255,255,0.02);
+}
+.fin-doc-periodo { font-weight: 600; min-width: 64px; }
+.fin-doc-estado {
+  font-size: var(--hr-font-xs); font-weight: 600; padding: 2px 10px;
+  border-radius: var(--hr-radius-pill); text-transform: uppercase; letter-spacing: 0.03em;
+}
+.fin-doc-estado--pendiente { background: rgba(245,166,35,0.12); color: var(--hr-warning, #f5a623); }
+.fin-doc-estado--pagado    { background: rgba(78,202,172,0.12); color: var(--hr-success, #4ecaac); }
+
+/* ── Relación laboral: aniversario y balance de vacaciones ─────────────── */
+.rl-aniversario {
+  padding: 12px 16px; border-radius: var(--hr-radius-sm);
+  background: linear-gradient(135deg, rgba(245,166,35,0.14), rgba(78,202,172,0.1));
+  border: 0.5px solid rgba(245,166,35,0.3);
+  font-weight: 600; margin-bottom: 14px; font-size: 0.95rem;
+}
+.rl-vac-balance { display: flex; gap: 12px; flex-wrap: wrap; }
+.rl-vac-stat {
+  flex: 1; min-width: 100px; text-align: center;
+  padding: 14px 10px; border-radius: var(--hr-radius-sm);
+  border: 0.5px solid var(--hr-border); background: rgba(255,255,255,0.02);
+}
+.rl-vac-num { display: block; font-size: 1.4rem; font-weight: 700; color: var(--hr-accent); }
+.rl-vac-lbl { display: block; font-size: 0.72rem; color: var(--hr-muted); margin-top: 2px; }

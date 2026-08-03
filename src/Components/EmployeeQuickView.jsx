@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { FiX } from "react-icons/fi";
 import "./EmployeeQuickView.css";
 import { contactoService } from "../services/contactoService";
 import { rhService }        from "../services/rhService";
@@ -110,7 +111,7 @@ function EmployeeQuickView({ emp, anchorRect, onClose }) {
       <div className="eqv-panel" ref={panelRef} style={style}>
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="eqv-header">
-          <button className="eqv-close" onClick={onClose} aria-label="Cerrar">✕</button>
+          <button className="eqv-close" onClick={onClose} aria-label="Cerrar"><FiX /></button>
           <div className="eqv-avatar-wrap">
             {foto ? (
               <img src={foto} alt={nombre} className="eqv-avatar-img"

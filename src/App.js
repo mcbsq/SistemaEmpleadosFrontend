@@ -9,9 +9,20 @@ import Login             from "./Components/Login/Login";
 import Empleados         from "./Components/Empleados";
 import AdminDashboard    from "./Components/AdminDashboard";
 import IncidentMonitor   from "./Components/IncidentMonitor";
+import VacacionesAprobacion from "./Components/VacacionesAprobacion";
 import RoleManager       from "./Components/RoleManager";
-import GlobalSearch      from "./Components/GlobalSearch";
+import Spotlight         from "./Components/Spotlight";
+import NotificationBell  from "./Components/NotificationBell";
 import OrgSettings       from "./Components/OrgSettings";
+import NominaConfig      from "./Components/NominaConfig";
+import Reclutamiento     from "./Components/Reclutamiento";
+import Desempeno         from "./Components/Desempeno";
+import Analitica         from "./Components/Analitica";
+import OnboardingTour    from "./Components/OnboardingTour";
+import {
+  FiGrid, FiUsers, FiShare2, FiList, FiSun, FiSettings,
+  FiShield, FiUser, FiMoon, FiLogOut, FiDollarSign, FiBriefcase, FiAward, FiBarChart2, FiSearch,
+} from "react-icons/fi";
 
 import DashboardContador from "./Components/dashboards/DashboardContador";
 import DashboardPM       from "./Components/dashboards/DashboardPM";
@@ -21,7 +32,7 @@ import DashboardJefeArea from "./Components/dashboards/DashboardJefeArea";
 import { authService }             from "./services/authService";
 import { encodeId }                from "./services/empleadoService";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
-import { OrgProvider }             from "./context/OrgContext";
+import { OrgProvider, useOrg }      from "./context/OrgContext";
 import { useSidebarGlow }          from "./hooks/useRevealOnScroll";
 
 const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN"];
@@ -81,15 +92,16 @@ const RoleRoute = ({ children, roles }) => {
 
 const DashboardPage = ({ userRole }) => {
   const isAdmin = ROLES_ADMIN.includes(userRole);
+  const { isModuleActive } = useOrg();
   return (
     <div className="vertical-landing fade-in-page">
-      {isAdmin                                              && <section id="admin-dashboard-section"><AdminDashboard /></section>}
-      {userRole === "CONTADOR"        && <section id="admin-dashboard-section"><DashboardContador /></section>}
-      {userRole === "PROJECT_MANAGER" && <section id="admin-dashboard-section"><DashboardPM /></section>}
-      {userRole === "MEDICO"          && <section id="admin-dashboard-section"><DashboardMedico /></section>}
-      {userRole === "JEFE_AREA"       && <section id="admin-dashboard-section"><DashboardJefeArea /></section>}
-      <section id="home-section"><Home /></section>
-      <section id="organigrama-section"><Organigrama /></section>
+      {isAdmin                        && isModuleActive("dashboard_admin")    && <section id="admin-dashboard-section"><AdminDashboard /></section>}
+      {userRole === "CONTADOR"        && isModuleActive("dashboard_contador") && <section id="admin-dashboard-section"><DashboardContador /></section>}
+      {userRole === "PROJECT_MANAGER" && isModuleActive("dashboard_pm")       && <section id="admin-dashboard-section"><DashboardPM /></section>}
+      {userRole === "MEDICO"          && isModuleActive("dashboard_medico")   && <section id="admin-dashboard-section"><DashboardMedico /></section>}
+      {userRole === "JEFE_AREA"       && isModuleActive("dashboard_jefe_area") && <section id="admin-dashboard-section"><DashboardJefeArea /></section>}
+      {isModuleActive("home_carousel") && <section id="home-section"><Home /></section>}
+      {isModuleActive("organigrama")   && <section id="organigrama-section"><Organigrama /></section>}
     </div>
   );
 };
@@ -104,6 +116,13 @@ function AppInner() {
   const [roleReady, setRoleReady] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
+  const { orgConfig, loadOrgConfig, isModuleActive } = useOrg();
+  const orgName = orgConfig?.name || "Cibercom";
+
+  // Carga la configuración de la organización (branding, módulos, políticas
+  // de vacaciones) desde el backend. Antes esto solo existía en el frontend
+  // sin backend real — nunca se llamaba.
+  useEffect(() => { loadOrgConfig("default"); }, [loadOrgConfig]);
   const navigate = useNavigate();
   const location = useLocation();
   const glowRef  = useRef(null);
@@ -187,21 +206,39 @@ function AppInner() {
       section: "Principal",
       entries: [
         ...(isAdmin || hasSpecialDashboard
-          ? [{ label: "Dashboard", icon: "◈", action: () => scrollTo("admin-dashboard-section") }]
+          ? [{ label: "Dashboard", icon: FiGrid, action: () => scrollTo("admin-dashboard-section"), tour: "dashboard" }]
           : []),
-        { label: "Mi equipo",   icon: "◉", action: () => scrollTo("home-section") },
-        { label: "Organigrama", icon: "⬡", action: () => scrollTo("organigrama-section") },
+        ...(isModuleActive("home_carousel")
+          ? [{ label: "Mi equipo", icon: FiUsers, action: () => scrollTo("home-section"), tour: !(isAdmin || hasSpecialDashboard) ? "dashboard" : undefined }]
+          : []),
+        ...(isModuleActive("organigrama")
+          ? [{ label: "Organigrama", icon: FiShare2, action: () => scrollTo("organigrama-section") }]
+          : []),
+        { label: "Evaluaciones", icon: FiAward, isLink: true, to: "/desempeno" },
+        { label: "Analítica", icon: FiBarChart2, isLink: true, to: "/analitica" },
       ],
     },
-    ...(isAdmin
-      ? [{ section: "Gestión", entries: [{ label: "Empleados / RH", icon: "▤", isLink: true, to: "/empleados" }] }]
+    ...(isAdmin || hasSpecialDashboard
+      ? [{
+          section: "Gestión",
+          entries: [
+            ...(isAdmin && isModuleActive("empleados_table")
+              ? [{ label: "Empleados / RH", icon: FiList, isLink: true, to: "/empleados" }] : []),
+            ...(isModuleActive("vacaciones")
+              ? [{ label: "Solicitudes de vacaciones", icon: FiSun, isLink: true, to: "/vacaciones" }] : []),
+            ...((isAdmin || userRole === "CONTADOR")
+              ? [{ label: "Nómina", icon: FiDollarSign, isLink: true, to: "/nomina" }] : []),
+            ...(isAdmin
+              ? [{ label: "Reclutamiento", icon: FiBriefcase, isLink: true, to: "/reclutamiento" }] : []),
+          ],
+        }]
       : []),
     ...(isSuperAdmin
       ? [{
           section: "Sistema",
           entries: [
-            { label: "Configuración",    icon: "◆", isLink: true, to: "/settings" },
-            { label: "Gestión de roles", icon: "⚙", isLink: true, to: "/roles" },
+            { label: "Configuración",    icon: FiSettings, isLink: true, to: "/settings" },
+            { label: "Gestión de roles", icon: FiShield,   isLink: true, to: "/roles" },
           ],
         }]
       : []),
@@ -209,7 +246,7 @@ function AppInner() {
       section: "Cuenta",
       entries: [
         // URL limpia: /Perfil/juan-perez
-        ...(mySlug ? [{ label: "Mi perfil", icon: "◎", isLink: true, to: `/Perfil/${mySlug}` }] : []),
+        ...(mySlug ? [{ label: "Mi perfil", icon: FiUser, isLink: true, to: `/Perfil/${mySlug}`, tour: "mi-perfil" }] : []),
       ],
     },
   ];
@@ -238,24 +275,36 @@ function AppInner() {
 
       {isAuthenticated && (
         <aside className={`app-sidebar ${sidebarOpen ? "app-sidebar--open" : ""}`}>
-          <div className="sb-header">
-            <Link to="/Dashboard" className="sb-logo-link" onClick={() => setSidebarOpen(false)}>Cibercom</Link>
-            <span className="sb-logo-sub">Sistemas</span>
+          <div className="sb-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+            <div className="sb-logo-block" data-tour="logo">
+              <span className="sb-logo-mono">{(orgName || "?")[0]}</span>
+              <Link to="/Dashboard" className="sb-logo-link" onClick={() => setSidebarOpen(false)}>{orgName}</Link>
+              <span className="sb-logo-sub">Sistemas</span>
+            </div>
+            <span data-tour="notificaciones"><NotificationBell align="left" /></span>
           </div>
-          <GlobalSearch userRole={userRole} />
+          <div className="sb-spotlight-trigger" data-tour="spotlight">
+            <button className="sb-item" onClick={() => window.dispatchEvent(new Event("abrir-spotlight"))}>
+              <span className="sb-item-icon"><FiSearch /></span>
+              <span className="sb-item-label">Buscar…</span>
+              <span className="sb-item-kbd">⌘K</span>
+            </button>
+          </div>
           <nav className="sb-nav" ref={navRef}>
             {navGroups.map(group => group.entries.length > 0 && (
               <div key={group.section} className="sb-group">
                 <div className="sb-group-label">{group.section}</div>
                 {group.entries.map(item =>
                   item.isLink
-                    ? <Link key={item.label} to={item.to}
+                    ? <Link key={item.label} to={item.to} data-tour={item.tour}
                         className={`sb-item ${location.pathname === item.to ? "sb-item--active" : ""}`}
                         onClick={() => setSidebarOpen(false)}>
-                        <span className="sb-item-icon">{item.icon}</span>{item.label}
+                        <span className="sb-item-icon"><item.icon /></span>
+                        <span className="sb-item-label">{item.label}</span>
                       </Link>
-                    : <button key={item.label} className="sb-item" onClick={item.action}>
-                        <span className="sb-item-icon">{item.icon}</span>{item.label}
+                    : <button key={item.label} className="sb-item" data-tour={item.tour} onClick={item.action}>
+                        <span className="sb-item-icon"><item.icon /></span>
+                        <span className="sb-item-label">{item.label}</span>
                       </button>
                 )}
               </div>
@@ -263,22 +312,29 @@ function AppInner() {
           </nav>
           <div className="sb-footer">
             <button className="sb-theme-btn" onClick={toggleTheme}>
-              <span className="sb-theme-icon">{theme === "dark" ? "☀" : "☾"}</span>
+              <span className="sb-theme-icon">{theme === "dark" ? <FiSun /> : <FiMoon />}</span>
               <span className="sb-theme-label">{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
             </button>
             <div className="sb-user-row"><span className="sb-user-role">{userRole}</span></div>
-            <button className="sb-logout" onClick={handleLogout}>Cerrar sesión</button>
+            <button className="sb-logout" onClick={handleLogout}>
+              <FiLogOut style={{ marginRight: 6 }} />
+              <span className="sb-item-label">Cerrar sesión</span>
+            </button>
           </div>
         </aside>
       )}
+
+      {isAuthenticated && <Spotlight userRole={userRole} />}
+      {isAuthenticated && <OnboardingTour />}
 
       {isAuthenticated && (
         <header className="app-topbar">
           <button className="topbar-hamburger" onClick={() => setSidebarOpen(p => !p)} aria-label="Abrir menú">
             <span className={`hamburger-line ${sidebarOpen ? "open" : ""}`} />
           </button>
-          <Link to="/Dashboard" className="topbar-logo">Cibercom</Link>
+          <Link to="/Dashboard" className="topbar-logo">{orgName}</Link>
           <span className="topbar-spacer" />
+          <NotificationBell />
         </header>
       )}
 
@@ -292,12 +348,19 @@ function AppInner() {
           <Route path="/Dashboard"  element={<PrivateRoute><DashboardPage userRole={userRole} /></PrivateRoute>} />
           <Route path="/Perfil/:id" element={<PrivateRoute><Perfil /></PrivateRoute>} />
           <Route path="/empleados"  element={<RoleRoute roles={ROLES_ADMIN}><div className="page-padded fade-in-page"><Empleados /></div></RoleRoute>} />
+          {/* Sin restricción de rol estática: quién aprueba vacaciones es
+              configurable por SUPER_ADMIN, y el backend es la frontera real. */}
+          <Route path="/vacaciones" element={<PrivateRoute><div className="page-padded fade-in-page"><VacacionesAprobacion /></div></PrivateRoute>} />
+          <Route path="/nomina"     element={<RoleRoute roles={["ADMIN","SUPER_ADMIN","CONTADOR"]}><div className="page-padded fade-in-page"><NominaConfig /></div></RoleRoute>} />
+          <Route path="/reclutamiento" element={<RoleRoute roles={ROLES_ADMIN}><div className="page-padded fade-in-page"><Reclutamiento /></div></RoleRoute>} />
+          <Route path="/desempeno" element={<PrivateRoute><div className="page-padded fade-in-page"><Desempeno /></div></PrivateRoute>} />
+          <Route path="/analitica" element={<PrivateRoute><div className="page-padded fade-in-page"><Analitica /></div></PrivateRoute>} />
           <Route path="/settings"   element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><OrgSettings /></div></RoleRoute>} />
           <Route path="/roles"      element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><RoleManager /></div></RoleRoute>} />
           <Route path="/monitor"    element={<RoleRoute roles={["SUPER_ADMIN"]}><IncidentMonitor /></RoleRoute>} />
           <Route path="*"           element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
         </Routes>
-        <footer className="app-footer"><p>Copyright © 2026 | Cibercom Sistemas</p></footer>
+        <footer className="app-footer"><p>Copyright © 2026 | {orgName} Sistemas</p></footer>
       </main>
     </div>
   );

@@ -1,0 +1,22 @@
+.des-meta-row {
+  display: grid; grid-template-columns: 1fr 90px auto;
+  gap: 8px; align-items: center; margin-bottom: 8px;
+}
+
+.des-estrellas { display: flex; gap: 4px; }
+.des-estrella {
+  background: none; border: none; cursor: pointer;
+  font-size: 22px; color: var(--hr-border);
+  padding: 0;
+}
+.des-estrella--activa { color: #f5a623; }
+.des-estrella:disabled { cursor: default; }
+
+.des-criterios { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.des-criterio-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 6px 0;
+  border-bottom: 0.5px solid var(--hr-border, rgba(255,255,255,0.06));
+}
+.des-criterio-nombre { font-size: var(--hr-font-sm, 13px); color: var(--hr-text); }
+.des-criterio-row .des-estrella { font-size: 18px; }

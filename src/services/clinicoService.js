@@ -5,9 +5,10 @@ import { apiFetch } from "./apiConfig";
 
 export const clinicoService = {
 
-  // getAll no tiene endpoint propio en el backend (GET /expedienteclinico → 405)
-  // Devuelve [] para no romper el Promise.all de Empleados.js
-  getAll: () => Promise.resolve([]),
+  // Listado completo (sin PDF, ver api/expedienteclinico/logic.py). Antes no
+  // existía esta ruta y esto devolvía siempre [] — el dashboard de MEDICO
+  // mostraba "0 con expediente" sin importar los datos reales.
+  getAll: () => apiFetch("/expedienteclinico").catch(() => []),
 
   getByEmpleado: (id) => apiFetch(`/expedienteclinico/empleado/${id}`),
 

@@ -4,6 +4,7 @@ import { useFilePicker } from "use-file-picker";
 import { FileAmountLimitValidator } from "use-file-picker/validators";
 import "../Personal.css";
 
+import { useOrg }           from "../../context/OrgContext";
 import { authService }      from "../../services/authService";
 import { decodeId, empleadoService } from "../../services/empleadoService"; // Limpié el import duplicado de abajo
 import { contactoService }  from "../../services/contactoService";
@@ -14,12 +15,14 @@ import { direccionService } from "../../services/direccionService";
 import { catalogoService, FALLBACK } from "../../services/catalogoService";
 import { CiEdit, CiTrash, CiSaveDown2, CiCircleRemove } from "react-icons/ci";
 import { MdLockOpen } from "react-icons/md";
+import { FiLock, FiAlertTriangle, FiCheck, FiX } from "react-icons/fi";
 
 import {
   DescriptionRenderer, InfoPersonalRenderer, PersonasContactoRenderer,
   DireccionRenderer, RedesSocialesRenderer, EducationSectionRenderer,
   ExperienceSectionRenderer, SkillSectionRenderer, RHSectionRenderer,
-  ExpedienteClinicoRenderer, CVExportRenderer,
+  ExpedienteClinicoRenderer, CVExportRenderer, FinancialSectionRenderer,
+  RelacionLaboralHeader, VacacionesRenderer, PrestamosRenderer,
 } from "./renderpersonal.js";
 
 // ─── FUNCIONES HELPER (Movidas aquí abajo para que no rompan el build) ────────
@@ -52,7 +55,7 @@ function VerifyPasswordModal({ onConfirm, onCancel, loading, error }) {
   return (
     <div className="vp-overlay" onClick={e => e.target===e.currentTarget && onCancel()}>
       <div className="vp-card">
-        <div className="vp-icon">🔐</div>
+        <div className="vp-icon"><FiLock /></div>
         <h3 className="vp-title">Acceso restringido</h3>
         <p className="vp-sub">
           Ingresa tu contraseña de administrador<br/>
@@ -78,7 +81,7 @@ function DeleteModal({ empleado, onConfirm, onCancel, loading }) {
   return (
     <div className="vp-overlay" onClick={e=>e.target===e.currentTarget&&onCancel()}>
       <div className="vp-card">
-        <div className="vp-icon">⚠️</div>
+        <div className="vp-icon"><FiAlertTriangle /></div>
         <h3 className="vp-title">Eliminar empleado</h3>
         <p className="vp-sub">¿Estás seguro de eliminar a <strong>{empleado?.Nombre} {empleado?.ApelPaterno}</strong>? Esta acción no se puede deshacer.</p>
         <div className="vp-actions">
@@ -95,10 +98,34 @@ function BlurOverlay({ onReveal }) {
   return (
     <div className="blur-overlay" onClick={onReveal}>
       <div className="blur-overlay-inner">
-        <span className="blur-lock">🔒</span>
+        <span className="blur-lock"><FiLock /></span>
         <span className="blur-text">Clic para ver</span>
       </div>
     </div>
+  );
+}
+
+// ─── ProfileModal — popup genérico para secciones densas del perfil ──────────
+function ProfileModal({ onClose, children }) {
+  return (
+    <div className="pm-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="pm-card">
+        <button className="pm-close" onClick={onClose} aria-label="Cerrar"><FiX /></button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function TriggerCard({ titulo, subtitulo, onClick }) {
+  return (
+    <button className="pm-trigger-card" onClick={onClick}>
+      <div>
+        <div className="pm-trigger-title">{titulo}</div>
+        <div className="pm-trigger-sub">{subtitulo}</div>
+      </div>
+      <span className="pm-trigger-arrow">→</span>
+    </button>
   );
 }
 
@@ -106,6 +133,7 @@ function BlurOverlay({ onReveal }) {
 function Perfil() {
   const { id }     = useParams();
   const navigate   = useNavigate();
+  const { isModuleActive } = useOrg();
   // Resolver slug/base64 al ID real de MongoDB
   const empleadoId = resolveToId(id?.trim());
 
@@ -129,6 +157,7 @@ function Perfil() {
   const [verifyError,   setVerifyError]   = useState("");
   const [deleteModal,   setDeleteModal]   = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [popupAbierto,  setPopupAbierto]  = useState(null); // "contacto" | "redes" | "domicilio" | null
 
   const [empleado,         setEmpleado]         = useState(null);
   const [datosCargados,    setDatosCargados]    = useState(false);
@@ -242,6 +271,7 @@ function Perfil() {
         Salario:              rhData?.Salario          ||"",
         // Campos libres definidos por el admin
         CamposPersonalizados: rhData?.CamposPersonalizados || {},
+        TipoRelacionLaboral: rhData?.TipoRelacionLaboral || 'nomina',
       });
 
       setExpediente({
@@ -381,8 +411,8 @@ function Perfil() {
       {saveStatus && (
         <div className={`save-toast save-toast--${saveStatus}`}>
           {saveStatus==="saving"&&"Guardando cambios..."}
-          {saveStatus==="ok"&&"✓ Cambios guardados"}
-          {saveStatus==="error"&&"✗ Error al guardar"}
+          {saveStatus==="ok"&&(<><FiCheck style={{verticalAlign:"-2px",marginRight:4}}/>Cambios guardados</>)}
+          {saveStatus==="error"&&(<><FiX style={{verticalAlign:"-2px",marginRight:4}}/>Error al guardar</>)}
         </div>
       )}
 
@@ -402,7 +432,7 @@ function Perfil() {
           {rh.tipo_contrato && (
             <span className={`perfil-contrato perfil-contrato--${rh.contrato_firmado?"ok":"no"}`}>
               {rh.contrato_firmado
-                ? rh.tipo_contrato==="digital"?"Contrato digital ✓":"Contrato autógrafo ✓"
+                ? rh.tipo_contrato==="digital"?(<>Contrato digital <FiCheck style={{verticalAlign:"-2px"}}/></>):(<>Contrato autógrafo <FiCheck style={{verticalAlign:"-2px"}}/></>)
                 : "Contrato pendiente"}
             </span>
           )}
@@ -454,16 +484,44 @@ function Perfil() {
           </div>
           <div className={`section-card${!isRevealed?" section-card--blurred":""}`}>
             {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
-            <PersonasContactoRenderer isEditing={isEditing&&canEdit&&isRevealed} personalcontacto={personalContacto} handlePersonalContactoChange={(f,v)=>setPersonalContacto(p=>({...p,[f]:v}))} opcionesParentesco={catalogos.parentesco}/>
+            <TriggerCard
+              titulo="Contacto de Emergencia"
+              subtitulo={personalContacto.nombreContacto || "Sin datos"}
+              onClick={() => isRevealed && setPopupAbierto("contacto")}
+            />
           </div>
           <div className={`section-card${!isRevealed?" section-card--blurred":""}`}>
             {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
-            <DireccionRenderer isEditing={isEditing&&canEdit&&isRevealed} direccion={direccion} onDireccionChange={(f,v)=>setDireccion(p=>({...p,[f]:v}))} lat={direccion.lat} lng={direccion.lng} onCoordsChange={(lat,lng)=>setDireccion(p=>({...p,lat,lng}))}/>
+            <TriggerCard
+              titulo="Domicilio"
+              subtitulo={direccion.Ciudad || direccion.Municipio || "Sin domicilio registrado"}
+              onClick={() => isRevealed && setPopupAbierto("domicilio")}
+            />
           </div>
           <div className="section-card">
-            <RedesSocialesRenderer isEditing={isEditing&&canEdit} redesSociales={redesSociales} setRedesSociales={setRedesSociales}/>
+            <TriggerCard
+              titulo="Redes Sociales"
+              subtitulo={redesSociales.length > 0 ? `${redesSociales.length} red${redesSociales.length !== 1 ? "es" : ""} agregada${redesSociales.length !== 1 ? "s" : ""}` : "Sin redes registradas"}
+              onClick={() => setPopupAbierto("redes")}
+            />
           </div>
         </aside>
+
+        {popupAbierto === "contacto" && (
+          <ProfileModal onClose={() => setPopupAbierto(null)}>
+            <PersonasContactoRenderer isEditing={isEditing&&canEdit&&isRevealed} personalcontacto={personalContacto} handlePersonalContactoChange={(f,v)=>setPersonalContacto(p=>({...p,[f]:v}))} opcionesParentesco={catalogos.parentesco}/>
+          </ProfileModal>
+        )}
+        {popupAbierto === "domicilio" && (
+          <ProfileModal onClose={() => setPopupAbierto(null)}>
+            <DireccionRenderer isEditing={isEditing&&canEdit&&isRevealed} direccion={direccion} onDireccionChange={(f,v)=>setDireccion(p=>({...p,[f]:v}))} lat={direccion.lat} lng={direccion.lng} onCoordsChange={(lat,lng)=>setDireccion(p=>({...p,lat,lng}))}/>
+          </ProfileModal>
+        )}
+        {popupAbierto === "redes" && (
+          <ProfileModal onClose={() => setPopupAbierto(null)}>
+            <RedesSocialesRenderer isEditing={isEditing&&canEdit} redesSociales={redesSociales} setRedesSociales={setRedesSociales}/>
+          </ProfileModal>
+        )}
 
         <main className="perfil-main">
           <div className="section-card">
@@ -487,9 +545,43 @@ function Perfil() {
               </div>
               <div className={`section-card section-card--sensitive${!isRevealed?" section-card--blurred":""}`}>
                 {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
+                <div className="sensitive-badge">Relación laboral</div>
+                {isRevealed && (
+                  <>
+                    <RelacionLaboralHeader RH={rh} puedeVerSalario={canViewSensitive} empleadoId={empleadoId} />
+                    {isModuleActive("vacaciones") && (
+                      <>
+                        <div style={{ height:1, background:"var(--hr-border)", margin:"18px 0" }} />
+                        <VacacionesRenderer empleadoId={empleadoId} isOwnProfile={isOwnProfile} esAprobador={authService.isAdmin()} />
+                      </>
+                    )}
+                    {isModuleActive("prestamos") && (
+                      <>
+                        <div style={{ height:1, background:"var(--hr-border)", margin:"18px 0" }} />
+                        <PrestamosRenderer empleadoId={empleadoId} isOwnProfile={isOwnProfile} />
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className={`section-card section-card--sensitive${!isRevealed?" section-card--blurred":""}`}>
+                {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
                 <div className="sensitive-badge">Confidencial</div>
                 <ExpedienteClinicoRenderer isEditing={isEditing&&canEdit&&isRevealed} expedienteclinico={expediente} setexpedienteclinico={setExpediente} openFilePicker={openClinicoPicker}/>
               </div>
+              {isModuleActive("documentos_financieros") && (
+                <div className={`section-card section-card--sensitive${!isRevealed?" section-card--blurred":""}`}>
+                  {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
+                  <div className="sensitive-badge">Financiero</div>
+                  {isRevealed && (
+                    <FinancialSectionRenderer
+                      empleadoId={empleadoId}
+                      tipoRelacionLaboral={rh?.TipoRelacionLaboral}
+                      isOwnProfile={isOwnProfile}
+                    />
+                  )}
+                </div>
+              )}
             </>
           )}
         </main>

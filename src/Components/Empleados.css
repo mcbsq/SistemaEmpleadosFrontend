@@ -11,6 +11,36 @@
   color: var(--hr-text);
 }
 
+/* ── KPI strip — mismo patrón visual que AdminDashboard/Analítica ────────── */
+.emp-kpi-grid {
+  max-width: 1480px;
+  margin: 0 auto 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+.emp-kpi {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 18px;
+  background: var(--hr-glass-bg);
+  backdrop-filter: var(--hr-blur); -webkit-backdrop-filter: var(--hr-blur);
+  border: 0.5px solid var(--hr-glass-border);
+  border-radius: var(--hr-radius-lg);
+  box-shadow: var(--hr-shadow);
+  transition: transform var(--hr-duration-sm) var(--hr-ease);
+}
+.emp-kpi:hover { transform: translateY(-2px); }
+.emp-kpi-icon {
+  font-size: 1.15rem; color: var(--hr-accent);
+  display: flex; align-items: center; width: fit-content;
+  margin-bottom: 2px;
+}
+.emp-kpi-icon--success { color: var(--hr-success); }
+.emp-kpi-icon--danger  { color: var(--hr-danger); }
+.emp-kpi-icon--accent2 { color: var(--hr-accent-2); }
+.emp-kpi-val { font-size: 1.5rem; font-weight: 800; color: var(--hr-text); line-height: 1; }
+.emp-kpi-lbl { font-size: var(--hr-font-xs); color: var(--hr-muted); text-transform: uppercase; letter-spacing: 0.6px; }
+
 .CRUDS {
   max-width: 1480px;
   margin: 0 auto;
@@ -73,6 +103,16 @@
 }
 .emp-search-input::placeholder { color:rgba(122,127,148,0.6); }
 .emp-search-input:focus { border-color:rgba(var(--hr-accent-rgb),0.5); box-shadow:0 0 0 3px rgba(var(--hr-accent-rgb),0.1); }
+
+.emp-depto-filter {
+  flex-shrink: 0; max-width: 220px;
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid var(--hr-border); border-radius: var(--hr-radius);
+  color: var(--hr-text); padding: 11px 14px;
+  font-size: var(--hr-font-sm); outline: none; cursor: pointer;
+  transition: border-color var(--hr-duration-sm);
+}
+.emp-depto-filter:focus { border-color: rgba(var(--hr-accent-rgb),0.5); }
 .emp-search-clear {
   position:absolute; right:12px; top:50%; transform:translateY(-50%);
   background:none; border:none; color:var(--hr-muted); cursor:pointer;
@@ -126,6 +166,19 @@
   border: none;
 }
 .emp-th--center { text-align: center; }
+
+/* Encabezados ordenables */
+.emp-th--sortable { padding: 0; }
+.emp-th-sort-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  width: 100%; padding: 0 14px 8px;
+  background: none; border: none; cursor: pointer;
+  color: inherit; font: inherit;
+  text-transform: inherit; letter-spacing: inherit;
+  transition: color var(--hr-duration-xs);
+}
+.emp-th-sort-btn:hover { color: var(--hr-text); }
+.emp-th-sort-icon { display: inline-flex; font-size: 0.85em; }
 
 /* Celdas */
 .emp-td {
@@ -199,6 +252,7 @@
 .emp-chip--blue { background:rgba(var(--hr-accent-rgb),0.1);    border-color:rgba(var(--hr-accent-rgb),0.25);   color:var(--hr-accent); }
 .emp-chip--cyan { background:rgba(var(--hr-accent-2-rgb),0.07); border-color:rgba(var(--hr-accent-2-rgb),0.2);  color:var(--hr-accent-2); }
 .emp-chip--red  { background:rgba(232,107,95,0.1);              border-color:rgba(232,107,95,0.25);             color:var(--hr-danger); font-weight:700; }
+.emp-chip--green{ background:rgba(78,202,172,0.1);               border-color:rgba(78,202,172,0.25);             color:var(--hr-success); font-weight:700; }
 
 /* ── Contrato ──────────────────────────────────────────────── */
 .emp-contrato {

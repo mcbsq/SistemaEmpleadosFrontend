@@ -1,17 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════
-   Organigrama.css — Cyber Network Edition
+   Organigrama.css — árbol jerárquico: raíz de organización arriba,
+   áreas abajo conectadas con líneas, cada área con su grid de gente.
    Homologado con design-tokens.css
 ═══════════════════════════════════════════════════════════════ */
 
 .organigrama-section {
-  padding: 80px 4% 60px;
+  padding: 80px 4% 100px;
   min-height: 100vh;
   background: none;
 }
-.section-header {
-  text-align: center;
-  margin-bottom: 8px;
-}
+.section-header { text-align: center; margin-bottom: 8px; }
 .section-header h2 {
   font-size: var(--hr-font-2xl);
   font-weight: 700;
@@ -25,6 +23,7 @@
   letter-spacing: 3px;
   text-transform: uppercase;
   margin-bottom: 24px;
+  text-align: center;
 }
 
 /* ── Loading ─────────────────────────────────────────────────── */
@@ -43,150 +42,176 @@
   border-radius: 50%;
   animation: hr-spin 0.9s linear infinite;
 }
-
-/* ── Árbol ────────────────────────────────────────────────────── */
-.tree-wrapper {
-  cursor: grab;
-  border-radius: var(--hr-radius-lg);
-  overflow: hidden;
-  mask-image: linear-gradient(to bottom, transparent, black 8%, black 92%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 8%, black 92%, transparent);
-  transition: opacity var(--hr-duration-sm);
-}
-.tree-wrapper:active { cursor: grabbing; }
-
-/* ── Líneas ───────────────────────────────────────────────────── */
-.rd3t-link {
-  stroke: var(--hr-border) !important;
-  stroke-width: 1px !important;
-  transition: stroke 0.4s ease;
-}
-
-/* ── Círculos ─────────────────────────────────────────────────── */
-.rd3t-leaf-node circle,
-.rd3t-branch-node circle,
-circle {
-  fill: var(--hr-bg) !important;
-  stroke: var(--hr-border-hover) !important;
-  stroke-width: 1.5px !important;
-  transition: all var(--hr-duration-sm) var(--hr-ease);
-}
-.area-node-dot {
-  fill: rgba(var(--hr-accent-rgb),0.25) !important;
-  stroke: var(--hr-accent) !important;
-  stroke-width: 1.5px !important;
-  filter: drop-shadow(0 0 6px rgba(var(--hr-accent-rgb),0.4));
-}
-.employee-node-dot {
-  fill: rgba(var(--hr-accent-2-rgb),0.08) !important;
-  stroke: rgba(var(--hr-accent-2-rgb),0.4) !important;
-  stroke-width: 1px !important;
-}
-
-/* ── Cards de nodo ────────────────────────────────────────────── */
-.node-card {
-  position: relative;
-  padding: 10px 14px;
-  background: var(--node-bg);
-  border: 1px solid var(--node-border);
-  border-radius: var(--hr-radius);
-  backdrop-filter: var(--hr-blur);
-  -webkit-backdrop-filter: var(--hr-blur);
-  cursor: pointer;
-  transition: all var(--hr-duration-sm) var(--hr-ease);
-  overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-}
-.node-card::before {
-  content: '';
-  position: absolute; left: 0; top: 20%;
-  width: 2px; height: 0%;
-  background: linear-gradient(to bottom, transparent, var(--hr-accent), transparent);
-  border-radius: 2px;
-  transition: height var(--hr-duration-sm) var(--hr-ease), top var(--hr-duration-sm);
-}
-.node-card::after {
-  content: '';
-  position: absolute; top: 0; left: -100%;
-  width: 100%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
-  transition: left var(--hr-duration) ease;
-  pointer-events: none;
-}
-.node-card:hover {
-  border-color: rgba(var(--hr-accent-rgb),0.35);
-  box-shadow: var(--hr-shadow), 0 0 0 1px rgba(var(--hr-accent-rgb),0.15);
-  transform: translateY(-2px);
-}
-.node-card:hover::before { height: 60%; top: 20%; }
-.node-card:hover::after  { left: 100%; }
-
-.node-card.employee-node {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px; min-width: 160px;
-}
-
-.node-avatar {
-  width: 32px; height: 32px;
-  border-radius: 50%; object-fit: cover;
-  border: 1px solid rgba(var(--hr-accent-2-rgb),0.3);
-  flex-shrink: 0;
-  background: var(--hr-surface);
-}
-.node-avatar-placeholder {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  background: rgba(var(--hr-accent-rgb),0.15);
-  border: 1px solid rgba(var(--hr-accent-rgb),0.3);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  font-size: 12px; font-weight: 600;
-  color: var(--hr-accent);
-}
-.node-text { flex: 1; min-width: 0; }
-.node-name {
-  color: var(--hr-text);
-  font-weight: 600; font-size: 0.82rem;
-  letter-spacing: 0.3px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.node-role {
-  color: var(--hr-muted);
-  font-size: 0.62rem; text-transform: uppercase;
-  letter-spacing: 1.2px; opacity: 0.7; margin-top: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-.node-card.area-node {
-  background: rgba(var(--hr-accent-rgb),0.06);
-  border-color: rgba(var(--hr-accent-rgb),0.2);
-  text-align: center; justify-content: center;
-}
-.node-card.area-node .node-name {
-  color: rgba(150,200,255,0.9);
-  font-size: 0.78rem; letter-spacing: 1.5px; text-transform: uppercase;
-}
-.node-card.area-node:hover {
-  border-color: rgba(var(--hr-accent-rgb),0.5);
-  background: rgba(var(--hr-accent-rgb),0.1);
-}
-
-.node-profile-hint {
-  font-size: 0.58rem; color: var(--hr-accent-2);
-  letter-spacing: 1px; opacity: 0; margin-top: 3px;
-  transition: opacity var(--hr-duration-sm);
-  text-transform: uppercase;
-}
-.node-card:hover .node-profile-hint { opacity: 0.7; }
-
 .error-text {
   text-align: center; color: var(--hr-muted);
   margin-top: 60px; font-size: 0.9rem; letter-spacing: 1px;
 }
 
+/* ── Árbol ───────────────────────────────────────────────────── */
+.org-tree-wrap {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 20px 20px 60px;
+  min-height: 60vh;
+}
+
+.org-connectors {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: visible;
+}
+.org-connector-line {
+  fill: none;
+  stroke: rgba(145, 165, 210, 0.45);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: org-draw-line 0.6s ease forwards;
+}
+@keyframes org-draw-line {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Raíz — la organización completa ────────────────────────────── */
+.org-root-card {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px;
+  padding: 18px 36px;
+  background: linear-gradient(160deg, rgba(91,138,240,0.16), rgba(91,138,240,0.04));
+  border: 1px solid rgba(91,138,240,0.4);
+  border-radius: 18px;
+  box-shadow: 0 8px 28px rgba(91,138,240,0.15);
+  margin-bottom: 64px;
+  animation: hr-fade-in 0.4s ease both;
+}
+.org-root-nombre {
+  font-size: var(--hr-font-lg, 1.15rem);
+  font-weight: 800;
+  color: var(--hr-text);
+  letter-spacing: 0.5px;
+}
+.org-root-count {
+  font-size: var(--hr-font-xs);
+  color: var(--hr-muted);
+  letter-spacing: 0.3px;
+}
+
+/* ── Fila de áreas ───────────────────────────────────────────── */
+.org-areas-row {
+  position: relative; z-index: 1;
+  display: flex; flex-wrap: wrap;
+  align-items: flex-start; justify-content: center;
+  gap: 32px 40px;
+  width: 100%;
+  max-width: 1400px;
+}
+
+/* ── Caja de área — nodo del árbol ───────────────────────────── */
+.org-area-card {
+  --area-color: #5B8AF0;
+  width: 300px;
+  background: var(--hr-surface);
+  border: 1px solid var(--hr-border);
+  border-top: 3px solid var(--area-color);
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  overflow: hidden;
+  animation: hr-fade-in 0.45s ease both;
+  transition: transform var(--hr-duration) var(--hr-ease), box-shadow var(--hr-duration) var(--hr-ease);
+}
+.org-area-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px rgba(0,0,0,0.28);
+}
+
+.org-area-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hr-border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+}
+.org-area-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px var(--area-color);
+}
+.org-area-nombre {
+  flex: 1;
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--hr-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.org-area-count {
+  font-size: 0.68rem;
+  color: var(--hr-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Grid de miembros dentro de la caja ─────────────────────── */
+.org-area-miembros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 14px 8px;
+  padding: 18px 14px 20px;
+}
+
+.org-miembro {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer;
+  padding: 4px;
+  border-radius: 10px;
+  transition: background var(--hr-duration-sm);
+}
+.org-miembro:hover { background: rgba(255,255,255,0.05); }
+.org-miembro:hover .org-miembro-avatar { transform: scale(1.08); border-color: var(--hr-accent, #5B8AF0); }
+
+.org-miembro-avatar {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  overflow: hidden;
+  transition: transform var(--hr-duration-sm), border-color var(--hr-duration-sm);
+}
+.org-miembro-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.org-miembro-inicial {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; font-size: 0.8rem;
+}
+.org-miembro-nombre {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--hr-muted);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 74px;
+  overflow: hidden; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .org-connector-line, .org-root-card, .org-area-card { animation: none !important; stroke-dashoffset: 0; }
+  .org-area-card:hover, .org-miembro:hover .org-miembro-avatar { transform: none; }
+}
+
 /* Light mode */
 [data-theme="light"] .organigrama-section { background: var(--hr-bg); }
-[data-theme="light"] .section-header h2  { color: var(--hr-text); }
-[data-theme="light"] .node-card { box-shadow: var(--hr-shadow); }
-[data-theme="light"] .node-name { color: var(--hr-text); }
-[data-theme="light"] .node-role { color: var(--hr-muted); }
+[data-theme="light"] .org-connector-line { stroke: rgba(60,80,140,0.35); }
+[data-theme="light"] .org-area-card { background: #fff; }
+[data-theme="light"] .org-miembro-avatar { border-color: rgba(0,0,0,0.1); }
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .org-connectors { display: none; }
+  .org-areas-row { gap: 20px; }
+  .org-area-card { width: 100%; max-width: 340px; }
+  .org-root-card { margin-bottom: 32px; }
+}

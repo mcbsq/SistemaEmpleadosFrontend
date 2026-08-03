@@ -142,7 +142,7 @@
 /* Lista de incidentes */
 .orgs-incident-list { display: flex; flex-direction: column; gap: 6px; }
 .orgs-incident-row {
-  display: flex; align-items: flex-start; gap: 12px;
+  display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
   padding: 12px 14px;
   background: var(--hr-surface);
   border: 0.5px solid var(--hr-border);
@@ -160,12 +160,13 @@
 .orgs-sev--warning { background: rgba(245,166,35,0.12);  color: var(--hr-warning); border: 0.5px solid rgba(245,166,35,0.25);  }
 .orgs-sev--info    { background: rgba(91,138,240,0.12);  color: var(--hr-accent);  border: 0.5px solid rgba(91,138,240,0.25);  }
 
-.orgs-incident-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.orgs-incident-info { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .orgs-incident-msg  { font-size: var(--hr-font-md); color: var(--hr-text); word-break: break-word; }
 .orgs-incident-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .orgs-incident-code { font-family: monospace; font-size: var(--hr-font-xs); color: var(--hr-accent-2); background: rgba(var(--hr-accent-2-rgb),0.08); padding: 2px 6px; border-radius: 4px; }
 .orgs-incident-time { font-size: var(--hr-font-xs); color: var(--hr-muted); }
 .orgs-incident-status { font-size: var(--hr-font-xs); color: var(--hr-muted); font-weight: 600; align-self: flex-start; flex-shrink: 0; }
+.orgs-apikey-actions { display: flex; gap: 6px; flex-shrink: 0; white-space: nowrap; }
 
 /* Light mode */
 [data-theme="light"] .orgs-root { background: var(--hr-bg); }

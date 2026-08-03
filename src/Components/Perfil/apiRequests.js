@@ -150,6 +150,8 @@ export const cargarRHPorEmpleado = async (empleadoId) => {
     Departamento:     rhData.Departamento     || '',
     // Campos libres definidos por el admin
     CamposPersonalizados: rhData.CamposPersonalizados || {},
+    // Determina la sección financiera del perfil: nómina o CFDI
+    TipoRelacionLaboral: rhData.TipoRelacionLaboral || 'nomina',
   };
 };
 

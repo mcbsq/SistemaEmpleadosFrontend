@@ -1,0 +1,25 @@
+.nom-deduccion-row {
+  display: grid; grid-template-columns: 1fr 120px 90px auto;
+  gap: 8px; align-items: center; margin-bottom: 8px;
+}
+
+.nom-isr-table { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.nom-isr-header, .nom-isr-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+.nom-isr-header span {
+  font-size: var(--hr-font-xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--hr-muted);
+}
+
+.nom-resultado { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.nom-resultado-row {
+  display: flex; justify-content: space-between; padding: 8px 12px;
+  border-radius: var(--hr-radius-sm); background: var(--hr-surface);
+  border: 0.5px solid var(--hr-border);
+}
+.nom-resultado-row--total {
+  background: rgba(var(--hr-accent-rgb), 0.08);
+  border-color: rgba(var(--hr-accent-rgb), 0.25);
+  font-size: var(--hr-font-lg);
+}

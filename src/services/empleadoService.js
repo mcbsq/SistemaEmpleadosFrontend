@@ -3,6 +3,7 @@ import { contactoService } from "./contactoService";
 import { educacionService } from "./educacionService";
 import { clinicoService } from "./clinicoService";
 import { rhService } from "./rhService";
+import { usuarioService } from "./usuarioService";
 
 // ─── Headers con token automático ─────────────────────────────────────────────
 const authHeaders = () => {
@@ -80,7 +81,15 @@ export const empleadoService = {
     }).then(res => res.json()),
 
   // ── DELETE COMPLETO ───────────────────────────────────────────────────────
+  // Encontrado auditando: si el empleado tenía cuenta de acceso, borrarlo aquí
+  // sin tocar `usuario` la dejaba huérfana (login capaz de entrar sin que
+  // existiera ya el empleado, y su identidad en Aegis nunca se desactivaba).
   deleteFull: async (id) => {
+    const cuentaVinculada = await usuarioService.getAll()
+      .then(usuarios => (Array.isArray(usuarios) ? usuarios : [])
+        .find(u => (u.empleado_id?.$oid || u.empleado_id) === id))
+      .catch(() => null);
+
     const res = await fetch(`${API_URL}/empleados/${id}`, {
       method: "DELETE", headers: authHeaders(),
     });
@@ -91,6 +100,7 @@ export const empleadoService = {
       educacionService.delete(id),
       clinicoService.delete(id),
       rhService.delete(id),
+      ...(cuentaVinculada ? [usuarioService.delete(cuentaVinculada._id)] : []),
     ]);
     return res.json();
   },

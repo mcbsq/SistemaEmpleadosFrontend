@@ -46,9 +46,64 @@ body {
 .app-sidebar--open { transform: translateX(0); }
 
 @media (min-width: 1024px) {
-  .app-sidebar  { transform: translateX(0); }
-  .app-main     { margin-left: 240px; }
-  .app-topbar   { display: none !important; }
+  /* Burbuja flotante: angosta por defecto (solo iconos), se expande al hacer
+     hover mostrando las etiquetas. No empuja el contenido — flota encima. */
+  .app-sidebar {
+    transform: translateX(0);
+    top: 16px; left: 16px; bottom: 16px; height: auto;
+    width: 76px;
+    border-radius: 20px;
+    border: 0.5px solid var(--hr-glass-border);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.28);
+    transition: width var(--hr-duration) var(--hr-ease), box-shadow var(--hr-duration) var(--hr-ease);
+    overflow: hidden;
+  }
+  .app-sidebar:hover, .app-sidebar:focus-within {
+    width: 264px;
+    box-shadow: 0 20px 56px rgba(0,0,0,0.4);
+  }
+  .app-main   { margin-left: 108px; }
+  .app-topbar { display: none !important; }
+
+  /* Etiquetas de texto: colapsadas por defecto, aparecen con el hover */
+  .sb-item-label, .sb-logo-sub, .sb-theme-label, .sb-group-label,
+  .sb-user-row, .sb-logo-link, .app-sidebar .sb-logout .sb-item-label {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: opacity var(--hr-duration-xs) var(--hr-ease), max-width var(--hr-duration) var(--hr-ease);
+  }
+  .app-sidebar:hover .sb-item-label,
+  .app-sidebar:hover .sb-logo-sub,
+  .app-sidebar:hover .sb-theme-label,
+  .app-sidebar:hover .sb-group-label,
+  .app-sidebar:hover .sb-user-row,
+  .app-sidebar:hover .sb-logo-link,
+  .app-sidebar:focus-within .sb-item-label,
+  .app-sidebar:focus-within .sb-logo-sub,
+  .app-sidebar:focus-within .sb-theme-label,
+  .app-sidebar:focus-within .sb-group-label,
+  .app-sidebar:focus-within .sb-user-row,
+  .app-sidebar:focus-within .sb-logo-link {
+    opacity: 1;
+    max-width: 200px;
+  }
+  .app-sidebar .sb-logo-link { white-space: nowrap; display: block; }
+  .app-sidebar .sb-logout { display: flex; align-items: center; white-space: nowrap; }
+
+  /* Monograma — visible solo colapsado, se oculta al expandir */
+  .sb-logo-block { display: flex; flex-direction: column; min-width: 0; }
+  .sb-logo-mono {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--hr-text), var(--hr-accent));
+    color: var(--hr-bg); font-weight: 800; font-size: 1rem;
+    transition: opacity var(--hr-duration-xs) var(--hr-ease);
+  }
+  .app-sidebar:hover .sb-logo-mono, .app-sidebar:focus-within .sb-logo-mono {
+    opacity: 0; width: 0; height: 0; overflow: hidden;
+  }
 }
 
 /* ── Sidebar header (logo + subtítulo) ───────────────────────── */
@@ -76,6 +131,18 @@ body {
   letter-spacing: .15em;
   text-transform: uppercase;
 }
+
+/* ── Botón de Spotlight ───────────────────────────────────────── */
+.sb-spotlight-trigger { padding: 8px 10px 0; }
+.sb-item-kbd {
+  margin-left: auto; font-size: 10px; font-weight: 700;
+  color: var(--hr-muted); background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--hr-border); border-radius: 4px;
+  padding: 1px 5px; flex-shrink: 0; opacity: 0;
+  transition: opacity var(--hr-duration-xs);
+}
+.app-sidebar:hover .sb-item-kbd, .app-sidebar:focus-within .sb-item-kbd { opacity: 1; }
+[data-theme="light"] .sb-item-kbd { background: #f4f5f9; }
 
 /* ── Nav ──────────────────────────────────────────────────────── */
 .sb-nav { flex: 1; overflow-y: auto; padding: 12px 10px; scrollbar-width: none; position: relative; }
