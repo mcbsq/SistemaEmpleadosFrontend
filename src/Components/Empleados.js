@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import "./Empleados.css";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Modal, ModalHeader, ModalBody } from "reactstrap";
 import {
   CiFacebook, CiLinkedin, CiYoutube,
@@ -466,7 +466,9 @@ function Empleados() {
   const [guardando,    setGuardando]    = useState(false);
   const [verInactivos, setVerInactivos] = useState(false);
   const [expEmpleado,  setExpEmpleado]  = useState(null);
-  const [deptoFiltro,  setDeptoFiltro]  = useState("");
+  const [searchParams] = useSearchParams();
+  const [deptoFiltro,  setDeptoFiltro]  = useState(() => searchParams.get("depto") || "");
+  const deptoFiltroRef = useRef(null);
   const [orden,        setOrden]        = useState({ campo: null, dir: 1 });
 
   // ─── Registro ─────────────────────────────────────────────────────────────
@@ -524,7 +526,10 @@ function Empleados() {
       ...emp,
       _puesto:           rh?.Puesto           || "",
       _jefe:             rh?.JefeInmediato    || "",
-      _departamento:     rh?.Departamento     || emp.depto_id || "",
+      // depto_id primero: siempre está presente (default "Sin Asignar" al
+      // crear el empleado) y es el mismo campo que usan Organigrama y el
+      // Dashboard — rh.Departamento casi nunca se llena, queda como fallback.
+      _departamento:     emp.depto_id || rh?.Departamento || "",
       _contrato_firmado: rh?.contrato_firmado ?? false,
       _tipo_contrato:    rh?.tipo_contrato    || "",
       _relacion_laboral: rh?.TipoRelacionLaboral || "nomina",
@@ -718,26 +723,36 @@ function Empleados() {
       </div>
 
       <div className="emp-kpi-grid">
-        <div className="emp-kpi">
+        {/* Los 4 recuadros son filtros, no solo números — pedido explícito:
+            "quiero que sirvan como acciones... si hay 4 inactivos, al darle
+            click quiero saber quiénes son". */}
+        <button type="button" className="emp-kpi emp-kpi--clickable"
+          aria-pressed={!verInactivos && !deptoFiltro}
+          onClick={() => { setVerInactivos(false); setDeptoFiltro(""); setPagina(0); }}>
           <span className="emp-kpi-icon"><FiUsers/></span>
           <span className="emp-kpi-val">{empleadosRich.length}</span>
           <span className="emp-kpi-lbl">Total registrados</span>
-        </div>
-        <div className="emp-kpi">
+        </button>
+        <button type="button" className="emp-kpi emp-kpi--clickable"
+          aria-pressed={!verInactivos}
+          onClick={() => { setVerInactivos(false); setPagina(0); }}>
           <span className="emp-kpi-icon emp-kpi-icon--success"><FiUserCheck/></span>
           <span className="emp-kpi-val">{totalActivos}</span>
           <span className="emp-kpi-lbl">Activos</span>
-        </div>
-        <div className="emp-kpi">
+        </button>
+        <button type="button" className="emp-kpi emp-kpi--clickable"
+          aria-pressed={verInactivos}
+          onClick={() => { setVerInactivos(true); setPagina(0); }}>
           <span className="emp-kpi-icon emp-kpi-icon--danger"><FiUserX/></span>
           <span className="emp-kpi-val">{totalInactivos}</span>
           <span className="emp-kpi-lbl">Inactivos</span>
-        </div>
-        <div className="emp-kpi">
+        </button>
+        <button type="button" className="emp-kpi emp-kpi--clickable"
+          onClick={() => deptoFiltroRef.current?.focus()}>
           <span className="emp-kpi-icon emp-kpi-icon--accent2"><FiGrid/></span>
           <span className="emp-kpi-val">{departamentos.length}</span>
           <span className="emp-kpi-lbl">Departamentos</span>
-        </div>
+        </button>
       </div>
 
       <div className="CRUDS">
@@ -756,7 +771,7 @@ function Empleados() {
             {filtro && <button className="emp-search-clear" onClick={()=>setFiltro("")}><FiX /></button>}
           </div>
           {departamentos.length > 0 && (
-            <select className="emp-depto-filter" value={deptoFiltro}
+            <select ref={deptoFiltroRef} className="emp-depto-filter" value={deptoFiltro}
               onChange={e=>{setDeptoFiltro(e.target.value);setPagina(0);}}
               aria-label="Filtrar por departamento">
               <option value="">Todos los departamentos</option>

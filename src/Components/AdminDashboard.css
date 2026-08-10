@@ -47,6 +47,8 @@
   transition: transform 0.18s ease;
 }
 .ad-kpi:hover { transform: translateY(-2px); }
+.ad-kpi--clickable { text-decoration: none; cursor: pointer; }
+.ad-kpi--clickable:hover { border-color: var(--hr-accent, #5B8AF0); box-shadow: 0 6px 18px rgba(0,0,0,0.15); }
 .ad-kpi-accent {
   width: 3px;
   height: 28px;
@@ -120,6 +122,13 @@
   gap: 8px;
   margin-bottom: 7px;
 }
+.ad-bar-row--clickable {
+  text-decoration: none; cursor: pointer;
+  border-radius: 6px; padding: 3px 4px; margin: -3px -4px 4px;
+  transition: background 0.15s ease;
+}
+.ad-bar-row--clickable:hover { background: rgba(var(--hr-accent-rgb, 91,138,240), 0.08); }
+.ad-bar-row--clickable:hover .ad-bar-lbl { color: var(--hr-accent, #5B8AF0); }
 .ad-bar-lbl {
   font-size: 0.72rem;
   color: var(--ad-text-muted);
@@ -163,6 +172,14 @@
   font-size: 0.78rem;
 }
 .ad-alert-item:last-child { border-bottom: none; }
+.ad-alert-link {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; text-decoration: none; gap: 8px;
+  border-radius: 6px; padding: 2px 4px; margin: -2px -4px;
+  transition: background 0.15s ease;
+}
+.ad-alert-link:hover { background: rgba(var(--hr-accent-rgb, 91,138,240), 0.08); }
+.ad-alert-link:hover .ad-alert-name { color: var(--hr-accent, #5B8AF0); }
 .ad-alert-name {
   color: var(--ad-text);
   font-weight: 500;
@@ -185,10 +202,15 @@
 .ad-tag--blue   { background: rgba(59,130,246,0.12);  color: #3b82f6; }
 .ad-tag--amber  { background: rgba(245,158,11,0.12);  color: #d97706; }
 .ad-tag--red    { background: rgba(239,68,68,0.12);   color: #ef4444; }
+/* Gris = informativo, no requiere atención (ej. cumpleaños); ver escala
+   pedida por el cliente: gris=notable sin acción, verde=todo bien,
+   amarillo=más o menos, rojo=requiere atención. */
+.ad-tag--gray   { background: rgba(148,163,184,0.14); color: #94a3b8; }
 
 [data-theme="light"] .ad-tag--blue  { background: #dbeafe; color: #1d4ed8; }
 [data-theme="light"] .ad-tag--amber { background: #fef3c7; color: #b45309; }
 [data-theme="light"] .ad-tag--red   { background: #fee2e2; color: #b91c1c; }
+[data-theme="light"] .ad-tag--gray  { background: #e2e8f0; color: #475569; }
 
 /* ── Gauge ────────────────────────────────────────── */
 .ad-gauge-card {

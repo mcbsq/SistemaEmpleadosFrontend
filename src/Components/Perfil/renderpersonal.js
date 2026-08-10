@@ -9,6 +9,7 @@ import { authService } from "../../services/authService";
 import { documentosFinancierosService } from "../../services/documentosFinancierosService";
 import { vacacionesService } from "../../services/vacacionesService";
 import { prestamoService } from "../../services/prestamoService";
+import { conexionesExternasService } from "../../services/conexionesExternasService";
 import { PDFAttachment } from "./PDFAttachment";
 import MapaDomicilio from "./MapaDomicilio";
 import { API_URL } from "../../services/apiConfig";
@@ -218,26 +219,173 @@ const TimelineRenderer = ({ title, items=[], isEditing, setItems }) => {
 export const EducationSectionRenderer  = (props) => <TimelineRenderer title="Educación"           {...props} items={props.educationItems}  setItems={props.setEducationItems} />;
 export const ExperienceSectionRenderer = (props) => <TimelineRenderer title="Experiencia Laboral" {...props} items={props.experienceItems} setItems={props.setExperienceItems} />;
 
+// ── Catálogo de habilidades — tomado del documento de RH (Protal360, ago
+// 2026): 6 categorías, cada una con su definición para el tooltip de ayuda
+// ("?" junto a cada habilidad, pedido explícito del cliente). Cada habilidad
+// se califica 0-100 de forma independiente — no es un reparto que sume 100.
+export const HABILIDADES_CATALOGO = {
+  "Habilidades Blandas (Soft Skills)": [
+    { nombre: "Comunicación", definicion: "Saber expresar ideas claramente (oral y escrita), escuchar activamente y negociar." },
+    { nombre: "Inteligencia emocional", definicion: "Reconocer, entender y gestionar las propias emociones y las de los demás." },
+    { nombre: "Empatía", definicion: "Ponerse en el lugar del otro y comprender sus sentimientos." },
+    { nombre: "Trabajo en equipo", definicion: "Colaborar, cooperar y contribuir a un objetivo común." },
+    { nombre: "Liderazgo", definicion: "Inspirar, guiar y motivar a otras personas hacia una meta." },
+    { nombre: "Resolución de conflictos", definicion: "Mediar y encontrar soluciones en situaciones de desacuerdo." },
+    { nombre: "Adaptabilidad / Flexibilidad", definicion: "Ajustarse fácilmente a cambios, nuevas condiciones o imprevistos." },
+    { nombre: "Resiliencia", definicion: "Capacidad para superar adversidades, fracasos o situaciones de estrés." },
+    { nombre: "Pensamiento crítico", definicion: "Analizar información objetivamente para formar un juicio razonado." },
+    { nombre: "Creatividad", definicion: "Generar ideas originales y encontrar soluciones innovadoras." },
+    { nombre: "Toma de decisiones", definicion: "Elegir la mejor opción entre varias alternativas evaluando riesgos." },
+    { nombre: "Sentido del humor", definicion: "Usar el humor de manera constructiva para aliviar tensiones y conectar con otros." },
+  ],
+  "Habilidades Duras (Hard Skills)": [
+    { nombre: "Idiomas", definicion: "Hablar, leer y escribir en otros idiomas (inglés, francés, mandarín, etc.)." },
+    { nombre: "Programación y desarrollo", definicion: "Lenguajes como Python, Java, C++, HTML/CSS, o manejo de bases de datos (SQL)." },
+    { nombre: "Manejo de software", definicion: "Office (Excel, Word, PowerPoint), herramientas de diseño (Photoshop, Illustrator), edición de video o CAD." },
+    { nombre: "Análisis de datos", definicion: "Estadística, manejo de hojas de cálculo avanzadas, Power BI, Tableau o R." },
+    { nombre: "Marketing digital", definicion: "SEO/SEM, gestión de redes sociales, email marketing y analítica web." },
+    { nombre: "Finanzas y contabilidad", definicion: "Gestión presupuestaria, análisis de balances, cálculo de impuestos o inversiones." },
+    { nombre: "Conocimientos jurídicos", definicion: "Manejo de leyes, contratos y normativas específicas." },
+    { nombre: "Habilidades médicas o de salud", definicion: "Primeros auxilios, enfermería, diagnóstico, cirugía." },
+    { nombre: "Logística", definicion: "Encontrar la mejor eficacia para la entrega de mercancías y abastecimientos para producción." },
+  ],
+  "Habilidades Cognitivas (De pensamiento)": [
+    { nombre: "Memoria", definicion: "Capacidad para retener y recordar información (a corto, medio y largo plazo)." },
+    { nombre: "Atención y concentración", definicion: "Mantener el foco en una tarea ignorando distracciones." },
+    { nombre: "Razonamiento lógico", definicion: "Establecer relaciones causa-efecto y resolver problemas paso a paso." },
+    { nombre: "Velocidad de procesamiento", definicion: "Captar y reaccionar rápidamente ante estímulos." },
+    { nombre: "Percepción espacial", definicion: "Visualizar y manipular objetos en la mente (útil para arquitectura o cirugía)." },
+    { nombre: "Flexibilidad cognitiva", definicion: "Cambiar de un pensamiento a otro y adaptar la estrategia mental según el contexto." },
+  ],
+  "Habilidades Físicas o Motoras": [
+    { nombre: "Coordinación óculo-manual", definicion: "Sincronizar la vista con las manos (escribir, coser, manejar herramientas)." },
+    { nombre: "Destreza manual / Motricidad fina", definicion: "Realizar movimientos precisos con los dedos (joyería, relojería, cirugía)." },
+    { nombre: "Resistencia física", definicion: "Capacidad para mantener un esfuerzo prolongado (caminar largas distancias, cargar peso)." },
+  ],
+  "Habilidades para la Vida Diaria": [
+    { nombre: "Gestión del tiempo", definicion: "Planificar y priorizar tareas para ser eficiente." },
+    { nombre: "Organización y planificación", definicion: "Mantener el orden en espacios físicos y en agendas." },
+    { nombre: "Manejo del dinero", definicion: "Hacer presupuestos, ahorrar y evitar deudas." },
+    { nombre: "Capacidad de aprender por uno mismo", definicion: "Buscar información y adquirir conocimientos sin un profesor (autoaprendizaje)." },
+  ],
+  "Habilidades Interpersonales Avanzadas": [
+    { nombre: "Asertividad", definicion: "Decir lo que piensas y sientes sin agredir ni someterse." },
+    { nombre: "Persuasión", definicion: "Capacidad para convencer a otros de tu punto de vista." },
+    { nombre: "Mentoría / Coaching", definicion: "Enseñar y guiar a otros para que desarrollen su potencial." },
+    { nombre: "Networking", definicion: "Construir y mantener relaciones profesionales y sociales." },
+    { nombre: "Servicio al cliente", definicion: "Atender, asesorar y resolver dudas de otras personas con paciencia y eficacia." },
+  ],
+};
+const DEFINICIONES_POR_NOMBRE = Object.values(HABILIDADES_CATALOGO).flat()
+  .reduce((acc, h) => { acc[h.nombre] = h.definicion; return acc; }, {});
+
+function AyudaHabilidad({ nombre }) {
+  const [abierto, setAbierto] = React.useState(false);
+  const definicion = DEFINICIONES_POR_NOMBRE[nombre];
+  if (!definicion) return null;
+  return (
+    <span className="skill-help-wrap">
+      <button type="button" className="skill-help-btn" aria-label={`Qué significa ${nombre}`}
+        onClick={() => setAbierto(o => !o)} onBlur={() => setTimeout(() => setAbierto(false), 150)}>?</button>
+      {abierto && (
+        <span className="skill-help-bubble" role="tooltip">
+          <strong>{nombre}</strong> — {definicion}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ── Catálogo completo con definiciones — para consultar ANTES de elegir, no
+// solo después de haberla seteado. Pedido explícito: alguien que no sabe a
+// qué se refiere una habilidad necesita esa info mientras todavía está
+// decidiendo cuál escoger, no solo una vez que ya quedó guardada.
+function CatalogoHabilidadesModal({ onClose, onElegir }) {
+  return (
+    <div className="nb-overlay" onClick={onClose}>
+      <div className="nb-panel skill-catalogo-panel" onClick={e => e.stopPropagation()}>
+        <div className="nb-panel-header">
+          <span>Catálogo de habilidades</span>
+          <button className="nb-close-btn" onClick={onClose} aria-label="Cerrar"><FiX /></button>
+        </div>
+        <div className="skill-catalogo-body">
+          <p className="description-text" style={{ marginBottom: 12 }}>
+            Qué significa cada habilidad, antes de elegirla.
+          </p>
+          {Object.entries(HABILIDADES_CATALOGO).map(([cat, items]) => (
+            <div key={cat} className="skill-catalogo-cat">
+              <p className="skill-catalogo-cat-titulo">{cat}</p>
+              {items.map(it => (
+                <button type="button" key={it.nombre} className="skill-catalogo-item"
+                  onClick={() => { if (onElegir) onElegir(it.nombre); onClose(); }}>
+                  <span className="skill-catalogo-item-nombre">{it.nombre}</span>
+                  <span className="skill-catalogo-item-def">{it.definicion}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const SkillSectionRenderer = ({ isEditing, habilidades=[], setHabilidades }) => {
   const update = (i,f,v)=>{ const up=[...habilidades]; up[i]={...up[i],[f]:v}; setHabilidades(up); };
   const add    = ()=>setHabilidades([...habilidades,{skillName:"",porcentaje:50}]);
   const remove = (i)=>setHabilidades(habilidades.filter((_,idx)=>idx!==i));
+  const [catalogoParaFila, setCatalogoParaFila] = useState(null);
   return (
     <div className="section-inner">
       <h3 className="section-title">Habilidades</h3>
+      <p className="description-text">Cada habilidad se califica de 0 a 100 de forma independiente — no es necesario que sumen 100%.</p>
+      {catalogoParaFila !== null && (
+        <CatalogoHabilidadesModal
+          onClose={() => setCatalogoParaFila(null)}
+          onElegir={(nombre) => update(catalogoParaFila, "skillName", nombre)}
+        />
+      )}
       <div className="skills-list">
         {habilidades.map((h,i)=>(
           <div key={i} className="skill-item">
             {isEditing ? (
               <div className="skill-edit-row">
-                <input className="field-input" placeholder="Habilidad" value={h.skillName} onChange={e=>update(i,"skillName",e.target.value)} />
+                {/* "?" ANTES de elegir — para quien no sabe a qué se refiere
+                    una habilidad mientras todavía está decidiendo cuál
+                    escoger, no solo después de haberla guardado. */}
+                <button type="button" className="skill-help-btn" title="Ver qué significa cada habilidad antes de elegir"
+                  aria-label="Ver catálogo de habilidades con definiciones"
+                  onClick={() => setCatalogoParaFila(i)}>?</button>
+                <select className="field-input" value={h.skillName}
+                  onChange={e=>update(i,"skillName",e.target.value)} style={{flex:1}}>
+                  <option value="">Selecciona una habilidad…</option>
+                  {Object.entries(HABILIDADES_CATALOGO).map(([cat, items]) => (
+                    <optgroup key={cat} label={cat}>
+                      {items.map(it => <option key={it.nombre} value={it.nombre} title={it.definicion}>{it.nombre}</option>)}
+                    </optgroup>
+                  ))}
+                  <optgroup label="Otra">
+                    <option value={h.skillName && !DEFINICIONES_POR_NOMBRE[h.skillName] ? h.skillName : "__otra__"}>
+                      {h.skillName && !DEFINICIONES_POR_NOMBRE[h.skillName] ? h.skillName : "Escribir otra habilidad…"}
+                    </option>
+                  </optgroup>
+                </select>
+                {h.skillName === "__otra__" || (h.skillName && !DEFINICIONES_POR_NOMBRE[h.skillName]) ? (
+                  <input className="field-input" placeholder="Nombre de la habilidad" style={{flex:1}}
+                    value={h.skillName === "__otra__" ? "" : h.skillName}
+                    onChange={e=>update(i,"skillName",e.target.value)} />
+                ) : null}
                 <input type="range" min="0" max="100" value={h.porcentaje} onChange={e=>update(i,"porcentaje",e.target.value)} className="skill-range" />
                 <span className="skill-pct">{h.porcentaje}%</span>
+                <AyudaHabilidad nombre={h.skillName} />
                 <button className="btn-icon btn-icon--danger" onClick={()=>remove(i)}><FiX /></button>
               </div>
             ) : (
               <>
-                <div className="skill-header"><span className="skill-name">{h.skillName}</span><span className="skill-pct">{h.porcentaje}%</span></div>
+                <div className="skill-header">
+                  <span className="skill-name">{h.skillName}<AyudaHabilidad nombre={h.skillName} /></span>
+                  <span className="skill-pct">{h.porcentaje}%</span>
+                </div>
                 <div className="skill-bar-track"><div className="skill-bar-fill" style={{width:`${h.porcentaje}%`}}/></div>
               </>
             )}
@@ -458,16 +606,100 @@ export const ExpedienteClinicoRenderer = ({ isEditing, expedienteclinico, setexp
   );
 };
 
+// Formato institucional Cibercom — dos columnas separadas por una línea
+// vertical: izquierda = Perfil/Especialidades/Know How/Inglés/Contacto,
+// derecha = nombre, resumen, habilidades como bullets y experiencia como
+// "Logros". Replica la plantilla que RH ya usa en documentos reales (ver
+// referencia compartida), solo que aquí se llena con los datos del empleado.
+const esc = (s = "") => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
 export const CVExportRenderer = ({ empleado, rh, descripcion, educationItems=[], experienciaItems=[], habilidades=[] }) => {
   const handlePrint = () => {
     const cvWindow = window.open("","_blank");
-    const nombre = `${empleado?.Nombre||""} ${empleado?.ApelPaterno||""}`.trim();
-    cvWindow.document.write(`<!DOCTYPE html><html><head><title>CV — ${nombre}</title>
-      <style>body{font-family:Arial,sans-serif;padding:40px;color:#111;max-width:800px;margin:0 auto}h1{font-size:28px;margin-bottom:4px}.puesto{color:#0071e3;font-size:16px;margin-bottom:20px}.desc{color:#555;margin-bottom:24px}h2{font-size:16px;border-bottom:2px solid #0071e3;padding-bottom:4px;margin-top:28px;color:#0071e3}.item{margin:12px 0}.item-year{font-size:12px;color:#888}.item-title{font-weight:bold}.item-desc{font-size:13px;color:#444}.skill-row{display:flex;align-items:center;gap:12px;margin:6px 0}.skill-name{width:160px;font-size:13px}.skill-bar{flex:1;height:8px;background:#eee;border-radius:4px}.skill-fill{height:100%;background:#0071e3;border-radius:4px}</style></head><body>
-      <h1>${nombre}</h1><div class="puesto">${rh?.Puesto||"Sin puesto"}</div><div class="desc">${descripcion||""}</div>
-      ${educationItems.length?`<h2>Educación</h2>${educationItems.map(i=>`<div class="item"><div class="item-year">${i.year}</div><div class="item-title">${i.title}</div><div class="item-desc">${i.description}</div></div>`).join("")}`:""}
-      ${experienciaItems.length?`<h2>Experiencia</h2>${experienciaItems.map(i=>`<div class="item"><div class="item-year">${i.year}</div><div class="item-title">${i.title}</div><div class="item-desc">${i.description}</div></div>`).join("")}`:""}
-      ${habilidades.length?`<h2>Habilidades</h2>${habilidades.map(h=>`<div class="skill-row"><span class="skill-name">${h.skillName}</span><div class="skill-bar"><div class="skill-fill" style="width:${h.porcentaje}%"></div></div><span>${h.porcentaje}%</span></div>`).join("")}`:""}
+    const nombre = `${empleado?.Nombre||""} ${empleado?.ApelPaterno||""} ${empleado?.ApelMaterno||""}`.trim();
+    const puesto = rh?.Puesto || "Sin puesto asignado";
+
+    // Especialidades = las mejor calificadas (≥70%); Know How = el resto —
+    // mismo criterio visual que la plantilla institucional (dos listas cortas).
+    const ordenadas   = [...habilidades].sort((a,b) => (b.porcentaje||0) - (a.porcentaje||0));
+    const especialidades = ordenadas.filter(h => (h.porcentaje||0) >= 70).slice(0, 8);
+    const knowHow         = ordenadas.filter(h => !especialidades.includes(h)).slice(0, 10);
+    const ingles = habilidades.find(h => /ingl[eé]s/i.test(h.skillName || ""));
+
+    const bullet = (arr) => arr.map(h => `<li>${esc(h.skillName)}</li>`).join("");
+
+    cvWindow.document.write(`<!DOCTYPE html><html><head><title>CV — ${esc(nombre)}</title>
+      <style>
+        @page { margin: 30px; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #222; margin: 0; }
+        .cv-wrap { display: flex; min-height: 100vh; }
+        .cv-side {
+          width: 30%; padding: 32px 22px; border-right: 1.5px solid #7a1f3d;
+          display: flex; flex-direction: column; gap: 22px;
+        }
+        .cv-brand { font-weight: 800; font-size: 15px; color: #444; line-height: 1.1; margin-bottom: 4px; }
+        .cv-side h4 {
+          font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+          color: #7a1f3d; margin: 0 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px;
+        }
+        .cv-side p, .cv-side li { font-size: 12.5px; color: #333; margin: 0 0 4px; }
+        .cv-side ul { list-style: none; padding: 0; margin: 0; }
+        .cv-side ul li { font-weight: 600; margin-bottom: 6px; }
+        .cv-main { width: 70%; padding: 32px 36px; }
+        .cv-main-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+        .cv-main-header img { height: 42px; }
+        .cv-name { font-size: 24px; font-weight: 800; color: #222; letter-spacing: 0.5px; margin: 0; }
+        .cv-resumen { font-size: 13px; color: #444; margin: 14px 0 22px; line-height: 1.5; }
+        .cv-main h3 {
+          font-size: 15px; color: #7a1f3d; margin: 24px 0 10px;
+          border-bottom: 2px solid #7a1f3d; padding-bottom: 4px;
+        }
+        .cv-main ul.bullets { margin: 0; padding-left: 18px; }
+        .cv-main ul.bullets li { font-size: 13px; color: #333; margin-bottom: 6px; }
+        .cv-item { margin-bottom: 12px; }
+        .cv-item-title { font-weight: 700; font-size: 13px; color: #222; }
+        .cv-item-meta  { font-size: 11px; color: #888; margin-bottom: 3px; }
+        .cv-item-desc  { font-size: 12.5px; color: #444; }
+        .cv-empty { font-size: 12px; color: #999; font-style: italic; }
+        @media print { .cv-side { border-right: 1.5px solid #7a1f3d; } }
+      </style></head><body>
+      <div class="cv-wrap">
+        <div class="cv-side">
+          <div class="cv-brand">Capital<br/>Humano</div>
+          <div>
+            <h4>Perfil</h4>
+            <p style="font-weight:700">${esc(puesto)}</p>
+          </div>
+          ${especialidades.length ? `<div><h4>Especialidades</h4><ul>${bullet(especialidades)}</ul></div>` : ""}
+          ${knowHow.length ? `<div><h4>Know How</h4><ul>${bullet(knowHow)}</ul></div>` : ""}
+          ${ingles ? `<div><h4>Inglés</h4><p>${esc(ingles.skillName)} — ${ingles.porcentaje}%</p></div>` : ""}
+        </div>
+        <div class="cv-main">
+          <div class="cv-main-header">
+            <div>
+              <p class="cv-name">${esc(nombre).toUpperCase()}</p>
+            </div>
+            <img src="${window.location.origin}/logo192.png" alt="Logo" />
+          </div>
+          <p class="cv-resumen">${esc(descripcion) || "Sin descripción de perfil registrada."}</p>
+
+          <h3>Habilidades</h3>
+          ${habilidades.length
+            ? `<ul class="bullets">${habilidades.map(h => `<li>${esc(h.skillName)} — ${h.porcentaje}%</li>`).join("")}</ul>`
+            : `<p class="cv-empty">Sin habilidades registradas.</p>`}
+
+          <h3>Expertise</h3>
+          ${experienciaItems.length
+            ? experienciaItems.map(i => `<div class="cv-item"><div class="cv-item-title">${esc(i.title)}</div><div class="cv-item-meta">${esc(i.year||"")}</div><div class="cv-item-desc">${esc(i.description||"")}</div></div>`).join("")
+            : `<p class="cv-empty">Sin experiencia registrada.</p>`}
+
+          <h3>Educación</h3>
+          ${educationItems.length
+            ? educationItems.map(i => `<div class="cv-item"><div class="cv-item-title">${esc(i.title)}</div><div class="cv-item-meta">${esc(i.year||"")}</div><div class="cv-item-desc">${esc(i.description||"")}</div></div>`).join("")
+            : `<p class="cv-empty">Sin educación registrada.</p>`}
+        </div>
+      </div>
       </body></html>`);
     cvWindow.document.close();
     cvWindow.print();
@@ -475,7 +707,7 @@ export const CVExportRenderer = ({ empleado, rh, descripcion, educationItems=[],
   return (
     <div className="section-inner">
       <h3 className="section-title">CV / Portafolio</h3>
-      <p className="description-text">Genera un CV con tu información actual — educación, experiencia y habilidades.</p>
+      <p className="description-text">Genera un CV con el formato institucional — educación, experiencia y habilidades.</p>
       <button className="btn-ghost btn-ghost--accent" onClick={handlePrint}><FiFileText style={{verticalAlign:"-2px",marginRight:4}}/>Exportar CV como PDF</button>
     </div>
   );
@@ -639,6 +871,50 @@ export const FinancialSectionRenderer = ({ empleadoId, tipoRelacionLaboral, isOw
             {subiendo ? "Subiendo…" : "Guardar documento"}
           </button>
         </div>
+      )}
+    </div>
+  );
+};
+
+// ── NominaExternaRenderer — nómina generada en OTRO sistema, consumida en
+// vivo vía la conexión externa configurada por el SUPER_ADMIN (Integraciones).
+// No se guarda copia local: cada vez que se abre esta sección se vuelve a
+// consultar el sistema externo.
+export const NominaExternaRenderer = ({ empleadoId }) => {
+  const [estado, setEstado] = useState(undefined);
+
+  useEffect(() => {
+    if (!empleadoId) { setEstado(null); return; }
+    let vivo = true;
+    conexionesExternasService.getNominaExterna(empleadoId)
+      .then(d => { if (vivo) setEstado(d); })
+      .catch(() => { if (vivo) setEstado(null); });
+    return () => { vivo = false; };
+  }, [empleadoId]);
+
+  // Sin conexión de tipo "nómina" configurada en esta empresa: no mostrar
+  // nada (no es un error, simplemente no aplica).
+  if (estado === undefined || estado === null || estado.configurada === false) return null;
+
+  return (
+    <div className="section-inner">
+      <h3 className="section-title">Nómina (sistema externo)</h3>
+      {estado.error ? (
+        <p className="emp-dim">{estado.error}</p>
+      ) : estado.datos ? (
+        <>
+          <p className="description-text" style={{ marginBottom: 10 }}>Datos en vivo desde "{estado.fuente}" — no se guarda copia aquí.</p>
+          <div className="fin-doc-list">
+            {Object.entries(estado.datos).map(([campo, valor]) => (
+              <div key={campo} className="fin-doc-row">
+                <span className="field-label" style={{ minWidth: 140 }}>{campo}</span>
+                <span className="field-value">{typeof valor === "object" ? JSON.stringify(valor) : String(valor)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="emp-dim">Cargando…</p>
       )}
     </div>
   );

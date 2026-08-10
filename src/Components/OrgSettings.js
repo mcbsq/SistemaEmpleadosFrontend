@@ -3,9 +3,10 @@
 // Acceso: solo SUPER_ADMIN (controlado por RoleRoute en App.js)
 
 import React, { useState, useEffect, useCallback } from "react";
-import { FiZap, FiCheck, FiKey, FiFileText } from "react-icons/fi";
+import { FiZap, FiCheck, FiKey, FiFileText, FiGitBranch, FiPlus, FiTrash2 } from "react-icons/fi";
 import { useOrg } from "../context/OrgContext";
 import { apiFetch } from "../services/apiConfig";
+import { catalogodeptoService } from "../services/catalogodeptoService";
 import "./OrgSettings.css";
 
 const MODULE_CATALOG = [
@@ -39,6 +40,7 @@ const TABS = [
   { id: "identidad",   label: "Identidad"   },
   { id: "modulos",     label: "Módulos"     },
   { id: "kpis",        label: "KPIs"        },
+  { id: "areas",       label: "Áreas"       },
   { id: "vacaciones",  label: "Vacaciones"  },
   { id: "apikeys",     label: "API Keys"    },
   { id: "auditoria",   label: "Auditoría"   },
@@ -61,6 +63,58 @@ function OrgSettings() {
   );
   const [saving,       setSaving]       = useState(false);
   const [saved,        setSaved]        = useState(false);
+
+  // Áreas — jerarquía real de departamentos (quién depende de quién), la
+  // que usa el Organigrama para dibujar el árbol de arriba hacia abajo.
+  const [areas,        setAreas]        = useState([]);
+  const [areasLoading, setAreasLoading] = useState(false);
+  const [areaNueva,    setAreaNueva]    = useState({ NombreDepto: "", Descripcion: "", DeptoPadre: "" });
+  const [creandoArea,  setCreandoArea]  = useState(false);
+
+  const cargarAreas = useCallback(async () => {
+    setAreasLoading(true);
+    try {
+      const data = await catalogodeptoService.getAll().catch(() => []);
+      setAreas(Array.isArray(data) ? data : []);
+    } finally {
+      setAreasLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "areas") cargarAreas();
+  }, [activeTab, cargarAreas]);
+
+  const handleCrearArea = async () => {
+    if (!areaNueva.NombreDepto.trim()) return;
+    setCreandoArea(true);
+    try {
+      await catalogodeptoService.create({
+        NombreDepto: areaNueva.NombreDepto.trim(),
+        Descripcion: areaNueva.Descripcion.trim(),
+        Poblacion: 0,
+        DeptoPadre: areaNueva.DeptoPadre || null,
+      });
+      setAreaNueva({ NombreDepto: "", Descripcion: "", DeptoPadre: "" });
+      cargarAreas();
+    } finally {
+      setCreandoArea(false);
+    }
+  };
+
+  const handleCambiarPadre = async (area, nuevoPadre) => {
+    await catalogodeptoService.update(area._id.$oid || area._id, {
+      NombreDepto: area.NombreDepto, Descripcion: area.Descripcion || "",
+      Poblacion: area.Poblacion || 0, DeptoPadre: nuevoPadre || null,
+    });
+    cargarAreas();
+  };
+
+  const handleEliminarArea = async (area) => {
+    if (!window.confirm(`¿Eliminar el área "${area.NombreDepto}" del catálogo? Los empleados que ya la tengan asignada no se ven afectados.`)) return;
+    await catalogodeptoService.delete(area._id.$oid || area._id);
+    cargarAreas();
+  };
 
   // Monitor
   const [incidents,       setIncidents]       = useState([]);
@@ -326,6 +380,58 @@ function OrgSettings() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Áreas — jerarquía real para el Organigrama ──────────────── */}
+      {activeTab === "areas" && (
+        <div className="hr-card">
+          <div className="hr-card-title"><FiGitBranch style={{ verticalAlign: "-2px", marginRight: 6 }} />Jerarquía de áreas</div>
+          <p className="orgs-desc">
+            Define de qué área depende cada una (ej. "Tecnología" depende de "Dirección General").
+            El Organigrama dibuja el árbol de arriba hacia abajo exactamente como quede aquí — las áreas
+            sin "Depende de" quedan como primer nivel, justo debajo de la empresa.
+          </p>
+
+          <div className="orgs-color-row" style={{ marginBottom: 10 }}>
+            <input className="orgs-input" placeholder="Nombre del área (ej. Tecnología)"
+              value={areaNueva.NombreDepto} onChange={e => setAreaNueva(a => ({ ...a, NombreDepto: e.target.value }))} />
+            <select className="orgs-input" value={areaNueva.DeptoPadre}
+              onChange={e => setAreaNueva(a => ({ ...a, DeptoPadre: e.target.value }))}>
+              <option value="">— Primer nivel (sin depender de nadie) —</option>
+              {areas.map(a => <option key={a.NombreDepto} value={a.NombreDepto}>Depende de: {a.NombreDepto}</option>)}
+            </select>
+          </div>
+          <input className="orgs-input" placeholder="Descripción (opcional)" style={{ marginBottom: 10 }}
+            value={areaNueva.Descripcion} onChange={e => setAreaNueva(a => ({ ...a, Descripcion: e.target.value }))} />
+          <button className="orgs-save-btn" onClick={handleCrearArea} disabled={creandoArea || !areaNueva.NombreDepto.trim()}>
+            <FiPlus style={{ verticalAlign: "-2px", marginRight: 4 }} />{creandoArea ? "Creando…" : "Agregar área"}
+          </button>
+
+          {areasLoading ? (
+            <div className="orgs-monitor-loading" style={{ marginTop: 16 }}><div className="hr-spinner" /><span>Cargando…</span></div>
+          ) : areas.length === 0 ? (
+            <p className="orgs-desc" style={{ marginTop: 16 }}>Sin áreas en el catálogo todavía — el Organigrama seguirá mostrando un árbol de un solo nivel hasta que definas al menos una jerarquía aquí.</p>
+          ) : (
+            <div className="orgs-incident-list" style={{ marginTop: 16 }}>
+              {areas.map(a => (
+                <div key={a.NombreDepto} className="orgs-incident-row">
+                  <div className="orgs-incident-info">
+                    <span className="orgs-incident-msg">{a.NombreDepto}</span>
+                    <span className="orgs-incident-meta">{a.Descripcion || "Sin descripción"}</span>
+                  </div>
+                  <select className="orgs-input" style={{ maxWidth: 220 }} value={a.DeptoPadre || ""}
+                    onChange={e => handleCambiarPadre(a, e.target.value)}>
+                    <option value="">— Primer nivel —</option>
+                    {areas.filter(x => x.NombreDepto !== a.NombreDepto).map(x => (
+                      <option key={x.NombreDepto} value={x.NombreDepto}>Depende de: {x.NombreDepto}</option>
+                    ))}
+                  </select>
+                  <button className="orgs-refresh-btn" onClick={() => handleEliminarArea(a)}><FiTrash2 /></button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

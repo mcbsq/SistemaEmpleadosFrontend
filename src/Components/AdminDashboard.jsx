@@ -15,6 +15,20 @@ import { FiClock, FiActivity, FiCheckCircle } from "react-icons/fi";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getId = (item) => item?._id?.$oid || item?._id || "";
 
+// A dónde lleva cada tipo de alerta al hacer clic — directo a la sección del
+// perfil donde se resuelve, no solo al perfil en general (pedido explícito:
+// "esa etiqueta debe servir como acceso directo a lo que debemos solucionar").
+const ALERTA_DESTINO = {
+  rh:       (id) => `/Perfil/${id}?ir=rh`,
+  contacto: (id) => `/Perfil/${id}?ir=contacto`,
+  clinico:  (id) => `/Perfil/${id}?ir=clinico`,
+  cumple:   (id) => `/Perfil/${id}`,
+};
+// Escala de color pedida por el cliente: gris = notable pero no requiere
+// atención, verde = todo bien (no aplica aquí, son solo alertas), amarillo =
+// más o menos, rojo = requiere atención.
+const ALERTA_COLOR = { cumple: "gray", rh: "red", contacto: "amber", clinico: "amber" };
+
 const cumpleProximos7 = (fecNac) => {
   if (!fecNac) return false;
   const hoy     = new Date();
@@ -54,30 +68,43 @@ const COLORS = [
 ];
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
-const KpiCard = ({ label, value, sub, color }) => (
-  <div className="ad-kpi">
-    <span className="ad-kpi-accent" style={{ background: color }} />
-    <div>
-      <div className="ad-kpi-val">{value}</div>
-      <div className="ad-kpi-lbl">{label}</div>
-      {sub && <div className="ad-kpi-sub">{sub}</div>}
-    </div>
-  </div>
-);
+// `to` es opcional — cuando existe, la tarjeta es un atajo directo a la lista
+// que explica el número (ej. "Sin expediente" → Empleados), en vez de ser
+// solo un dato inerte que hay que ir a buscar por su cuenta.
+const KpiCard = ({ label, value, sub, color, to }) => {
+  const contenido = (
+    <>
+      <span className="ad-kpi-accent" style={{ background: color }} />
+      <div>
+        <div className="ad-kpi-val">{value}</div>
+        <div className="ad-kpi-lbl">{label}</div>
+        {sub && <div className="ad-kpi-sub">{sub}</div>}
+      </div>
+    </>
+  );
+  return to
+    ? <Link to={to} className="ad-kpi ad-kpi--clickable">{contenido}</Link>
+    : <div className="ad-kpi">{contenido}</div>;
+};
 
 // ─── Barra horizontal ─────────────────────────────────────────────────────────
-const HBar = ({ label, value, max, color }) => (
-  <div className="ad-bar-row">
-    <span className="ad-bar-lbl" title={label}>{label}</span>
-    <div className="ad-bar-track">
-      <div
-        className="ad-bar-fill"
-        style={{ width: `${Math.round((value / Math.max(max, 1)) * 100)}%`, background: color }}
-      />
-    </div>
-    <span className="ad-bar-num">{value}</span>
-  </div>
-);
+const HBar = ({ label, value, max, color, to }) => {
+  const barra = (
+    <>
+      <span className="ad-bar-lbl" title={label}>{label}</span>
+      <div className="ad-bar-track">
+        <div
+          className="ad-bar-fill"
+          style={{ width: `${Math.round((value / Math.max(max, 1)) * 100)}%`, background: color }}
+        />
+      </div>
+      <span className="ad-bar-num">{value}</span>
+    </>
+  );
+  return to
+    ? <Link to={to} className="ad-bar-row ad-bar-row--clickable">{barra}</Link>
+    : <div className="ad-bar-row">{barra}</div>;
+};
 
 // ─── Tag ─────────────────────────────────────────────────────────────────────
 const Tag = ({ type, children }) => (
@@ -177,10 +204,17 @@ function AdminDashboard() {
     }));
     const rhIds   = new Set(rhData.map(r   => r.empleado_id?.$oid  || r.empleado_id  || ""));
 
-    // Distribución por puesto
+    // Distribución por área (depto_id) — antes agrupaba por Puesto (RH) pero
+    // la tarjeta decía "por área"; y usar rh.Departamento (campo casi nunca
+    // lleno) en vez de depto_id (siempre presente, el mismo que usa el
+    // Organigrama y el filtro de Empleados/RH) dejaba la mayoría de la
+    // plantilla fuera de la cuenta. depto_id es la fuente confiable.
     const puestoMap = {};
-    rhData.forEach(r => {
-      const p = r.Puesto || "Sin asignar";
+    empleados.forEach(e => {
+      const raw = (e.depto_id || "Sin asignar").toString();
+      // Normaliza "Sin Asignar"/"Sin asignar"/etc a un solo bucket — mismo
+      // criterio que usa el Organigrama para no duplicar la barra.
+      const p = raw.trim().toLowerCase() === "sin asignar" ? "Sin asignar" : raw;
       puestoMap[p] = (puestoMap[p] || 0) + 1;
     });
     const puestoData = Object.entries(puestoMap)
@@ -298,14 +332,14 @@ function AdminDashboard() {
       <div className="ad-kpi-grid">
         {getActiveKpis().map(kpi => {
           const datos = {
-            total_empleados:   { value: stats.total,      sub: null },
-            areas_registradas: { value: stats.areaCount,  sub: null },
-            cumpleanos_mes:    { value: stats.cumplesMes, sub: `${stats.cumpleProx} en próximos 7 días` },
-            sin_expediente:    { value: stats.sinClinico, sub: `${stats.pctCompleto}% con expediente` },
-            sin_puesto:        { value: stats.sinPuesto,  sub: null },
-          }[kpi.id] || { value: "—", sub: null };
+            total_empleados:   { value: stats.total,      sub: null,                                     to: "/empleados" },
+            areas_registradas: { value: stats.areaCount,  sub: null,                                     to: "/empleados" },
+            cumpleanos_mes:    { value: stats.cumplesMes, sub: `${stats.cumpleProx} en próximos 7 días`, to: "/empleados" },
+            sin_expediente:    { value: stats.sinClinico, sub: `${stats.pctCompleto}% con expediente`,   to: "/empleados" },
+            sin_puesto:        { value: stats.sinPuesto,  sub: null,                                     to: "/empleados" },
+          }[kpi.id] || { value: "—", sub: null, to: null };
           return (
-            <KpiCard key={kpi.id} label={kpi.label} value={datos.value} sub={datos.sub} color={kpi.color} />
+            <KpiCard key={kpi.id} label={kpi.label} value={datos.value} sub={datos.sub} color={kpi.color} to={datos.to} />
           );
         })}
       </div>
@@ -318,7 +352,8 @@ function AdminDashboard() {
           {stats.puestoData.length > 0
             ? stats.puestoData.map((d, i) => (
                 <HBar key={d.label} label={d.label} value={d.value}
-                  max={stats.maxPuesto} color={COLORS[i % COLORS.length]} />
+                  max={stats.maxPuesto} color={COLORS[i % COLORS.length]}
+                  to={`/empleados?depto=${encodeURIComponent(d.label)}`} />
               ))
             : <p className="ad-empty">Sin datos de RH.</p>
           }
@@ -332,10 +367,16 @@ function AdminDashboard() {
               <ul className="ad-alert-list">
                 {stats.alertas.map((a, i) => (
                   <li key={i} className="ad-alert-item">
-                    <span className="ad-alert-name">{formatNombre(a.emp)}</span>
-                    <Tag type={a.tipo === "cumple" ? "blue" : a.tipo === "rh" ? "red" : "amber"}>
-                      {a.label}
-                    </Tag>
+                    {/* La etiqueta lleva directo a la sección exacta que hay que
+                        completar (contacto/RH/expediente) — no solo al perfil
+                        en general. "Cumple" es puramente informativo (gris), no
+                        hay nada que "arreglar" ahí. */}
+                    <Link to={ALERTA_DESTINO[a.tipo](getId(a.emp))} className="ad-alert-link">
+                      <span className="ad-alert-name">{formatNombre(a.emp)}</span>
+                      <Tag type={ALERTA_COLOR[a.tipo] || "amber"}>
+                        {a.label}
+                      </Tag>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -429,7 +470,16 @@ function AdminDashboard() {
               </div>
               {!tieneClinico && <Tag type="amber">Sin exp.</Tag>}
               {!tieneRH      && <Tag type="red">Sin RH</Tag>}
-              <Link to={`/Perfil/${getId(emp)}`} className="ad-emp-link">Ver →</Link>
+              <Link
+                to={
+                  !tieneRH      ? ALERTA_DESTINO.rh(getId(emp))
+                  : !tieneClinico ? ALERTA_DESTINO.clinico(getId(emp))
+                  : `/Perfil/${getId(emp)}`
+                }
+                className="ad-emp-link"
+              >
+                Ver →
+              </Link>
             </div>
           ))}
           {empleados.length > 5 && (

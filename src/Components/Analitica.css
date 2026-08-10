@@ -16,3 +16,58 @@
 .an-hbar-track { flex: 1; height: 8px; border-radius: 4px; background: var(--hr-border); overflow: hidden; }
 .an-hbar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
 .an-hbar-value { width: 32px; text-align: right; font-size: var(--hr-font-sm); font-weight: 700; color: var(--hr-text); }
+
+/* ── Modal de reporte en línea ───────────────────────────────── */
+.an-modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(4,5,9,0.62); backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  animation: hr-fade-in 0.15s ease;
+  padding: 24px;
+}
+.an-modal {
+  width: 100%; max-width: 720px; max-height: 82vh;
+  background: var(--hr-surface, #14151c);
+  border: 0.5px solid var(--hr-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+[data-theme="light"] .an-modal { background: #fff; }
+.an-modal-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 18px 20px; border-bottom: 0.5px solid var(--hr-border);
+}
+.an-modal-header h3 { margin: 0 0 4px; font-size: 1.05rem; color: var(--hr-text); }
+.an-modal-desc { margin: 0; font-size: var(--hr-font-sm); color: var(--hr-muted); }
+.an-modal-body { padding: 16px 20px 20px; overflow-y: auto; }
+
+.an-table-wrap { overflow-x: auto; }
+.an-table { width: 100%; border-collapse: collapse; font-size: var(--hr-font-sm); }
+.an-table th {
+  text-align: left; padding: 8px 12px; white-space: nowrap;
+  color: var(--hr-muted); text-transform: uppercase; font-size: var(--hr-font-xs);
+  letter-spacing: 0.5px; border-bottom: 1px solid var(--hr-border);
+}
+.an-table td { padding: 8px 12px; border-bottom: 0.5px solid var(--hr-border); color: var(--hr-text); white-space: nowrap; }
+.an-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+/* ── Resumen del reporte — quién/cómo/cuántos arriba de la tabla ─────────── */
+.an-resumen-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px; margin: 0 0 20px;
+}
+.an-resumen-item {
+  background: var(--hr-bg, rgba(255,255,255,0.03));
+  border: 0.5px solid var(--hr-border); border-radius: 10px;
+  padding: 12px 14px;
+}
+.an-resumen-item dt {
+  font-size: var(--hr-font-xs); color: var(--hr-muted);
+  text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px;
+}
+.an-resumen-item dd {
+  margin: 0; font-size: var(--hr-font-md); font-weight: 700; color: var(--hr-text);
+  font-variant-numeric: tabular-nums;
+}

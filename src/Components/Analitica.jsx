@@ -3,7 +3,7 @@
 // exportables. Cada usuario solo ve las secciones a las que el SUPER_ADMIN
 // le otorgó permiso (ADMIN/SUPER_ADMIN siempre ven todo).
 import React, { useState, useEffect, useCallback } from "react";
-import { FiBarChart2, FiDownload, FiLock, FiUsers, FiDollarSign, FiSun, FiAward, FiBriefcase } from "react-icons/fi";
+import { FiBarChart2, FiDownload, FiLock, FiUsers, FiDollarSign, FiSun, FiAward, FiBriefcase, FiEye, FiX } from "react-icons/fi";
 import { apiFetch, API_URL } from "../services/apiConfig";
 import "./Analitica.css";
 
@@ -44,10 +44,80 @@ function StatTile({ icon: Icon, label, value, sub, color }) {
   );
 }
 
+// ── Modal de reporte en línea — el cliente pidió explícitamente poder
+// consultar los reportes dentro del sistema en vez de siempre tener que
+// exportar a Excel solo para verlos.
+function ReporteModal({ reporte, onClose }) {
+  const [datos, setDatos] = useState(undefined);
+
+  useEffect(() => {
+    let vivo = true;
+    setDatos(undefined);
+    apiFetch(`/analitica/reportes/${reporte.id}/datos`)
+      .then(d => { if (vivo) setDatos(d); })
+      .catch(() => { if (vivo) setDatos(null); });
+    return () => { vivo = false; };
+  }, [reporte.id]);
+
+  return (
+    <div className="an-modal-overlay" onClick={onClose}>
+      <div className="an-modal" onClick={e => e.stopPropagation()}>
+        <div className="an-modal-header">
+          <div>
+            <h3>{reporte.nombre}</h3>
+            <p className="an-modal-desc">{reporte.descripcion}</p>
+          </div>
+          <button className="nb-close-btn" onClick={onClose} aria-label="Cerrar"><FiX /></button>
+        </div>
+        <div className="an-modal-body">
+          {datos === undefined ? (
+            <div className="orgs-monitor-loading"><div className="hr-spinner" /><span>Cargando…</span></div>
+          ) : datos === null ? (
+            <p className="ad-empty">Sin datos para este reporte todavía.</p>
+          ) : (
+            <>
+              {/* Resumen — quién/cómo/cuántos de un vistazo, antes de la tabla
+                  fila-por-fila. Pedido explícito: reportes "super descriptivos". */}
+              {datos.resumen && Object.keys(datos.resumen).length > 0 && (
+                <dl className="an-resumen-grid">
+                  {Object.entries(datos.resumen).map(([etiqueta, valor]) => (
+                    <div key={etiqueta} className="an-resumen-item">
+                      <dt>{etiqueta}</dt>
+                      <dd>{valor === null || valor === undefined || valor === "" ? "—" : String(valor)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+
+              {datos.rows.length === 0 ? (
+                <p className="ad-empty">Sin filas de detalle todavía.</p>
+              ) : (
+                <div className="an-table-wrap">
+                  <table className="an-table">
+                    <thead>
+                      <tr>{datos.headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {datos.rows.map((row, i) => (
+                        <tr key={i}>{row.map((cell, j) => <td key={j}>{cell === null || cell === undefined ? "—" : String(cell)}</td>)}</tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ReportesCard({ compact = false }) {
   const [catalogo, setCatalogo] = useState([]);
   const [loading, setLoading] = useState(true);
   const [descargando, setDescargando] = useState(null);
+  const [viendo, setViendo] = useState(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -84,21 +154,30 @@ export function ReportesCard({ compact = false }) {
   if (visibles.length === 0) return null;
 
   return (
-    <div className="orgs-incident-list">
-      {visibles.map(r => (
-        <div key={r.id} className="orgs-incident-row">
-          <span className="orgs-sev-badge orgs-sev--info"><FiBarChart2 /></span>
-          <div className="orgs-incident-info">
-            <span className="orgs-incident-msg">{r.nombre}</span>
-            <span className="orgs-incident-meta">{r.descripcion}</span>
+    <>
+      {viendo && <ReporteModal reporte={viendo} onClose={() => setViendo(null)} />}
+      <div className="orgs-incident-list">
+        {visibles.map(r => (
+          <div key={r.id} className="orgs-incident-row">
+            <span className="orgs-sev-badge orgs-sev--info"><FiBarChart2 /></span>
+            <div className="orgs-incident-info">
+              <span className="orgs-incident-msg">{r.nombre}</span>
+              <span className="orgs-incident-meta">{r.descripcion}</span>
+            </div>
+            <div className="orgs-apikey-actions">
+              <button className="orgs-refresh-btn" onClick={() => setViendo(r)}>
+                <FiEye style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                Ver en línea
+              </button>
+              <button className="orgs-refresh-btn" onClick={() => handleExportar(r)} disabled={descargando === r.id}>
+                <FiDownload style={{ verticalAlign: "-2px", marginRight: 4 }} />
+                {descargando === r.id ? "Exportando…" : "Exportar .xlsx"}
+              </button>
+            </div>
           </div>
-          <button className="orgs-refresh-btn" onClick={() => handleExportar(r)} disabled={descargando === r.id}>
-            <FiDownload style={{ verticalAlign: "-2px", marginRight: 4 }} />
-            {descargando === r.id ? "Exportando…" : "Exportar .xlsx"}
-          </button>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
 

@@ -5,6 +5,7 @@
 ═══════════════════════════════════════════════════════════════ */
 
 .organigrama-section {
+  position: relative;
   padding: 80px 4% 100px;
   min-height: 100vh;
   background: none;
@@ -85,7 +86,7 @@
   border: 1px solid rgba(91,138,240,0.4);
   border-radius: 18px;
   box-shadow: 0 8px 28px rgba(91,138,240,0.15);
-  margin-bottom: 64px;
+  margin-bottom: 96px;
   animation: hr-fade-in 0.4s ease both;
 }
 .org-root-nombre {
@@ -100,7 +101,117 @@
   letter-spacing: 0.3px;
 }
 
-/* ── Fila de áreas ───────────────────────────────────────────── */
+/* ── Botón "Sin asignar" — anclado a la esquina de la sección para no
+   competir con el árbol ni desbalancear su composición central. */
+.org-sinasignar-corner {
+  position: absolute;
+  top: 24px; right: 4%;
+  z-index: 2;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  background: var(--hr-surface);
+  border: 1px dashed var(--hr-border);
+  border-radius: 999px;
+  color: var(--hr-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: border-color var(--hr-duration-sm), color var(--hr-duration-sm), transform var(--hr-duration-sm);
+  animation: hr-fade-in 0.4s ease both;
+}
+.org-sinasignar-corner:hover {
+  border-color: var(--hr-muted);
+  color: var(--hr-text);
+  transform: translateY(-2px);
+}
+.org-sinasignar-btn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--hr-muted);
+  flex-shrink: 0;
+}
+.org-sinasignar-btn-count {
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.72rem;
+}
+
+/* ── Popup con la lista de empleados sin área asignada — anclado a la
+   sección del Organigrama (no a toda la pantalla), así aparece dentro de
+   su propio bloque sin importar el scroll del resto del sistema. ──── */
+.org-modal-overlay {
+  position: absolute; inset: 0;
+  background: rgba(8,10,18,0.6);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  animation: hr-fade-in 0.2s ease both;
+  padding: 20px;
+  border-radius: inherit;
+}
+.org-modal {
+  width: 100%; max-width: 420px;
+  max-height: 80vh;
+  background: var(--hr-surface);
+  border: 1px solid var(--hr-border);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.org-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 22px 8px;
+}
+.org-modal-header h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--hr-text);
+  letter-spacing: 0.3px;
+}
+.org-modal-close {
+  background: none; border: none; cursor: pointer;
+  font-size: 1.4rem; line-height: 1;
+  color: var(--hr-muted);
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background var(--hr-duration-sm), color var(--hr-duration-sm);
+}
+.org-modal-close:hover { background: rgba(255,255,255,0.06); color: var(--hr-text); }
+.org-modal-sub {
+  padding: 0 22px 14px;
+  color: var(--hr-muted);
+  font-size: 0.8rem;
+}
+.org-modal-lista {
+  overflow-y: auto;
+  padding: 0 10px 14px;
+}
+.org-modal-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  background: none; border: none; cursor: pointer;
+  border-radius: 12px;
+  text-align: left;
+  transition: background var(--hr-duration-sm);
+}
+.org-modal-item:hover { background: rgba(255,255,255,0.05); }
+.org-modal-item-nombre {
+  flex: 1;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--hr-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.org-modal-item-ver {
+  font-size: 0.74rem;
+  color: var(--hr-accent, #5B8AF0);
+  white-space: nowrap;
+}
+
+/* ── Fila de áreas (primer nivel) ────────────────────────────── */
 .org-areas-row {
   position: relative; z-index: 1;
   display: flex; flex-wrap: wrap;
@@ -110,89 +221,113 @@
   max-width: 1400px;
 }
 
-/* ── Caja de área — nodo del árbol ───────────────────────────── */
+/* ── Un nivel del árbol: su propia caja arriba, sus áreas hijas abajo ──── */
+.org-nivel {
+  display: flex; flex-direction: column; align-items: center;
+}
+.org-hijos-row {
+  position: relative; z-index: 1;
+  display: flex; flex-wrap: wrap;
+  align-items: flex-start; justify-content: center;
+  gap: 28px 32px;
+  margin-top: 56px; /* espacio para que la línea de conexión respire */
+}
+
+/* ── Ameba de área — nodo del árbol con forma orgánica ──────────
+   Cada área es una "burbuja" de forma irregular (--area-blob, calculada
+   en JS por nodo) en vez de una caja rectangular; adentro, sus miembros
+   son a su vez burbujas circulares agrupadas, no filas de tabla. ────── */
 .org-area-card {
   --area-color: #5B8AF0;
-  width: 300px;
-  background: var(--hr-surface);
-  border: 1px solid var(--hr-border);
-  border-top: 3px solid var(--area-color);
-  border-radius: 16px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+  width: 320px;
+  background:
+    radial-gradient(120% 140% at 20% 0%, var(--area-color-soft, rgba(91,138,240,0.10)), transparent 60%),
+    var(--hr-surface);
+  border: 1.5px solid var(--hr-border);
+  border-radius: var(--area-blob, 55% 45% 58% 42% / 48% 42% 58% 52%);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.02);
   overflow: hidden;
-  animation: hr-fade-in 0.45s ease both;
-  transition: transform var(--hr-duration) var(--hr-ease), box-shadow var(--hr-duration) var(--hr-ease);
+  animation: hr-fade-in 0.5s ease both;
+  transition: transform var(--hr-duration) var(--hr-ease),
+              box-shadow var(--hr-duration) var(--hr-ease),
+              border-radius 0.6s var(--hr-ease);
 }
 .org-area-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 32px rgba(0,0,0,0.28);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.32);
+  border-radius: 45% 55% 42% 58% / 55% 48% 52% 45%;
 }
 
 .org-area-header {
-  display: flex; align-items: center; gap: 8px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--hr-border);
-  background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  text-align: center;
+  padding: 28px 28px 14px;
 }
 .org-area-dot {
-  width: 9px; height: 9px; border-radius: 50%;
+  width: 10px; height: 10px; border-radius: 50%;
   flex-shrink: 0;
-  box-shadow: 0 0 8px var(--area-color);
+  box-shadow: 0 0 10px var(--area-color);
+  margin-bottom: 2px;
 }
 .org-area-nombre {
-  flex: 1;
   font-weight: 800;
-  font-size: 0.92rem;
-  letter-spacing: 0.4px;
+  font-size: 1.05rem;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--hr-text);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  line-height: 1.35;
+  max-width: 100%;
+  word-break: break-word;
 }
 .org-area-count {
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   color: var(--hr-muted);
   white-space: nowrap;
-  flex-shrink: 0;
+  letter-spacing: 0.3px;
 }
 
-/* ── Grid de miembros dentro de la caja ─────────────────────── */
+/* ── Racimo de burbujas de miembros dentro del área ─────────── */
 .org-area-miembros {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
-  gap: 14px 8px;
-  padding: 18px 14px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 18px 14px;
+  padding: 10px 24px 32px;
 }
 
 .org-miembro {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
   background: none; border: none; cursor: pointer;
+  width: 84px;
   padding: 4px;
-  border-radius: 10px;
+  border-radius: 14px;
   transition: background var(--hr-duration-sm);
 }
-.org-miembro:hover { background: rgba(255,255,255,0.05); }
-.org-miembro:hover .org-miembro-avatar { transform: scale(1.08); border-color: var(--hr-accent, #5B8AF0); }
+.org-miembro:hover { background: rgba(255,255,255,0.06); }
+.org-miembro:hover .org-miembro-avatar { transform: scale(1.1); border-color: var(--hr-accent, #5B8AF0); }
 
 .org-miembro-avatar {
-  width: 46px; height: 46px;
+  width: 54px; height: 54px;
   border-radius: 50%;
   border: 2px solid rgba(255,255,255,0.15);
   overflow: hidden;
+  flex-shrink: 0;
   transition: transform var(--hr-duration-sm), border-color var(--hr-duration-sm);
 }
 .org-miembro-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .org-miembro-inicial {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 800; font-size: 0.8rem;
+  color: #fff; font-weight: 800; font-size: 0.92rem;
 }
 .org-miembro-nombre {
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--hr-muted);
   text-align: center;
-  line-height: 1.2;
-  max-width: 74px;
+  line-height: 1.3;
+  max-width: 84px;
   overflow: hidden; text-overflow: ellipsis;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }

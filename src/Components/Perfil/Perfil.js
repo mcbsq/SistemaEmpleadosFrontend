@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useFilePicker } from "use-file-picker";
 import { FileAmountLimitValidator } from "use-file-picker/validators";
 import "../Personal.css";
@@ -21,7 +21,7 @@ import {
   DescriptionRenderer, InfoPersonalRenderer, PersonasContactoRenderer,
   DireccionRenderer, RedesSocialesRenderer, EducationSectionRenderer,
   ExperienceSectionRenderer, SkillSectionRenderer, RHSectionRenderer,
-  ExpedienteClinicoRenderer, CVExportRenderer, FinancialSectionRenderer,
+  ExpedienteClinicoRenderer, CVExportRenderer, FinancialSectionRenderer, NominaExternaRenderer,
   RelacionLaboralHeader, VacacionesRenderer, PrestamosRenderer,
 } from "./renderpersonal.js";
 
@@ -133,6 +133,8 @@ function TriggerCard({ titulo, subtitulo, onClick }) {
 function Perfil() {
   const { id }     = useParams();
   const navigate   = useNavigate();
+  const [searchParams] = useSearchParams();
+  const irA = searchParams.get("ir"); // "contacto" | "rh" | "clinico" — venir de una alerta del dashboard
   const { isModuleActive } = useOrg();
   // Resolver slug/base64 al ID real de MongoDB
   const empleadoId = resolveToId(id?.trim());
@@ -321,7 +323,35 @@ function Perfil() {
     const ok = await verificarPassword(password);
     if (!ok) return;
     setIsRevealed(true); setVerifyModal(false); setVerifyError("");
+    // Venimos de una alerta del dashboard ("Sin contacto"/"Sin puesto"/"Sin
+    // exp. clínico") que ya pedía revelar los datos — de una vez activamos
+    // edición y saltamos a la sección exacta que hay que completar, en vez
+    // de dejar al admin buscarla manualmente.
+    if (irA && canEdit) {
+      setIsEditing(true);
+      setTimeout(() => {
+        document.getElementById(`seccion-${irA}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
   };
+
+  // Si ya llega revelado (es su propio perfil) y trae ?ir=, salta directo.
+  useEffect(() => {
+    if (!irA || !isRevealed) return;
+    if (canEdit) setIsEditing(true);
+    const t = setTimeout(() => {
+      document.getElementById(`seccion-${irA}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Con ?ir= y datos aún ocultos: pide la verificación de una vez, en vez de
+  // que el admin tenga que encontrar y pulsar "Ver datos" por su cuenta.
+  useEffect(() => {
+    if (irA && !isRevealed && !isOwnProfile) setVerifyModal(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSaveClick = async () => {
     setSaveStatus("saving"); setIsEditing(false);
@@ -478,7 +508,7 @@ function Perfil() {
           <div className="section-card">
             <DescriptionRenderer isEditing={isEditing&&canEdit} descripcion={descripcion} setDescripcion={setDescripcion}/>
           </div>
-          <div className={`section-card${!isRevealed?" section-card--blurred":""}`}>
+          <div id="seccion-contacto" className={`section-card${!isRevealed?" section-card--blurred":""}`}>
             {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
             <InfoPersonalRenderer isEditing={isEditing&&canEdit&&isRevealed} datoscontacto={datosContacto} handleInputChangedatoscontacto={(f,v)=>setDatosContacto(p=>({...p,[f]:v}))}/>
           </div>
@@ -538,7 +568,7 @@ function Perfil() {
           </div>
           {canViewSensitive && (
             <>
-              <div className={`section-card section-card--sensitive${!isRevealed?" section-card--blurred":""}`}>
+              <div id="seccion-rh" className={`section-card section-card--sensitive${!isRevealed?" section-card--blurred":""}`}>
                 {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
                 <div className="sensitive-badge">RH · Restringido</div>
                 <RHSectionRenderer isEditing={isEditing&&canEdit&&isRevealed} RH={rh} handleRHChange={handleRHChange} listaEmpleados={listaEmpleados} openRHPicker={openRHPicker} empleadoEncontrado={empleado}/>
@@ -564,7 +594,7 @@ function Perfil() {
                   </>
                 )}
               </div>
-              <div className={`section-card section-card--sensitive${!isRevealed?" section-card--blurred":""}`}>
+              <div id="seccion-clinico" className={`section-card section-card--sensitive${!isRevealed?" section-card--blurred":""}`}>
                 {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
                 <div className="sensitive-badge">Confidencial</div>
                 <ExpedienteClinicoRenderer isEditing={isEditing&&canEdit&&isRevealed} expedienteclinico={expediente} setexpedienteclinico={setExpediente} openFilePicker={openClinicoPicker}/>
@@ -574,11 +604,14 @@ function Perfil() {
                   {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
                   <div className="sensitive-badge">Financiero</div>
                   {isRevealed && (
-                    <FinancialSectionRenderer
-                      empleadoId={empleadoId}
-                      tipoRelacionLaboral={rh?.TipoRelacionLaboral}
-                      isOwnProfile={isOwnProfile}
-                    />
+                    <>
+                      <FinancialSectionRenderer
+                        empleadoId={empleadoId}
+                        tipoRelacionLaboral={rh?.TipoRelacionLaboral}
+                        isOwnProfile={isOwnProfile}
+                      />
+                      <NominaExternaRenderer empleadoId={empleadoId} />
+                    </>
                   )}
                 </div>
               )}

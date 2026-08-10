@@ -45,6 +45,7 @@ export const authService = {
         sessionStorage.setItem("user_role",    data.role);
         sessionStorage.setItem("empleado_id",  data.empleado_id  ?? "");
         sessionStorage.setItem("depto_id",     data.depto_id     ?? "");
+        sessionStorage.setItem("org_id",       data.org_id       ?? "cibercom");
         if (data.user) sessionStorage.setItem("user_name", data.user);
 
         // Guardar permisos: primero los que devuelve el backend,
@@ -95,6 +96,7 @@ export const authService = {
   getRole()       { return sessionStorage.getItem("user_role"); },
   getEmpleadoId() { return sessionStorage.getItem("empleado_id"); },
   getDeptoId()    { return sessionStorage.getItem("depto_id"); },
+  getOrgId()      { return sessionStorage.getItem("org_id") || "default"; },
   isAuthenticated() { return !!sessionStorage.getItem("access_token"); },
 
   // ─── Checks de rol — NO CAMBIAN ───────────────────────────────────────────

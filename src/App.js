@@ -11,6 +11,8 @@ import AdminDashboard    from "./Components/AdminDashboard";
 import IncidentMonitor   from "./Components/IncidentMonitor";
 import VacacionesAprobacion from "./Components/VacacionesAprobacion";
 import RoleManager       from "./Components/RoleManager";
+import GestionUsuarios   from "./Components/GestionUsuarios";
+import ConexionesExternas from "./Components/ConexionesExternas";
 import Spotlight         from "./Components/Spotlight";
 import NotificationBell  from "./Components/NotificationBell";
 import OrgSettings       from "./Components/OrgSettings";
@@ -120,9 +122,12 @@ function AppInner() {
   const orgName = orgConfig?.name || "Cibercom";
 
   // Carga la configuración de la organización (branding, módulos, políticas
-  // de vacaciones) desde el backend. Antes esto solo existía en el frontend
-  // sin backend real — nunca se llamaba.
-  useEffect(() => { loadOrgConfig("default"); }, [loadOrgConfig]);
+  // de vacaciones) de la EMPRESA REAL del usuario logueado — multi-tenencia:
+  // cada empresa tiene su propio org_id (el tenant que resolvió Aegis en el
+  // login), así que dos empresas nunca comparten branding/módulos. Antes de
+  // loguearse no hay org_id todavía, así que se usa "default" solo para la
+  // pantalla de login (branding genérico, no específico de ninguna empresa).
+  useEffect(() => { loadOrgConfig(authService.getOrgId()); }, [loadOrgConfig, userRole]);
   const navigate = useNavigate();
   const location = useLocation();
   const glowRef  = useRef(null);
@@ -239,6 +244,8 @@ function AppInner() {
           entries: [
             { label: "Configuración",    icon: FiSettings, isLink: true, to: "/settings" },
             { label: "Gestión de roles", icon: FiShield,   isLink: true, to: "/roles" },
+            { label: "Cuentas",          icon: FiUsers,    isLink: true, to: "/cuentas" },
+            { label: "Integraciones",    icon: FiShare2,   isLink: true, to: "/integraciones" },
           ],
         }]
       : []),
@@ -357,6 +364,8 @@ function AppInner() {
           <Route path="/analitica" element={<PrivateRoute><div className="page-padded fade-in-page"><Analitica /></div></PrivateRoute>} />
           <Route path="/settings"   element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><OrgSettings /></div></RoleRoute>} />
           <Route path="/roles"      element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><RoleManager /></div></RoleRoute>} />
+          <Route path="/cuentas"    element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><GestionUsuarios /></div></RoleRoute>} />
+          <Route path="/integraciones" element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><ConexionesExternas /></div></RoleRoute>} />
           <Route path="/monitor"    element={<RoleRoute roles={["SUPER_ADMIN"]}><IncidentMonitor /></RoleRoute>} />
           <Route path="*"           element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
         </Routes>

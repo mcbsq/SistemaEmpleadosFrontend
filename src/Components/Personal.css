@@ -287,8 +287,49 @@ select {
 .skill-pct       { font-size: 0.8rem; color: var(--hr-accent-2); }
 .skill-bar-track { height: 6px; background: var(--hr-border); border-radius: 3px; overflow: hidden; }
 .skill-bar-fill  { height: 100%; background: linear-gradient(90deg, var(--hr-accent), var(--hr-accent-2)); border-radius: 3px; transition: width 0.6s var(--hr-ease); }
-.skill-edit-row  { display: flex; align-items: center; gap: 8px; }
-.skill-range     { flex: 1; accent-color: var(--hr-accent-2); }
+.skill-edit-row  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.skill-range     { flex: 1; min-width: 80px; accent-color: var(--hr-accent-2); }
+
+/* ── Ayuda "?" por habilidad ─────────────────────────────────── */
+.skill-help-wrap { position: relative; display: inline-block; margin-left: 6px; }
+.skill-help-btn {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(var(--hr-accent-rgb), 0.15); border: 1px solid rgba(var(--hr-accent-rgb), 0.4);
+  color: var(--hr-accent); font-size: 10px; font-weight: 700; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0; vertical-align: middle;
+}
+.skill-help-btn:hover { background: rgba(var(--hr-accent-rgb), 0.28); }
+.skill-help-bubble {
+  position: absolute; z-index: 20; bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%);
+  width: 240px; max-width: 60vw;
+  background: var(--hr-surface, #14151c);
+  border: 0.5px solid var(--hr-border);
+  border-radius: 10px; padding: 10px 12px;
+  font-size: 0.78rem; line-height: 1.4; color: var(--hr-text);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  text-align: left; white-space: normal;
+}
+.skill-help-bubble strong { color: var(--hr-accent); }
+
+/* ── Catálogo completo de habilidades — consultar antes de elegir ──────── */
+.skill-catalogo-panel { width: 520px; max-width: calc(100vw - 32px); max-height: min(600px, 82vh); }
+.skill-catalogo-body { overflow-y: auto; padding: 4px 20px 20px; }
+.skill-catalogo-cat { margin-bottom: 18px; }
+.skill-catalogo-cat:last-child { margin-bottom: 0; }
+.skill-catalogo-cat-titulo {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--hr-accent); margin: 0 0 8px;
+}
+.skill-catalogo-item {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+  background: none; border: none; border-radius: 8px; padding: 8px 10px; cursor: pointer;
+  transition: background var(--hr-duration-xs);
+}
+.skill-catalogo-item:hover { background: rgba(var(--hr-accent-rgb),0.08); }
+.skill-catalogo-item-nombre { font-size: 0.86rem; font-weight: 600; color: var(--hr-text); }
+.skill-catalogo-item-def { font-size: 0.78rem; color: var(--hr-muted); line-height: 1.4; }
 
 /* ── Redes ───────────────────────────────────────────────────── */
 .redes-view-list { display: flex; flex-direction: column; gap: 10px; }
