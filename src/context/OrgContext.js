@@ -74,7 +74,7 @@ export const OrgProvider = ({ children }) => {
   }, []);
 
   const loadOrgConfig = useCallback(async (orgId) => {
-    if (!orgId) return;
+    if (!orgId) return null;
     try {
       const data = await apiFetch(`/org/${orgId}/config`);
       if (data && typeof data === "object") {
@@ -82,10 +82,18 @@ export const OrgProvider = ({ children }) => {
         setOrgConfig(merged);
         applyBranding(merged.branding);
         sessionStorage.setItem("hr_org_config", JSON.stringify(merged));
+        // `existe`: viene del backend (api/org/logic.py) — indica si ese
+        // org_id es un tenant real (alguien ya se logueó ahí alguna vez) o
+        // solo un string cualquiera en la URL. Lo devolvemos tal cual para
+        // que quien llamó (ej. la pantalla de login por /<org_id>) decida
+        // qué hacer; el resto del sistema simplemente lo ignora.
+        return merged;
       }
+      return null;
     } catch {
       // Si el endpoint no existe aún, usar defaults — sin error
       applyBranding(DEFAULT_ORG_CONFIG.branding);
+      return null;
     }
   }, [applyBranding]);
 

@@ -266,6 +266,26 @@
 }
 @keyframes loginSpin { to { transform: rotate(360deg); } }
 
+/* ── Puerta por empresa (OrgGate: /<org_id>) ─────────────────── */
+.org-gate-loading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+.org-gate-loading .login-spinner {
+  width: 28px; height: 28px;
+  border-color: rgba(255,255,255,0.15);
+  border-top-color: var(--hr-accent, #5B8AF0);
+}
+.org-gate-notfound-text {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--hr-muted, #86868b);
+}
+
 /* ── Nota de pie ─────────────────────────────────────────────── */
 .login-footer-note {
   font-size: 0.72rem;

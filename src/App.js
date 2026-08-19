@@ -6,6 +6,7 @@ import Home              from "./Components/Home";
 import Perfil            from "./Components/Perfil/Perfil";
 import Organigrama       from "./Components/Organigrama";
 import Login             from "./Components/Login/Login";
+import OrgGate           from "./Components/Login/OrgGate";
 import Empleados         from "./Components/Empleados";
 import AdminDashboard    from "./Components/AdminDashboard";
 import IncidentMonitor   from "./Components/IncidentMonitor";
@@ -13,6 +14,7 @@ import VacacionesAprobacion from "./Components/VacacionesAprobacion";
 import RoleManager       from "./Components/RoleManager";
 import GestionUsuarios   from "./Components/GestionUsuarios";
 import ConexionesExternas from "./Components/ConexionesExternas";
+import Tenants            from "./Components/Tenants";
 import Spotlight         from "./Components/Spotlight";
 import NotificationBell  from "./Components/NotificationBell";
 import OrgSettings       from "./Components/OrgSettings";
@@ -23,7 +25,7 @@ import Analitica         from "./Components/Analitica";
 import OnboardingTour    from "./Components/OnboardingTour";
 import {
   FiGrid, FiUsers, FiShare2, FiList, FiSun, FiSettings,
-  FiShield, FiUser, FiMoon, FiLogOut, FiDollarSign, FiBriefcase, FiAward, FiBarChart2, FiSearch,
+  FiShield, FiUser, FiMoon, FiLogOut, FiDollarSign, FiBriefcase, FiAward, FiBarChart2, FiSearch, FiGlobe,
 } from "react-icons/fi";
 
 import DashboardContador from "./Components/dashboards/DashboardContador";
@@ -38,6 +40,21 @@ import { OrgProvider, useOrg }      from "./context/OrgContext";
 import { useSidebarGlow }          from "./hooks/useRevealOnScroll";
 
 const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN"];
+
+// Rutas reales de un solo segmento que YA existen en el sistema — cualquier
+// otro segmento único en la URL (ej. /perrucho) se interpreta como el link
+// de entrada de una empresa (OrgGate), no como una ruta del sistema.
+const RESERVED_ROOT_SEGMENTS = new Set([
+  "login", "dashboard", "empleados", "vacaciones", "nomina", "reclutamiento",
+  "desempeno", "analitica", "settings", "roles", "cuentas", "integraciones",
+  "monitor", "perfil", "tenants",
+]);
+
+// Tenant propio de Cibercom — el mismo criterio que usa el backend
+// (api/tenants/routes.py: SUPER_ADMIN + org_id == tenant de Cibercom) para
+// decidir quién es "operador de la plataforma" y no solo el SUPER_ADMIN de
+// una empresa cliente cualquiera.
+const TENANT_CIBERCOM = "cibercom";
 
 // ─── Convierte nombre a slug URL-friendly ─────────────────────────────────────
 // "Juan Pérez López" → "juan-perez-lopez"
@@ -133,10 +150,22 @@ function AppInner() {
   const glowRef  = useRef(null);
   const navRef   = useSidebarGlow();
 
-  const isLoginPage   = location.pathname === "/Login" || location.pathname === "/";
+  // Link de empresa: /<org_id> (ej. /perrucho) — un solo segmento en la URL
+  // que no coincide con ninguna ruta reservada del sistema. Solo cuenta
+  // mientras no haya sesión: una vez logueado, el org_id real ya vive en el
+  // JWT/sessionStorage y el segmento de la URL deja de tener efecto (no
+  // reemplaza la resolución de tenant, que sigue siendo cosa de Aegis).
+  const rootSegments = location.pathname.split("/").filter(Boolean);
+  const orgGateSlug =
+    !isAuthenticated && rootSegments.length === 1 && !RESERVED_ROOT_SEGMENTS.has(rootSegments[0].toLowerCase())
+      ? rootSegments[0]
+      : null;
+
+  const isLoginPage   = location.pathname === "/Login" || location.pathname === "/" || !!orgGateSlug;
   const isMonitorPage = location.pathname === "/monitor";
   const isAdmin       = ROLES_ADMIN.includes(userRole);
   const isSuperAdmin  = userRole === "SUPER_ADMIN";
+  const isOperadorCibercom = isSuperAdmin && authService.getOrgId() === TENANT_CIBERCOM;
   const hasSpecialDashboard = ["CONTADOR","PROJECT_MANAGER","MEDICO","JEFE_AREA"].includes(userRole);
 
   // ─── Slug del perfil propio ───────────────────────────────────────────────
@@ -246,6 +275,11 @@ function AppInner() {
             { label: "Gestión de roles", icon: FiShield,   isLink: true, to: "/roles" },
             { label: "Cuentas",          icon: FiUsers,    isLink: true, to: "/cuentas" },
             { label: "Integraciones",    icon: FiShare2,   isLink: true, to: "/integraciones" },
+            // Solo el operador de Cibercom (no cualquier SUPER_ADMIN de una
+            // empresa cliente) — mismo criterio que protege /admin/tenants
+            // en el backend (api/tenants/routes.py).
+            ...(isOperadorCibercom
+              ? [{ label: "Empresas", icon: FiGlobe, isLink: true, to: "/tenants" }] : []),
           ],
         }]
       : []),
@@ -269,6 +303,11 @@ function AppInner() {
         isAuthenticated
           ? <Navigate to="/Dashboard" replace />
           : <Login setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />
+      } />
+      {/* Link de empresa: solo la marca/branding antes de loguearse — el
+          login en sí sigue resolviendo el tenant por email, como siempre. */}
+      <Route path="/:orgSlug" element={
+        <OrgGate setIsAuthenticated={setIsAuthenticated} setUserRole={setUserRole} />
       } />
       <Route path="*" element={<Navigate to="/Login" replace />} />
     </Routes>
@@ -366,6 +405,14 @@ function AppInner() {
           <Route path="/roles"      element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><RoleManager /></div></RoleRoute>} />
           <Route path="/cuentas"    element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><GestionUsuarios /></div></RoleRoute>} />
           <Route path="/integraciones" element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><ConexionesExternas /></div></RoleRoute>} />
+          {/* Registro de empresas: no basta con RoleRoute(SUPER_ADMIN) — un
+              SUPER_ADMIN de una empresa cliente no debe entrar aquí, solo el
+              operador de Cibercom (mismo criterio que el backend). */}
+          <Route path="/tenants" element={
+            isOperadorCibercom
+              ? <div className="page-padded fade-in-page"><Tenants /></div>
+              : <Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />
+          } />
           <Route path="/monitor"    element={<RoleRoute roles={["SUPER_ADMIN"]}><IncidentMonitor /></RoleRoute>} />
           <Route path="*"           element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
         </Routes>

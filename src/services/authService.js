@@ -81,6 +81,11 @@ export const authService = {
 
   // ─── Logout ───────────────────────────────────────────────────────────────
   logout() {
+    // Si esta sesión entró por el link de una empresa (/<org_id>), regresar
+    // ahí en vez de a /Login genérico — así vuelve a ver su propia marca sin
+    // tener que volver a pedir el link. No es parte de la autenticación en
+    // sí, solo UX: entry_org_slug se guarda en OrgGate.js al validar la URL.
+    const entrySlug = sessionStorage.getItem("entry_org_slug");
     sessionStorage.removeItem("access_token");
     sessionStorage.removeItem("user_role");
     sessionStorage.removeItem("empleado_id");
@@ -88,7 +93,8 @@ export const authService = {
     sessionStorage.removeItem("user_name");
     sessionStorage.removeItem("user_permisos");
     sessionStorage.removeItem("user_modulos");
-    window.location.href = "/";
+    sessionStorage.removeItem("org_id");
+    window.location.href = entrySlug ? `/${entrySlug}` : "/";
   },
 
   // ─── Getters básicos — NO CAMBIAN, compatibilidad total ──────────────────
