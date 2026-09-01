@@ -18,7 +18,7 @@ import Tenants            from "./Components/Tenants";
 import Spotlight         from "./Components/Spotlight";
 import NotificationBell  from "./Components/NotificationBell";
 import OrgSettings       from "./Components/OrgSettings";
-import NominaConfig      from "./Components/NominaConfig";
+import PayrollTable      from "./Components/PayrollTable";
 import Reclutamiento     from "./Components/Reclutamiento";
 import Desempeno         from "./Components/Desempeno";
 import Analitica         from "./Components/Analitica";
@@ -402,7 +402,7 @@ function AppInner() {
           {/* Sin restricción de rol estática: quién aprueba vacaciones es
               configurable por SUPER_ADMIN, y el backend es la frontera real. */}
           <Route path="/vacaciones" element={<PrivateRoute><div className="page-padded fade-in-page"><VacacionesAprobacion /></div></PrivateRoute>} />
-          <Route path="/nomina"     element={<RoleRoute roles={["ADMIN","SUPER_ADMIN","CONTADOR"]}><div className="page-padded fade-in-page"><NominaConfig /></div></RoleRoute>} />
+          <Route path="/nomina"     element={<RoleRoute roles={["ADMIN","SUPER_ADMIN","CONTADOR"]}><div className="page-padded fade-in-page"><PayrollTable /></div></RoleRoute>} />
           <Route path="/reclutamiento" element={<RoleRoute roles={ROLES_ADMIN}><div className="page-padded fade-in-page"><Reclutamiento /></div></RoleRoute>} />
           <Route path="/desempeno" element={<PrivateRoute><div className="page-padded fade-in-page"><Desempeno /></div></PrivateRoute>} />
           <Route path="/analitica" element={<PrivateRoute><div className="page-padded fade-in-page"><Analitica /></div></PrivateRoute>} />
