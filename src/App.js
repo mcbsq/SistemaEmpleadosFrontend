@@ -23,6 +23,8 @@ import Reclutamiento     from "./Components/Reclutamiento";
 import Desempeno         from "./Components/Desempeno";
 import Analitica         from "./Components/Analitica";
 import OnboardingTour    from "./Components/OnboardingTour";
+import PublicLanding     from "./pages/PublicLanding";
+import CompanyRegistration from "./pages/CompanyRegistration";
 import {
   FiGrid, FiUsers, FiShare2, FiList, FiSun, FiSettings,
   FiShield, FiUser, FiMoon, FiLogOut, FiDollarSign, FiBriefcase, FiAward, FiBarChart2, FiSearch, FiGlobe,
@@ -47,7 +49,7 @@ const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN"];
 const RESERVED_ROOT_SEGMENTS = new Set([
   "login", "dashboard", "empleados", "vacaciones", "nomina", "reclutamiento",
   "desempeno", "analitica", "settings", "roles", "cuentas", "integraciones",
-  "monitor", "perfil", "tenants",
+  "monitor", "perfil", "tenants", "registro",
 ]);
 
 // Tenant propio de Cibercom — el mismo criterio que usa el backend
@@ -296,6 +298,9 @@ function AppInner() {
   if (!roleReady && !isLoginPage && !isMonitorPage) return null;
 
   if (isMonitorPage) return <Routes><Route path="/monitor" element={<IncidentMonitor />} /></Routes>;
+
+  if (!isAuthenticated && location.pathname === "/") return <PublicLanding />;
+  if (!isAuthenticated && location.pathname === "/registro") return <CompanyRegistration />;
 
   if (isLoginPage) return (
     <Routes>
