@@ -4,3 +4,4 @@ node_modules/
 # Metadatos de macOS al trabajar desde un volumen externo/SMB
 ._*
 .worktrees/
+worktrees/
