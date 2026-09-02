@@ -35,9 +35,13 @@ export const authService = {
   // ─── Login ────────────────────────────────────────────────────────────────
   async login(credentials) {
     try {
+      const entrySlug = sessionStorage.getItem("entry_org_slug");
       const data = await apiFetch("/login", {
         method: "POST",
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({
+          ...credentials,
+          ...(entrySlug ? { org_id: entrySlug } : {}),
+        }),
       });
 
       if (data.access_token) {
