@@ -5,4 +5,12 @@ import { apiFetch } from "./apiConfig";
 
 export const tenantsService = {
   getAll: () => apiFetch("/admin/tenants"),
+  createManual: data => apiFetch("/admin/tenants", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+  deliverAccess: (orgId, data) => apiFetch(`/admin/tenants/${encodeURIComponent(orgId)}/deliver-access`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
 };

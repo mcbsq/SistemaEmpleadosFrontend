@@ -1,0 +1,22 @@
+.tenants-create-card {
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 0.5px solid var(--hr-border);
+  border-radius: 10px;
+  background: var(--hr-surface);
+}
+
+.tenants-create-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; color: var(--hr-accent); }
+.tenants-create-heading div { display: flex; flex-direction: column; gap: 2px; }
+.tenants-create-heading strong { color: var(--hr-text); font-size: var(--hr-font-md); }
+.tenants-create-heading span, .tenants-create-grid label { color: var(--hr-muted); font-size: var(--hr-font-xs); }
+.tenants-create-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.tenants-create-grid label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.tenants-onboarding-card { margin-bottom: 16px; padding: 14px; border: 0.5px solid rgba(87, 199, 133, .35); border-radius: 8px; background: rgba(87, 199, 133, .08); }
+.tenants-created { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--hr-text); font-size: var(--hr-font-sm); }
+.tenants-created a { color: var(--hr-accent); overflow-wrap: anywhere; }
+.tenants-access-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin-top: 14px; }
+.tenants-access-form label { display: flex; flex-direction: column; gap: 6px; color: var(--hr-muted); font-size: var(--hr-font-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.tenants-access-success { margin: 10px 0 0; color: var(--hr-success); font-size: var(--hr-font-sm); }
+
+@media (max-width: 700px) { .tenants-create-grid, .tenants-access-form { grid-template-columns: 1fr; } }
