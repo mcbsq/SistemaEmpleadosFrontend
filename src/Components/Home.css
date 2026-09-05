@@ -56,7 +56,8 @@
   transition: transform var(--hr-duration-xl) var(--hr-ease);
 }
 
-/* ── Tarjetas ─────────────────────────────────────────────────── */
+/* ── Tarjetas — foto a sangre completa con overlay de degradado abajo
+   (nombre + botón), en vez de foto arriba + info abajo por separado. ── */
 .card {
   position: absolute;
   width: 240px;
@@ -64,12 +65,9 @@
   transform-style: preserve-3d;
   backface-visibility: hidden;
   border-radius: 30px;
-  background: linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03));
+  overflow: hidden;
+  background: #111;
   border: 1px solid var(--hr-glass-border);
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
   box-shadow: var(--hr-shadow-lg);
   transition: all var(--hr-duration-lg) var(--hr-ease);
 }
@@ -79,25 +77,23 @@
 }
 
 .card img {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: 180px;
+  height: 100%;
   object-fit: cover;
-  border-radius: 20px;
-  background: #111;
-  border: 1px solid rgba(255,255,255,0.05);
   pointer-events: none;
 }
 
 /* Avatar por default cuando el empleado no tiene foto — iniciales sobre un
    círculo de color, en vez de un asset que puede faltar y romperse. */
 .card-avatar-fallback {
-  width: 100%;
-  height: 180px;
-  border-radius: 20px;
+  position: absolute;
+  inset: 0;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 3rem;
+  font-size: 3.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   pointer-events: none;
@@ -105,25 +101,29 @@
 }
 
 .card-info {
-  margin-top: 15px;
-  text-align: center;
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 18px 16px 16px;
+  background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.35) 65%, transparent);
+  text-align: left;
 }
 .card-name {
-  color: var(--hr-text);
+  color: #fff;
   font-weight: 800;
-  font-size: 1.1rem;
-  letter-spacing: -0.5px;
-  margin-bottom: 12px;
+  font-size: 1.05rem;
+  letter-spacing: -0.4px;
+  margin-bottom: 10px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.35);
 }
 .card .btn-direction {
-  padding: 12px;
+  padding: 8px 16px;
   background: white !important;
   color: black !important;
   border-radius: 50px;
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  display: block;
+  display: inline-block;
   transition: all var(--hr-duration-sm) var(--hr-ease);
 }
 .card .btn-direction:hover {
@@ -264,7 +264,6 @@
   .carousel-container { height: 500px; perspective: 1500px; }
   .box   { width: 180px; height: 260px; }
   .card  { width: 180px; height: 260px; border-radius: 20px; filter: brightness(0.5) scale(0.9); }
-  .card img { height: 130px; }
   .info-card-overlay {
     top: auto; bottom: 40px;
     right: 50%; transform: translateX(50%);
@@ -289,14 +288,12 @@
 @media (max-width: 480px) {
   .carousel-container { height: 400px; perspective: 1000px; }
   .card { width: 150px; height: 220px; }
-  .card img { height: 110px; }
   .card-name { font-size: 0.9rem; }
 }
 
 /* Light mode */
 [data-theme="light"] .info-card-content h4 { color: var(--hr-text); }
 [data-theme="light"] .info-card-content p  { color: var(--hr-muted); }
-[data-theme="light"] .card { background: rgba(255,255,255,0.08); }
 [data-theme="light"] .card-name { color: #fff; }
 /* ── Pulido fino del carrusel (mismo diseño, mejor acabado) ────────────── */
 /* Atenuación sutil de las tarjetas no enfocadas — sin blur, para que sigan

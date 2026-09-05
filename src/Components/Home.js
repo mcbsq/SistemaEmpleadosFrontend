@@ -36,12 +36,15 @@ function Home() {
   const [datosContacto,   setDatosContacto]   = useState(null);
   const [currentRotation, setCurrentRotation] = useState(0);
   const [isPaused,        setIsPaused]        = useState(false);
+  const [isScrollSpinning, setIsScrollSpinning] = useState(false);
   const [isNavigating,    setIsNavigating]    = useState(false);
   const [windowWidth,     setWindowWidth]     = useState(window.innerWidth);
 
   const autoRotateRef = useRef(null);
   const touchStartX   = useRef(null);
   const closeTimeoutRef = useRef(null);
+  const lastScrollYRef = useRef(window.scrollY);
+  const scrollSpinTimeoutRef = useRef(null);
 
   const isSuperAdmin = authService.isSuperAdmin();
   const empleadoId   = authService.getEmpleadoId();
@@ -99,7 +102,7 @@ function Home() {
 
   // ─── Auto-rotación ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isPaused && !isNavigating && empleados.length > 0) {
+    if (!isPaused && !isNavigating && !isScrollSpinning && empleados.length > 0) {
       autoRotateRef.current = setInterval(() => {
         setCurrentRotation(prev => prev - 0.2);
       }, 30);
@@ -107,7 +110,33 @@ function Home() {
       clearInterval(autoRotateRef.current);
     }
     return () => clearInterval(autoRotateRef.current);
-  }, [isPaused, isNavigating, empleados.length]);
+  }, [isPaused, isNavigating, isScrollSpinning, empleados.length]);
+
+  // ─── Rotación ligada al scroll de la página ─────────────────────────────────
+  // Cada tramo de scroll gira el carrusel un poco (además del auto-rotate y
+  // los gestos táctiles) — mientras la persona sigue desplazándose se pausa
+  // el auto-rotate, igual que ya pasa al pasar el mouse sobre una tarjeta, y
+  // se retoma solo cuando el scroll se detiene (isScrollSpinning propio, para
+  // no pisar el isPaused que ya controla el hover/touch).
+  useEffect(() => {
+    const SCROLL_ROTATION_FACTOR = 0.15;
+    const onScroll = () => {
+      if (isNavigating) return;
+      const delta = window.scrollY - lastScrollYRef.current;
+      lastScrollYRef.current = window.scrollY;
+      if (delta !== 0) {
+        setCurrentRotation(prev => prev - delta * SCROLL_ROTATION_FACTOR);
+        setIsScrollSpinning(true);
+      }
+      clearTimeout(scrollSpinTimeoutRef.current);
+      scrollSpinTimeoutRef.current = setTimeout(() => setIsScrollSpinning(false), 150);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      clearTimeout(scrollSpinTimeoutRef.current);
+    };
+  }, [isNavigating]);
 
   // ─── Navegación ─────────────────────────────────────────────────────────────
   const step = 360 / (empleados.length || 1);
