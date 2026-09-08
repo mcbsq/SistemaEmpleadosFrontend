@@ -127,6 +127,42 @@ function Login({ setIsAuthenticated, setUserRole }) {
                     />
                   </div>
                 </div>
+
+                {/* Reglas que se van palomeando en vivo — pedido explícito
+                    del cliente (Observaciones Empleados 2026-09-03, punto 3):
+                    "ve palomeando la regla q ya va cumpliendo". Las primeras
+                    5 son exactamente lo que Aegis valida del lado del
+                    servidor (verificado en vivo contra /v1/auth/change-password,
+                    no documentado en su openapi.json — solo aparece al
+                    fallar) — mostrarlas de menos sería tan confuso como el
+                    error original que reportó el cliente. */}
+                <ul className="login-password-rules" aria-live="polite">
+                  <li className={`login-rule ${newPass.length >= 12 ? "login-rule--ok" : ""}`}>
+                    <span className="login-rule-dot" aria-hidden="true" />
+                    Al menos 12 caracteres
+                  </li>
+                  <li className={`login-rule ${/[A-Z]/.test(newPass) ? "login-rule--ok" : ""}`}>
+                    <span className="login-rule-dot" aria-hidden="true" />
+                    Al menos una letra mayúscula
+                  </li>
+                  <li className={`login-rule ${/[a-z]/.test(newPass) ? "login-rule--ok" : ""}`}>
+                    <span className="login-rule-dot" aria-hidden="true" />
+                    Al menos una letra minúscula
+                  </li>
+                  <li className={`login-rule ${/[0-9]/.test(newPass) ? "login-rule--ok" : ""}`}>
+                    <span className="login-rule-dot" aria-hidden="true" />
+                    Al menos un número
+                  </li>
+                  <li className={`login-rule ${/[!@#$%^&*(),.?":{}|<>_\-+=~`[\]/\\;']/.test(newPass) ? "login-rule--ok" : ""}`}>
+                    <span className="login-rule-dot" aria-hidden="true" />
+                    Al menos un carácter especial (!@#$%^&*…)
+                  </li>
+                  <li className={`login-rule ${newPass && newPass === newPass2 ? "login-rule--ok" : ""}`}>
+                    <span className="login-rule-dot" aria-hidden="true" />
+                    Las dos contraseñas coinciden
+                  </li>
+                </ul>
+
                 {message && (
                   <div className="login-error" role="alert">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
