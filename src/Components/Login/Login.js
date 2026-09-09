@@ -93,7 +93,8 @@ function Login({ setIsAuthenticated, setUserRole }) {
             <>
               <h2 className="login-card-heading">Define tu nueva contraseña</h2>
               <p style={{ fontSize: "0.85rem", color: "var(--hr-muted, #86868b)", marginBottom: 16 }}>
-                Tu contraseña actual es temporal. Elige una nueva de al menos 12 caracteres para continuar.
+                La contraseña con la que acabas de entrar es la que el sistema te dio por default —
+                ahora tienes que reemplazarla por una definitiva que cumpla las siguientes reglas.
               </p>
               <form onSubmit={handleChangePassword} noValidate>
                 <div className="login-field">
