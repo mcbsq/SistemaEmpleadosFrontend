@@ -45,7 +45,17 @@ body {
 }
 .app-sidebar--open { transform: translateX(0); }
 
-@media (min-width: 1024px) {
+/* La burbuja flotante de abajo depende de :hover para expandirse Y
+   retraerse — funciona en desktop con mouse real, pero en una pantalla
+   táctil ancha (tablet, sobre todo en horizontal — muchas caen en este
+   mismo min-width:1024px) no hay forma de "quitar el mouse" para que se
+   retraiga: un toque activa :hover/:focus-within y se queda expandida
+   (264px) tapando el contenido, que solo reservó 108px. Reportado por un
+   cliente en tablet, 2026-09-23. La condición (hover:hover) and
+   (pointer:fine) es exactamente "hay un mouse de verdad" — sin eso, el
+   layout no cambia de la versión táctil de abajo (drawer con hamburguesa
+   que abre/cierra con tap, sin depender de hover en absoluto). */
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
   /* Burbuja flotante: angosta por defecto (solo iconos), se expande al hacer
      hover mostrando las etiquetas. No empuja el contenido — flota encima. */
   .app-sidebar {
@@ -246,7 +256,11 @@ body {
 
 /* ── Main ─────────────────────────────────────────────────────── */
 .app-main  { flex: 1; min-height: 100vh; position: relative; z-index: 1; padding-top: 52px; }
-@media (min-width: 1024px) { .app-main { padding-top: 0; } }
+/* Mismo guard que la burbuja flotante de arriba: solo quita el padding que
+   reserva espacio para app-topbar cuando app-topbar de verdad está oculto
+   (mouse real). En táctil ≥1024px la topbar con hamburguesa sigue visible,
+   así que este padding también debe seguir ahí. */
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) { .app-main { padding-top: 0; } }
 
 .vertical-landing  { display: flex; flex-direction: column; }
 .page-padded       { padding: 20px 24px 40px; }
