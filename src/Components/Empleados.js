@@ -986,7 +986,7 @@ function Empleados() {
         </ModalBody>
         <div className="modal-footer border-0 pt-4">
           <button className="btn btn-primary w-100" onClick={paso1} disabled={guardando||!formEmp.Nombre}>
-            {guardando?"Guardando...":"Continuar → Paso 2"}
+            {guardando?"Guardando...":"Siguiente"}
           </button>
         </div>
       </Modal>
@@ -1012,7 +1012,7 @@ function Empleados() {
         </ModalBody>
         <div className="modal-footer border-0 pt-4">
           <button className="btn btn-primary w-100" onClick={paso2} disabled={guardando||!formUser.user||!formUser.email}>
-            {guardando?"Validando...":"Continuar → Paso 3"}
+            {guardando?"Validando...":"Siguiente"}
           </button>
         </div>
       </Modal>
