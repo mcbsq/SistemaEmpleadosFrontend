@@ -957,8 +957,9 @@ function Empleados() {
 
       {/* ── Modales de registro ── */}
       <Modal isOpen={modal==="empleado"} toggle={()=>setModal(null)} size="lg" centered>
-        <ModalHeader toggle={()=>setModal(null)}>
+        <ModalHeader>
           Nuevo empleado <span className="modal-step-badge">Paso 1 de 3</span>
+          <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
         </ModalHeader>
         <ModalBody>
           <div className="row g-3">
@@ -992,7 +993,10 @@ function Empleados() {
       </Modal>
 
       <Modal isOpen={modal==="usuario"} centered>
-        <ModalHeader>Credenciales <span className="modal-step-badge">Paso 2 de 3</span></ModalHeader>
+        <ModalHeader>
+          Credenciales <span className="modal-step-badge">Paso 2 de 3</span>
+          <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
+        </ModalHeader>
         <ModalBody>
           <div className="mb-3">
             <label className="form-label">Nombre de usuario</label>
@@ -1018,7 +1022,10 @@ function Empleados() {
       </Modal>
 
       <Modal isOpen={modal==="direccion"} size="lg" centered>
-        <ModalHeader>Ubicación y contacto <span className="modal-step-badge">Paso 3 de 3</span></ModalHeader>
+        <ModalHeader>
+          Ubicación y contacto <span className="modal-step-badge">Paso 3 de 3</span>
+          <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
+        </ModalHeader>
         <ModalBody>
           <div className="row g-3">
             {[
