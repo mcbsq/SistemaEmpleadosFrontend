@@ -610,17 +610,30 @@ function Empleados() {
   };
 
   // ─── Registro 3 pasos ─────────────────────────────────────────────────────
+  // Orden pedido por el cliente: credenciales al final, ya que todo lo
+  // demás del empleado esté capturado (2026-09-23).
   const paso1 = async () => {
     if (!formEmp.Nombre||!formEmp.ApelPaterno) return;
     setGuardando(true);
     try {
       const res = await empleadoService.create({...formEmp, Fotografias:filesContent.map(f=>f.content), depto_id:"Sin Asignar", Cargo:"Personal"});
       setFormEmp(p=>({...p,_id:getId(res)}));
-      setModal("usuario");
+      setModal("direccion");
     } finally { setGuardando(false); }
   };
 
   const paso2 = async () => {
+    setGuardando(true);
+    try {
+      await Promise.all([
+        direccionService.create({...formDir, empleado_id:formEmp._id}),
+        contactoService.createDatos({...formDC, empleado_id:formEmp._id}),
+      ]);
+      setModal("usuario");
+    } finally { setGuardando(false); }
+  };
+
+  const paso3 = async () => {
     if (!formUser.user||!formUser.password||!formUser.email) return;
     setGuardando(true);
     try {
@@ -638,17 +651,6 @@ function Empleados() {
           "Entrégala al empleado. Deberá cambiarla en su primer inicio de sesión."
         );
       }
-      setModal("direccion");
-    } finally { setGuardando(false); }
-  };
-
-  const paso3 = async () => {
-    setGuardando(true);
-    try {
-      await Promise.all([
-        direccionService.create({...formDir, empleado_id:formEmp._id}),
-        contactoService.createDatos({...formDC, empleado_id:formEmp._id}),
-      ]);
       setModal(null); setFormEmp(EMP_INIT); cargarTodo();
     } finally { setGuardando(false); }
   };
@@ -992,38 +994,9 @@ function Empleados() {
         </div>
       </Modal>
 
-      <Modal isOpen={modal==="usuario"} centered>
-        <ModalHeader>
-          Credenciales <span className="modal-step-badge">Paso 2 de 3</span>
-          <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
-        </ModalHeader>
-        <ModalBody>
-          <div className="mb-3">
-            <label className="form-label">Nombre de usuario</label>
-            <input className="form-control" placeholder="nombre.usuario" value={formUser.user}
-              onChange={e=>setFormUser(p=>({...p,user:e.target.value}))}/>
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Correo electrónico</label>
-            <input className="form-control" type="email" placeholder="nombre@empresa.com" value={formUser.email}
-              onChange={e=>setFormUser(p=>({...p,email:e.target.value}))}/>
-          </div>
-          <div>
-            <label className="form-label">Contraseña temporal</label>
-            <input className="form-control" type="password" value={formUser.password}
-              onChange={e=>setFormUser(p=>({...p,password:e.target.value}))}/>
-          </div>
-        </ModalBody>
-        <div className="modal-footer border-0 pt-4">
-          <button className="btn btn-primary w-100" onClick={paso2} disabled={guardando||!formUser.user||!formUser.email}>
-            {guardando?"Validando...":"Siguiente"}
-          </button>
-        </div>
-      </Modal>
-
       <Modal isOpen={modal==="direccion"} size="lg" centered>
         <ModalHeader>
-          Ubicación y contacto <span className="modal-step-badge">Paso 3 de 3</span>
+          Ubicación y contacto <span className="modal-step-badge">Paso 2 de 3</span>
           <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
         </ModalHeader>
         <ModalBody>
@@ -1057,7 +1030,36 @@ function Empleados() {
           </div>
         </ModalBody>
         <div className="modal-footer border-0 pt-4">
-          <button className="btn btn-primary w-100" onClick={paso3} disabled={guardando}>
+          <button className="btn btn-primary w-100" onClick={paso2} disabled={guardando}>
+            {guardando?"Guardando...":"Siguiente"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={modal==="usuario"} centered>
+        <ModalHeader>
+          Credenciales <span className="modal-step-badge">Paso 3 de 3</span>
+          <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
+        </ModalHeader>
+        <ModalBody>
+          <div className="mb-3">
+            <label className="form-label">Nombre de usuario</label>
+            <input className="form-control" placeholder="nombre.usuario" value={formUser.user}
+              onChange={e=>setFormUser(p=>({...p,user:e.target.value}))}/>
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Correo electrónico</label>
+            <input className="form-control" type="email" placeholder="nombre@empresa.com" value={formUser.email}
+              onChange={e=>setFormUser(p=>({...p,email:e.target.value}))}/>
+          </div>
+          <div>
+            <label className="form-label">Contraseña temporal</label>
+            <input className="form-control" type="password" value={formUser.password}
+              onChange={e=>setFormUser(p=>({...p,password:e.target.value}))}/>
+          </div>
+        </ModalBody>
+        <div className="modal-footer border-0 pt-4">
+          <button className="btn btn-primary w-100" onClick={paso3} disabled={guardando||!formUser.user||!formUser.email}>
             {guardando?"Finalizando...":"Completar registro"}
           </button>
         </div>
