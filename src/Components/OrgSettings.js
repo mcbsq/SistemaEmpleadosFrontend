@@ -55,6 +55,7 @@ function OrgSettings() {
 
   const [activeTab,    setActiveTab]    = useState("identidad");
   const [localName,    setLocalName]    = useState(orgConfig?.name     || "");
+  const [localSessionMinutes, setLocalSessionMinutes] = useState(orgConfig?.sessionMinutes || 30);
   const [localColors,  setLocalColors]  = useState(orgConfig?.branding || {});
   const [localModules, setLocalModules] = useState(orgConfig?.modules  || {});
   const [localKpis,    setLocalKpis]    = useState(orgConfig?.kpis     || []);
@@ -271,6 +272,7 @@ function OrgSettings() {
     setLocalModules(orgConfig?.modules || {});
     setLocalKpis(orgConfig?.kpis || []);
     setLocalVacaciones(orgConfig?.vacaciones || { tabla_dias_por_antiguedad: {}, roles_aprueban: [], notificar_por_correo: true });
+    setLocalSessionMinutes(orgConfig?.sessionMinutes || 30);
   }, [orgConfig]);
 
   const toggleModule = (key) => setLocalModules(p => ({ ...p, [key]: !p[key] }));
@@ -279,7 +281,10 @@ function OrgSettings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateOrgConfig({ name: localName, branding: localColors, modules: localModules, kpis: localKpis, vacaciones: localVacaciones });
+      await updateOrgConfig({
+        name: localName, branding: localColors, modules: localModules, kpis: localKpis,
+        vacaciones: localVacaciones, sessionMinutes: localSessionMinutes,
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch { /* logueado en contexto */ }
@@ -339,6 +344,25 @@ function OrgSettings() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="hr-card">
+            <div className="hr-card-title">Sesión</div>
+            <p className="orgs-desc">
+              Cuánto tiempo dura una sesión sin actividad antes de que el sistema
+              cierre la sesión automáticamente. Cada empresa decide su propio
+              criterio de seguridad.
+            </p>
+            <div className="orgs-field">
+              <label className="orgs-label">Duración de la sesión (minutos)</label>
+              <input
+                className="orgs-input"
+                type="number"
+                min={5}
+                max={1440}
+                value={localSessionMinutes}
+                onChange={e => setLocalSessionMinutes(Math.max(5, Math.min(1440, Number(e.target.value) || 30)))}
+              />
+            </div>
           </div>
         </div>
       )}
