@@ -153,7 +153,14 @@ function Perfil() {
     } catch { return false; }
   })();
 
-  const [isRevealed,    setIsRevealed]    = useState(isOwnProfile);
+  // Pedido explícito del cliente (2026-09-24): un ADMIN/SUPER_ADMIN ya tiene
+  // permiso real de editar — pedirle SU PROPIA contraseña otra vez antes de
+  // ver o editar el perfil de alguien más no añade seguridad real (ya está
+  // autenticado con un JWT vigente) y solo generaba confusión ("¿para qué es
+  // el candado?", "me dice contraseña incorrecta" cuando SÍ era correcta).
+  // Sigue pidiéndose solo a quien NO tiene canEdit (no debería llegar aquí
+  // de todas formas, pero por si acaso no se le regala una hoja en blanco).
+  const [isRevealed,    setIsRevealed]    = useState(isOwnProfile || canEdit);
   const [verifyModal,   setVerifyModal]   = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError,   setVerifyError]   = useState("");

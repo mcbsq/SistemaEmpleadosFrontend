@@ -40,6 +40,7 @@ import { encodeId }                from "./services/empleadoService";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { OrgProvider, useOrg }      from "./context/OrgContext";
 import { useSidebarGlow }          from "./hooks/useRevealOnScroll";
+import { roleLabel }               from "./utils/roleLabels";
 
 const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN"];
 
@@ -366,7 +367,7 @@ function AppInner() {
               <span className="sb-theme-icon">{theme === "dark" ? <FiSun /> : <FiMoon />}</span>
               <span className="sb-theme-label">{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
             </button>
-            <div className="sb-user-row"><span className="sb-user-role">{userRole}</span></div>
+            <div className="sb-user-row"><span className="sb-user-role">{roleLabel(userRole)}</span></div>
             <button className="sb-logout" onClick={handleLogout}>
               <FiLogOut style={{ marginRight: 6 }} />
               <span className="sb-item-label">Cerrar sesión</span>
