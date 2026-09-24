@@ -59,6 +59,13 @@ const MODULOS_POR_ROL = {
 
 const ROLES_SISTEMA = ["EMPLOYEE","JEFE_AREA","CONTADOR","PROJECT_MANAGER","MEDICO","ADMIN","SUPER_ADMIN"];
 
+// Roles a los que se les puede otorgar/quitar reportes de Analítica —
+// ADMIN y SUPER_ADMIN siempre ven todos, así que no aplica editarlos aquí.
+// Antes esto vivía en Configuración → Analítica, en una tabla apretada de
+// 5 columnas donde el nombre del reporte se veía cortado; el cliente pidió
+// moverlo aquí, junto con los demás permisos del rol, uno por tarjeta.
+const ROLES_ANALITICA = ["EMPLOYEE", "JEFE_AREA", "CONTADOR", "PROJECT_MANAGER", "MEDICO"];
+
 const PERMISOS_SISTEMA = {
   EMPLOYEE:        ["ver_organigrama","ver_carrusel","ver_perfil_propio"],
   JEFE_AREA:       ["ver_empleados","ver_organigrama","ver_proyectos","ver_habilidades","solo_equipo_directo","ver_carrusel","ver_dashboard"],
@@ -125,6 +132,10 @@ function RoleManager() {
   // Para editar permisos de roles del sistema
   const [editSistema, setEditSistema] = useState(null);
   const [permsSistema, setPermsSistema] = useState({});
+  // Reportes de Analítica por rol (antes vivía en Configuración → Analítica)
+  const [catalogoReportes, setCatalogoReportes] = useState([]);
+  const [permisosAnalitica, setPermisosAnalitica] = useState({});
+  const [formReportes, setFormReportes] = useState([]);
 
   const showToast = (msg, type = "ok") => {
     setToast({ msg, type });
@@ -139,14 +150,18 @@ function RoleManager() {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const [users, emps, rolesC] = await Promise.all([
+      const [users, emps, rolesC, cat, perms] = await Promise.all([
         usuarioService.getAll().catch(() => []),
         empleadoService.getAll().catch(() => []),
         cargarRolesCustomBackend(),
+        apiFetch("/analitica/catalogo").catch(() => []),
+        apiFetch("/analitica/permisos").catch(() => ({ permisos: {} })),
       ]);
       setUsuarios(Array.isArray(users) ? users : []);
       setEmpleados(Array.isArray(emps)  ? emps  : []);
       setRolesCustom(Array.isArray(rolesC) ? rolesC : []);
+      setCatalogoReportes(Array.isArray(cat) ? cat : []);
+      setPermisosAnalitica(perms?.permisos || {});
 
       // Cargar overrides de permisos de sistema desde localStorage
       try {
@@ -203,8 +218,13 @@ function RoleManager() {
       color: rol.color || "blue", nivel: rol.nivel || 3,
       permisos: [...getPermsSistema(rol.nombre)],
     });
+    setFormReportes([...(permisosAnalitica[rol.nombre] || [])]);
     setPaso(2); // Solo el paso de permisos para roles de sistema
     setModal("editar_sistema");
+  };
+
+  const toggleReportePermiso = (reporteId) => {
+    setFormReportes(p => p.includes(reporteId) ? p.filter(id => id !== reporteId) : [...p, reporteId]);
   };
 
   // ─── Abrir editar rol custom ──────────────────────────────────────────────
@@ -247,9 +267,14 @@ function RoleManager() {
   };
 
   // ─── Guardar permisos de rol sistema ─────────────────────────────────────
-  const guardarPermsSistema = () => {
+  const guardarPermsSistema = async () => {
     if (!editSistema) return;
     savePermsSistema(editSistema.nombre, form.permisos);
+    if (ROLES_ANALITICA.includes(editSistema.nombre)) {
+      const actualizado = { ...permisosAnalitica, [editSistema.nombre]: formReportes };
+      setPermisosAnalitica(actualizado);
+      await apiFetch("/analitica/permisos", { method: "PUT", body: JSON.stringify({ permisos: actualizado }) }).catch(() => null);
+    }
     setModal(null);
   };
 
@@ -319,7 +344,7 @@ function RoleManager() {
   const colorActual = colorById(form.color);
 
   // ─── Panel de permisos reutilizable ──────────────────────────────────────
-  const PanelPermisos = () => (
+  const PanelPermisos = ({ conReportes = false }) => (
     <div className="rm-modal-body">
       <p className="rm-paso-desc">
         Activa los módulos y acciones permitidas para este rol.
@@ -344,6 +369,30 @@ function RoleManager() {
           ))}
         </div>
       ))}
+
+      {conReportes && (
+        <div className="rm-permiso-grupo">
+          <div className="rm-permiso-grupo-title">Reportes de Analítica</div>
+          {catalogoReportes.length === 0 ? (
+            <p className="rm-paso-desc">Sin reportes en el catálogo todavía.</p>
+          ) : catalogoReportes.map(r => (
+            <label key={r.id} className="rm-permiso-row">
+              <input
+                type="checkbox"
+                checked={formReportes.includes(r.id)}
+                onChange={() => toggleReportePermiso(r.id)}
+                className="rm-checkbox"
+              />
+              <span className="rm-permiso-label">
+                {r.nombre}
+                <span style={{ display: "block", fontWeight: 400, fontSize: "0.75rem", color: "var(--rm-muted)", marginTop: 2 }}>
+                  {r.descripcion}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -573,7 +622,7 @@ function RoleManager() {
               </div>
               <button className="rm-modal-close" onClick={cerrarModal}><FiX /></button>
             </div>
-            <PanelPermisos />
+            <PanelPermisos conReportes={ROLES_ANALITICA.includes(editSistema.nombre)} />
             <div className="rm-modal-footer">
               <div style={{flex:1}}/>
               <button className="rm-btn-primary" onClick={guardarPermsSistema}>

@@ -144,9 +144,11 @@
 .orgs-incident-row {
   display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
   padding: 12px 14px;
-  background: var(--hr-surface);
-  border: 0.5px solid var(--hr-border);
+  background: var(--hr-glass-bg);
+  border: 0.5px solid var(--hr-glass-border);
   border-radius: var(--hr-radius);
+  backdrop-filter: var(--hr-blur);
+  -webkit-backdrop-filter: var(--hr-blur);
   transition: border-color var(--hr-duration-xs);
 }
 .orgs-incident-row:hover { border-color: var(--hr-border-hover); }
@@ -171,7 +173,7 @@
 /* Light mode */
 [data-theme="light"] .orgs-root { background: var(--hr-bg); }
 [data-theme="light"] .orgs-input { background: #fff; }
-[data-theme="light"] .orgs-incident-row { background: #fff; }
+[data-theme="light"] .orgs-incident-row { background: var(--hr-glass-bg); }
 
 @media (max-width: 640px) {
   .orgs-root   { padding: 14px 14px 32px; }
