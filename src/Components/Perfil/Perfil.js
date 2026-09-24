@@ -380,6 +380,8 @@ function Perfil() {
       const saves = [
         educacionService.update(empleadoId, payloadEducacion),
         contactoService.updateDatos(empleadoId, datosContacto),
+        contactoService.updateRedes(empleadoId, redesSociales),
+        contactoService.updatePersona(empleadoId, personalContacto),
         clinicoService.update(empleadoId, expParaGuardar),
         direccionService.update(empleadoId, direccion),
       ];
