@@ -27,14 +27,16 @@
 }
 .an-modal {
   width: 100%; max-width: 720px; max-height: 82vh;
-  background: var(--hr-surface, #14151c);
-  border: 0.5px solid var(--hr-border);
+  background: var(--hr-glass-bg, rgba(20,21,28,0.82));
+  border: 0.5px solid var(--hr-glass-border, var(--hr-border));
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  backdrop-filter: var(--hr-blur);
+  -webkit-backdrop-filter: var(--hr-blur);
   display: flex; flex-direction: column;
   overflow: hidden;
 }
-[data-theme="light"] .an-modal { background: #fff; }
+[data-theme="light"] .an-modal { background: var(--hr-glass-bg, rgba(255,255,255,0.88)); }
 .an-modal-header {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   padding: 18px 20px; border-bottom: 0.5px solid var(--hr-border);

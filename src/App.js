@@ -115,13 +115,16 @@ const RoleRoute = ({ children, roles }) => {
 const DashboardPage = ({ userRole }) => {
   const isAdmin = ROLES_ADMIN.includes(userRole);
   const { isModuleActive } = useOrg();
+  // La cuenta maestra (ADMIN/SUPER_ADMIN) ve CUALQUIER dashboard que active
+  // en Módulos, no solo el suyo por rol — para los demás roles, cada quien
+  // sigue viendo únicamente el dashboard de su propio puesto.
   return (
     <div className="vertical-landing fade-in-page">
-      {isAdmin                        && isModuleActive("dashboard_admin")    && <section id="admin-dashboard-section"><AdminDashboard /></section>}
-      {userRole === "CONTADOR"        && isModuleActive("dashboard_contador") && <section id="admin-dashboard-section"><DashboardContador /></section>}
-      {userRole === "PROJECT_MANAGER" && isModuleActive("dashboard_pm")       && <section id="admin-dashboard-section"><DashboardPM /></section>}
-      {userRole === "MEDICO"          && isModuleActive("dashboard_medico")   && <section id="admin-dashboard-section"><DashboardMedico /></section>}
-      {userRole === "JEFE_AREA"       && isModuleActive("dashboard_jefe_area") && <section id="admin-dashboard-section"><DashboardJefeArea /></section>}
+      {isAdmin                                          && isModuleActive("dashboard_admin")     && <section id="admin-dashboard-section"><AdminDashboard /></section>}
+      {(isAdmin || userRole === "CONTADOR")              && isModuleActive("dashboard_contador")  && <section id="admin-dashboard-section"><DashboardContador /></section>}
+      {(isAdmin || userRole === "PROJECT_MANAGER")       && isModuleActive("dashboard_pm")        && <section id="admin-dashboard-section"><DashboardPM /></section>}
+      {(isAdmin || userRole === "MEDICO")                && isModuleActive("dashboard_medico")    && <section id="admin-dashboard-section"><DashboardMedico /></section>}
+      {(isAdmin || userRole === "JEFE_AREA")             && isModuleActive("dashboard_jefe_area") && <section id="admin-dashboard-section"><DashboardJefeArea /></section>}
       {isModuleActive("home_carousel") && <section id="home-section"><Home /></section>}
       {isModuleActive("organigrama")   && <section id="organigrama-section"><Organigrama /></section>}
     </div>

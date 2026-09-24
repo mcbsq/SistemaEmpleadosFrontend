@@ -44,11 +44,8 @@ const TABS = [
   { id: "vacaciones",  label: "Vacaciones"  },
   { id: "apikeys",     label: "API Keys"    },
   { id: "auditoria",   label: "Auditoría"   },
-  { id: "analitica",   label: "Analítica"   },
   { id: "monitor",     label: "Monitor", icon: FiZap },
 ];
-
-const ROLES_ANALITICA = ["EMPLOYEE", "JEFE_AREA", "CONTADOR", "PROJECT_MANAGER", "MEDICO"];
 
 function OrgSettings() {
   const { orgConfig, updateOrgConfig } = useOrg();
@@ -206,44 +203,6 @@ function OrgSettings() {
     if (activeTab === "auditoria") cargarAuditoria(auditFiltro);
   }, [activeTab, auditFiltro, cargarAuditoria]);
 
-  // Analítica — permisos por rol
-  const [catalogoReportes, setCatalogoReportes] = useState([]);
-  const [permisosAnalitica, setPermisosAnalitica] = useState({});
-  const [analiticaLoading, setAnaliticaLoading] = useState(false);
-  const [analiticaSaved, setAnaliticaSaved] = useState(false);
-
-  const cargarAnalitica = useCallback(async () => {
-    setAnaliticaLoading(true);
-    try {
-      const [cat, perms] = await Promise.all([
-        apiFetch("/analitica/catalogo").catch(() => []),
-        apiFetch("/analitica/permisos").catch(() => ({ permisos: {} })),
-      ]);
-      setCatalogoReportes(Array.isArray(cat) ? cat : []);
-      setPermisosAnalitica(perms?.permisos || {});
-    } finally {
-      setAnaliticaLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === "analitica") cargarAnalitica();
-  }, [activeTab, cargarAnalitica]);
-
-  const toggleReportePermiso = (role, reporteId) => {
-    setPermisosAnalitica(p => {
-      const actuales = p[role] || [];
-      const otorgado = actuales.includes(reporteId);
-      return { ...p, [role]: otorgado ? actuales.filter(id => id !== reporteId) : [...actuales, reporteId] };
-    });
-  };
-
-  const handleGuardarAnalitica = async () => {
-    await apiFetch("/analitica/permisos", { method: "PUT", body: JSON.stringify({ permisos: permisosAnalitica }) });
-    setAnaliticaSaved(true);
-    setTimeout(() => setAnaliticaSaved(false), 3000);
-  };
-
   const cargarIncidentes = useCallback(async () => {
     setMonitorLoading(true);
     try {
@@ -275,7 +234,18 @@ function OrgSettings() {
     setLocalSessionMinutes(orgConfig?.sessionMinutes || 30);
   }, [orgConfig]);
 
-  const toggleModule = (key) => setLocalModules(p => ({ ...p, [key]: !p[key] }));
+  // Los módulos se guardan de inmediato al activarlos/desactivarlos — no
+  // dependen del botón "Guardar cambios" de arriba (que es para
+  // Identidad/KPIs/Vacaciones). Pedido implícito del cliente: activar un
+  // módulo y que aparezca al toque, sin un paso de guardado adicional que
+  // pueda olvidarse.
+  const toggleModule = (key) => {
+    setLocalModules(p => {
+      const next = { ...p, [key]: !p[key] };
+      updateOrgConfig({ modules: next }).catch(() => {});
+      return next;
+    });
+  };
   const toggleKpi    = (id)  => setLocalKpis(p => p.map(k => k.id === id ? { ...k, visible: !k.visible } : k));
 
   const handleSave = async () => {
@@ -302,7 +272,7 @@ function OrgSettings() {
           <h2 className="hr-title">Configuración del sistema</h2>
           <p className="hr-subtitle">Módulos · Identidad · KPIs · Monitor · Solo SUPER_ADMIN</p>
         </div>
-        {activeTab !== "monitor" && activeTab !== "apikeys" && activeTab !== "auditoria" && activeTab !== "analitica" && (
+        {activeTab !== "monitor" && activeTab !== "apikeys" && activeTab !== "auditoria" && (
           <button className="orgs-save-btn" onClick={handleSave} disabled={saving}>
             {saving ? "Guardando…" : saved ? <><FiCheck style={{ marginRight: 4, verticalAlign: "-2px" }} />Guardado</> : "Guardar cambios"}
           </button>
@@ -686,56 +656,6 @@ function OrgSettings() {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* ── Analítica: permisos por rol ───────────────────────────── */}
-      {activeTab === "analitica" && (
-        <div className="hr-card">
-          <div className="hr-card-title">Permisos de reportes por rol</div>
-          <p className="orgs-desc">
-            ADMIN y SUPER_ADMIN siempre ven todos los reportes. Elige qué otros roles pueden
-            ver y exportar cada uno.
-          </p>
-          {analiticaLoading ? (
-            <div className="orgs-monitor-loading"><div className="hr-spinner" /><span>Cargando…</span></div>
-          ) : (
-            <div style={{ overflowX: "auto", marginTop: 12 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: "left", padding: "6px 10px", fontSize: "var(--hr-font-xs)", color: "var(--hr-muted)" }}>Reporte</th>
-                    {ROLES_ANALITICA.map(role => (
-                      <th key={role} style={{ padding: "6px 10px", fontSize: "var(--hr-font-xs)", color: "var(--hr-muted)" }}>{role}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {catalogoReportes.map(r => (
-                    <tr key={r.id}>
-                      <td style={{ padding: "6px 10px" }}>
-                        <div style={{ fontWeight: 600 }}>{r.nombre}</div>
-                        <div className="orgs-desc" style={{ marginTop: 2 }}>{r.descripcion}</div>
-                      </td>
-                      {ROLES_ANALITICA.map(role => (
-                        <td key={role} style={{ textAlign: "center", padding: "6px 10px" }}>
-                          <button
-                            className={`orgs-toggle ${(permisosAnalitica[role] || []).includes(r.id) ? "orgs-toggle--on" : ""}`}
-                            onClick={() => toggleReportePermiso(role, r.id)}
-                          >
-                            <span className="orgs-toggle-thumb" />
-                          </button>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <button className="orgs-save-btn" style={{ marginTop: 16 }} onClick={handleGuardarAnalitica}>
-            {analiticaSaved ? "Guardado" : "Guardar permisos"}
-          </button>
         </div>
       )}
 
