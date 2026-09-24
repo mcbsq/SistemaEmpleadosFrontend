@@ -18,9 +18,25 @@ export const contactoService = {
   createPersona: (datos) =>
     apiFetch("/personascontacto", { method: "POST", body: JSON.stringify(datos) }),
 
+  // Mismo caso que updateRedes: el backend ya tenía el PUT, nada lo llamaba.
+  updatePersona: (id, personalcontacto) =>
+    apiFetch(`/personascontacto/empleado/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ personalcontacto }),
+    }),
+
   getRedes: () => apiFetch("/redsocial"),
 
   getRedesByEmpleado: (id) => apiFetch(`/redsocial/empleado/${id}`),
+
+  // El backend ya tenía este endpoint (api/redsocial/routes.py PUT
+  // /redsocial/empleado/:id) pero nada en el frontend lo llamaba — Perfil.js
+  // dejaba editar "Redes Sociales" pero nunca lo mandaba a guardar.
+  updateRedes: (id, redesSociales) =>
+    apiFetch(`/redsocial/empleado/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ RedesSociales: redesSociales }),
+    }),
 
   // Mapea los campos del estado local (telefonoF, IDwhatsapp...)
   // a los campos que espera Flask (TelFijo, IdWhatsApp...)
