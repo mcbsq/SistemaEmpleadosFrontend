@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FiUsers, FiRefreshCw, FiCheckCircle, FiXCircle, FiCopy, FiX, FiAlertTriangle } from "react-icons/fi";
 import { usuarioService } from "../services/usuarioService";
+import { roleLabel } from "../utils/roleLabels";
 
 function getId(item) { return item?._id?.$oid || item?._id || ""; }
 
@@ -126,7 +127,7 @@ function GestionUsuarios() {
                 <div className="orgs-incident-info">
                   <span className="orgs-incident-msg">{u.user}</span>
                   <span className="orgs-incident-meta">
-                    {u.role}{u.email ? ` · ${u.email}` : ""}
+                    {roleLabel(u.role)}{u.email ? ` · ${u.email}` : ""}
                     {aegis?.must_change_password && " · Pendiente de cambiar contraseña"}
                     {aegis === null && " · Sin identidad Aegis vinculada"}
                   </span>
