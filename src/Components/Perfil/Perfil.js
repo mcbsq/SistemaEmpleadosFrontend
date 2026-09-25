@@ -41,6 +41,17 @@ const toSlug = (nombre = "", apelPaterno = "") =>
     .replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
     .replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
 
+// Placeholder de avatar como data URI — nunca depende de red, así que nunca
+// puede volver a fallar. "/default-avatar.png" no era un archivo real.
+const AVATAR_FALLBACK =
+  "data:image/svg+xml;utf8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+    '<rect width="100" height="100" fill="#2a2f3d"/>' +
+    '<circle cx="50" cy="38" r="18" fill="#6b7280"/>' +
+    '<path d="M50 60c-22 0-34 12-34 26v6h68v-6c0-14-12-26-34-26z" fill="#6b7280"/>' +
+    '</svg>'
+  );
+
 // ─── CONSTANTES INICIALES ───────────────────────────────────────────────────
 const CONTACTO_INIT  = { telefonoF:"", telefonoC:"", IDwhatsapp:"", IDtelegram:"", correo:"" };
 const PERS_CONT_INIT = { parenstesco:"", nombreContacto:"", telefonoContacto:"", correoContacto:"", direccionContacto:"" };
@@ -468,7 +479,17 @@ function Perfil() {
           <div className="perfil-avatar-ring"/>
           <img className="perfil-avatar" src={fotoSrc}
             alt={`${empleado.Nombre} ${empleado.ApelPaterno}`}
-            onError={e=>{e.target.src="/default-avatar.png";}}/>
+            onError={e=>{
+              // "/default-avatar.png" nunca existió como archivo real — el
+              // catch-all de vercel.json le devolvía index.html (200, pero
+              // HTML), la img fallaba a decodificar, disparaba otro onError,
+              // y así infinito: cientos de miles de requests por segundo
+              // congelando el navegador en cualquier perfil sin foto. Un
+              // data URI no depende de red, así que no puede volver a fallar.
+              if (e.target.dataset.fallback) return;
+              e.target.dataset.fallback = "1";
+              e.target.src = AVATAR_FALLBACK;
+            }}/>
         </div>
         <div className="perfil-hero-info">
           <h1 className="perfil-nombre">{empleado.Nombre} <span>{empleado.ApelPaterno}</span></h1>
