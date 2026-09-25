@@ -73,7 +73,7 @@ function ReporteModal({ reporte, onClose }) {
           {datos === undefined ? (
             <div className="orgs-monitor-loading"><div className="hr-spinner" /><span>Cargando…</span></div>
           ) : datos === null ? (
-            <p className="ad-empty">Sin datos para este reporte todavía.</p>
+            <p className="adm-empty">Sin datos para este reporte todavía.</p>
           ) : (
             <>
               {/* Resumen — quién/cómo/cuántos de un vistazo, antes de la tabla
@@ -90,7 +90,7 @@ function ReporteModal({ reporte, onClose }) {
               )}
 
               {datos.rows.length === 0 ? (
-                <p className="ad-empty">Sin filas de detalle todavía.</p>
+                <p className="adm-empty">Sin filas de detalle todavía.</p>
               ) : (
                 <div className="an-table-wrap">
                   <table className="an-table">
