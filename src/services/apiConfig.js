@@ -59,6 +59,10 @@ export async function apiFetch(endpoint, options = {}) {
   try {
     const response = await fetch(finalUrl, {
       ...options,
+      // Refuerzo del lado del cliente al Cache-Control: no-store que ya
+      // manda el backend (app.py) — así el navegador nunca usa una copia
+      // en caché aunque algún proxy intermedio ignore el header del server.
+      cache: "no-store",
       headers: {
         ...defaultHeaders,
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
