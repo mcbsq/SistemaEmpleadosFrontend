@@ -74,41 +74,41 @@ const COLORS = [
 const KpiCard = ({ label, value, sub, color, to }) => {
   const contenido = (
     <>
-      <span className="ad-kpi-accent" style={{ background: color }} />
+      <span className="adm-kpi-accent" style={{ background: color }} />
       <div>
-        <div className="ad-kpi-val">{value}</div>
-        <div className="ad-kpi-lbl">{label}</div>
-        {sub && <div className="ad-kpi-sub">{sub}</div>}
+        <div className="adm-kpi-val">{value}</div>
+        <div className="adm-kpi-lbl">{label}</div>
+        {sub && <div className="adm-kpi-sub">{sub}</div>}
       </div>
     </>
   );
   return to
-    ? <Link to={to} className="ad-kpi ad-kpi--clickable">{contenido}</Link>
-    : <div className="ad-kpi">{contenido}</div>;
+    ? <Link to={to} className="adm-kpi adm-kpi--clickable">{contenido}</Link>
+    : <div className="adm-kpi">{contenido}</div>;
 };
 
 // ─── Barra horizontal ─────────────────────────────────────────────────────────
 const HBar = ({ label, value, max, color, to }) => {
   const barra = (
     <>
-      <span className="ad-bar-lbl" title={label}>{label}</span>
-      <div className="ad-bar-track">
+      <span className="adm-bar-lbl" title={label}>{label}</span>
+      <div className="adm-bar-track">
         <div
-          className="ad-bar-fill"
+          className="adm-bar-fill"
           style={{ width: `${Math.round((value / Math.max(max, 1)) * 100)}%`, background: color }}
         />
       </div>
-      <span className="ad-bar-num">{value}</span>
+      <span className="adm-bar-num">{value}</span>
     </>
   );
   return to
-    ? <Link to={to} className="ad-bar-row ad-bar-row--clickable">{barra}</Link>
-    : <div className="ad-bar-row">{barra}</div>;
+    ? <Link to={to} className="adm-bar-row adm-bar-row--clickable">{barra}</Link>
+    : <div className="adm-bar-row">{barra}</div>;
 };
 
 // ─── Tag ─────────────────────────────────────────────────────────────────────
 const Tag = ({ type, children }) => (
-  <span className={`ad-tag ad-tag--${type}`}>{children}</span>
+  <span className={`adm-tag adm-tag--${type}`}>{children}</span>
 );
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
@@ -117,11 +117,11 @@ const Avatar = ({ emp, size = 28 }) => {
   const [bg, fg] = avatarColor(emp?.Nombre || "");
   const ini = ((emp?.Nombre?.[0] || "") + (emp?.ApelPaterno?.[0] || "")).toUpperCase();
   return foto ? (
-    <img src={foto} alt={formatNombre(emp)} className="ad-avatar-img"
+    <img src={foto} alt={formatNombre(emp)} className="adm-avatar-img"
       style={{ width: size, height: size }}
       onError={e => { e.target.style.display = "none"; }} />
   ) : (
-    <div className="ad-avatar-ph"
+    <div className="adm-avatar-ph"
       style={{ width: size, height: size, background: bg, color: fg, fontSize: Math.round(size * 0.38) }}>
       {ini || "?"}
     </div>
@@ -284,8 +284,8 @@ function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="ad-loading">
-        <div className="ad-spinner" />
+      <div className="adm-loading">
+        <div className="adm-spinner" />
         <span>Cargando analíticos…</span>
       </div>
     );
@@ -295,7 +295,7 @@ function AdminDashboard() {
   // explicárselo es mejor que mostrar un dashboard lleno de ceros.
   if (!loading && !loadError && empleados.length === 0 && authService.getRole() === "ADMIN") {
     return (
-      <div className="ad-loading" role="status">
+      <div className="adm-loading" role="status">
         <span style={{ fontSize: "1rem", fontWeight: 600 }}>No tienes áreas asignadas</span>
         <span style={{ maxWidth: 420, textAlign: "center", opacity: 0.75, marginTop: 8 }}>
           Tu cuenta de administrador aún no administra ningún área, por lo que no hay
@@ -308,7 +308,7 @@ function AdminDashboard() {
 
   if (loadError) {
     return (
-      <div className="ad-loading" role="alert">
+      <div className="adm-loading" role="alert">
         <span>No se pudieron cargar los datos del dashboard.</span>
         <button
           type="button"
@@ -326,10 +326,10 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="ad-root">
+    <div className="adm-root">
 
       {/* ── KPIs — configurables desde Configuración → KPIs ─────── */}
-      <div className="ad-kpi-grid">
+      <div className="adm-kpi-grid">
         {getActiveKpis().map(kpi => {
           const datos = {
             total_empleados:   { value: stats.total,      sub: null,                                     to: "/empleados" },
@@ -345,34 +345,34 @@ function AdminDashboard() {
       </div>
 
       {/* ── Fila central ─────────────────────────────────────── */}
-      <div className="ad-mid-row">
+      <div className="adm-mid-row">
 
-        <div className="ad-card">
-          <div className="ad-card-title">Distribución por área</div>
+        <div className="adm-card">
+          <div className="adm-card-title">Distribución por área</div>
           {stats.puestoData.length > 0
             ? stats.puestoData.map((d, i) => (
                 <HBar key={d.label} label={d.label} value={d.value}
                   max={stats.maxPuesto} color={COLORS[i % COLORS.length]}
                   to={`/empleados?depto=${encodeURIComponent(d.label)}`} />
               ))
-            : <p className="ad-empty">Sin datos de RH.</p>
+            : <p className="adm-empty">Sin datos de RH.</p>
           }
         </div>
 
-        <div className="ad-card">
-          <div className="ad-card-title">Alertas activas</div>
+        <div className="adm-card">
+          <div className="adm-card-title">Alertas activas</div>
           {stats.alertas.length === 0
-            ? <p className="ad-empty">Sin alertas pendientes.</p>
+            ? <p className="adm-empty">Sin alertas pendientes.</p>
             : (
-              <ul className="ad-alert-list">
+              <ul className="adm-alert-list">
                 {stats.alertas.map((a, i) => (
-                  <li key={i} className="ad-alert-item">
+                  <li key={i} className="adm-alert-item">
                     {/* La etiqueta lleva directo a la sección exacta que hay que
                         completar (contacto/RH/expediente) — no solo al perfil
                         en general. "Cumple" es puramente informativo (gris), no
                         hay nada que "arreglar" ahí. */}
-                    <Link to={ALERTA_DESTINO[a.tipo](getId(a.emp))} className="ad-alert-link">
-                      <span className="ad-alert-name">{formatNombre(a.emp)}</span>
+                    <Link to={ALERTA_DESTINO[a.tipo](getId(a.emp))} className="adm-alert-link">
+                      <span className="adm-alert-name">{formatNombre(a.emp)}</span>
                       <Tag type={ALERTA_COLOR[a.tipo] || "amber"}>
                         {a.label}
                       </Tag>
@@ -384,12 +384,12 @@ function AdminDashboard() {
           }
         </div>
 
-        <div className="ad-card ad-gauge-card">
-          <div className="ad-card-title">Completitud</div>
-          <div className="ad-gauge-center">
+        <div className="adm-card adm-gauge-card">
+          <div className="adm-card-title">Completitud</div>
+          <div className="adm-gauge-center">
             <Gauge pct={stats.pctCompleto} />
           </div>
-          <p className="ad-gauge-hint">
+          <p className="adm-gauge-hint">
             {stats.sinClinico > 0
               ? `${stats.sinClinico} sin expediente clínico`
               : "Todos los perfiles completos"}
@@ -399,19 +399,19 @@ function AdminDashboard() {
       </div>
 
       {/* ── Aprobaciones pendientes / Actividad reciente ────────── */}
-      <div className="ad-mid-row">
-        <div className="ad-card">
-          <div className="ad-card-title">
+      <div className="adm-mid-row">
+        <div className="adm-card">
+          <div className="adm-card-title">
             <FiCheckCircle style={{ verticalAlign: "-2px", marginRight: 6 }} />
             Aprobaciones pendientes
           </div>
           {pendientesVac.length === 0
-            ? <p className="ad-empty">Sin solicitudes de vacaciones pendientes.</p>
+            ? <p className="adm-empty">Sin solicitudes de vacaciones pendientes.</p>
             : (
-              <ul className="ad-alert-list">
+              <ul className="adm-alert-list">
                 {pendientesVac.slice(0, 5).map(s => (
-                  <li key={s._id} className="ad-alert-item">
-                    <span className="ad-alert-name">{s.empleado_nombre || "Empleado"}</span>
+                  <li key={s._id} className="adm-alert-item">
+                    <span className="adm-alert-name">{s.empleado_nombre || "Empleado"}</span>
                     <Tag type="amber">{s.dias_solicitados} día{s.dias_solicitados === 1 ? "" : "s"}</Tag>
                   </li>
                 ))}
@@ -419,25 +419,25 @@ function AdminDashboard() {
             )
           }
           {pendientesVac.length > 0 && (
-            <Link to="/vacaciones" className="ad-emp-link" style={{ display: "inline-block", marginTop: 10 }}>
+            <Link to="/vacaciones" className="adm-emp-link" style={{ display: "inline-block", marginTop: 10 }}>
               Ver todas ({pendientesVac.length}) →
             </Link>
           )}
         </div>
 
         {esSuperAdmin && (
-          <div className="ad-card">
-            <div className="ad-card-title">
+          <div className="adm-card">
+            <div className="adm-card-title">
               <FiActivity style={{ verticalAlign: "-2px", marginRight: 6 }} />
               Actividad reciente
             </div>
             {actividad.length === 0
-              ? <p className="ad-empty">Sin actividad registrada.</p>
+              ? <p className="adm-empty">Sin actividad registrada.</p>
               : (
-                <ul className="ad-alert-list">
+                <ul className="adm-alert-list">
                   {actividad.map(a => (
-                    <li key={a._id} className="ad-alert-item">
-                      <span className="ad-alert-name">
+                    <li key={a._id} className="adm-alert-item">
+                      <span className="adm-alert-name">
                         <FiClock style={{ verticalAlign: "-2px", marginRight: 4, opacity: 0.6 }} />
                         {a.usuario || "Sistema"} · {a.accion} {a.entidad}
                       </span>
@@ -449,7 +449,7 @@ function AdminDashboard() {
                 </ul>
               )
             }
-            <Link to="/settings" className="ad-emp-link" style={{ display: "inline-block", marginTop: 10 }}>
+            <Link to="/settings" className="adm-emp-link" style={{ display: "inline-block", marginTop: 10 }}>
               Ver bitácora completa →
             </Link>
           </div>
@@ -457,16 +457,16 @@ function AdminDashboard() {
       </div>
 
       {/* ── Fila inferior ────────────────────────────────────── */}
-      <div className="ad-bottom-row">
+      <div className="adm-bottom-row">
 
-        <div className="ad-card">
-          <div className="ad-card-title">Empleados · acceso rápido</div>
+        <div className="adm-card">
+          <div className="adm-card-title">Empleados · acceso rápido</div>
           {stats.empRecientes.map(({ emp, puesto, tieneClinico, tieneRH }) => (
-            <div key={getId(emp)} className="ad-emp-row">
+            <div key={getId(emp)} className="adm-emp-row">
               <Avatar emp={emp} size={28} />
-              <div className="ad-emp-info">
-                <div className="ad-emp-name">{formatNombre(emp)}</div>
-                <div className="ad-emp-role">{puesto || "Sin puesto"}</div>
+              <div className="adm-emp-info">
+                <div className="adm-emp-name">{formatNombre(emp)}</div>
+                <div className="adm-emp-role">{puesto || "Sin puesto"}</div>
               </div>
               {!tieneClinico && <Tag type="amber">Sin exp.</Tag>}
               {!tieneRH      && <Tag type="red">Sin RH</Tag>}
@@ -476,29 +476,29 @@ function AdminDashboard() {
                   : !tieneClinico ? ALERTA_DESTINO.clinico(getId(emp))
                   : `/Perfil/${getId(emp)}`
                 }
-                className="ad-emp-link"
+                className="adm-emp-link"
               >
                 Ver →
               </Link>
             </div>
           ))}
           {empleados.length > 5 && (
-            <div className="ad-emp-more">+{empleados.length - 5} empleados más</div>
+            <div className="adm-emp-more">+{empleados.length - 5} empleados más</div>
           )}
         </div>
 
-        <div className="ad-card">
-          <div className="ad-card-title">Habilidades del equipo · promedio</div>
+        <div className="adm-card">
+          <div className="adm-card-title">Habilidades del equipo · promedio</div>
           {stats.skillData.length === 0
-            ? <p className="ad-empty">Sin habilidades registradas.</p>
+            ? <p className="adm-empty">Sin habilidades registradas.</p>
             : stats.skillData.map((s, i) => (
-                <div key={s.nombre} className="ad-skill-row">
-                  <span className="ad-skill-name">{s.nombre}</span>
-                  <div className="ad-bar-track" style={{ flex: 1 }}>
-                    <div className="ad-bar-fill"
+                <div key={s.nombre} className="adm-skill-row">
+                  <span className="adm-skill-name">{s.nombre}</span>
+                  <div className="adm-bar-track" style={{ flex: 1 }}>
+                    <div className="adm-bar-fill"
                       style={{ width: `${s.promedio}%`, background: COLORS[i % COLORS.length] }} />
                   </div>
-                  <span className="ad-skill-meta">{s.promedio}% · {s.personas}p</span>
+                  <span className="adm-skill-meta">{s.promedio}% · {s.personas}p</span>
                 </div>
               ))
           }
@@ -507,8 +507,8 @@ function AdminDashboard() {
       </div>
 
       {/* ── Analítica exportable ─────────────────────────────── */}
-      <div className="ad-card" style={{ marginTop: 20 }}>
-        <div className="ad-card-title">Analítica y reportes</div>
+      <div className="adm-card" style={{ marginTop: 20 }}>
+        <div className="adm-card-title">Analítica y reportes</div>
         <ReportesCard compact />
       </div>
     </div>
