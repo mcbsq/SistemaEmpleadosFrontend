@@ -381,10 +381,17 @@ function Perfil() {
         educacionService.update(empleadoId, payloadEducacion),
         contactoService.updateDatos(empleadoId, datosContacto),
         contactoService.updateRedes(empleadoId, redesSociales),
-        contactoService.updatePersona(empleadoId, personalContacto),
         clinicoService.update(empleadoId, expParaGuardar),
         direccionService.update(empleadoId, direccion),
       ];
+      // El backend exige nombreContacto y parentesco para guardar el
+      // contacto de emergencia (tiene sentido para crearlo) — pero la
+      // mayoría de empleados no lo ha capturado todavía, así que solo se
+      // manda si ya hay algo real que guardar; si no, se omite en vez de
+      // tronar el guardado completo del perfil.
+      if (personalContacto.nombreContacto?.trim() && personalContacto.parenstesco?.trim()) {
+        saves.push(contactoService.updatePersona(empleadoId, personalContacto));
+      }
       if (canViewSensitive) saves.push(rhService.update(empleadoId, rhParaGuardar));
 
       if (isAdmin && rh.JefeInmediato) {
