@@ -94,8 +94,21 @@ export const DescriptionRenderer = ({ isEditing, descripcion, setDescripcion }) 
   </div>
 );
 
+// Un correo marcado "principal" (radio) — igual que RedesSocialesRenderer:
+// agregar/quitar filas libremente, nunca un solo campo de texto.
 export const InfoPersonalRenderer = ({ isEditing, datoscontacto, handleInputChangedatoscontacto }) => {
   const dc = datoscontacto ?? {};
+  const correos = dc.correos?.length ? dc.correos : [];
+  const setCorreos = (next) => handleInputChangedatoscontacto("correos", next);
+  const addCorreo    = () => setCorreos([...correos, { email: "", principal: correos.length === 0 }]);
+  const removeCorreo = (i) => {
+    const restantes = correos.filter((_, idx) => idx !== i);
+    if (correos[i]?.principal && restantes.length) restantes[0] = { ...restantes[0], principal: true };
+    setCorreos(restantes);
+  };
+  const updateCorreo   = (i, val) => { const up = [...correos]; up[i] = { ...up[i], email: val }; setCorreos(up); };
+  const setPrincipal   = (i) => setCorreos(correos.map((c, idx) => ({ ...c, principal: idx === i })));
+
   return (
     <div className="section-inner">
       <h3 className="section-title">Datos de Contacto</h3>
@@ -103,21 +116,91 @@ export const InfoPersonalRenderer = ({ isEditing, datoscontacto, handleInputChan
       <Field label="Teléfono fijo"    value={dc.telefonoF}  isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("telefonoF", v)}  type="tel" />
       <Field label="WhatsApp"         value={dc.IDwhatsapp} isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("IDwhatsapp", v)} />
       <Field label="Telegram"         value={dc.IDtelegram} isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("IDtelegram", v)} />
-      <Field label="Correo"           value={dc.correo}     isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("correo", v)}     type="email" />
+
+      <div className="field-row" style={{ alignItems: "flex-start" }}>
+        <span className="field-label">Correos</span>
+        {isEditing ? (
+          <div className="redes-edit-list" style={{ flex: 1 }}>
+            {correos.map((c, i) => (
+              <div key={i} className="redes-edit-row">
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.78rem", color: "var(--hr-muted)" }}>
+                  <input type="radio" name="correo-principal" checked={!!c.principal} onChange={() => setPrincipal(i)} />
+                  Principal
+                </label>
+                <input type="email" className="field-input" placeholder="correo@ejemplo.com" value={c.email}
+                  onChange={e => updateCorreo(i, e.target.value)} />
+                <button className="btn-icon btn-icon--danger" onClick={() => removeCorreo(i)}><FiX /></button>
+              </div>
+            ))}
+            <button className="btn-ghost" onClick={addCorreo}>+ Agregar correo</button>
+          </div>
+        ) : (
+          <span className="field-value">
+            {correos.length === 0
+              ? <em className="field-empty">Sin datos</em>
+              : correos.filter(c => c.email).map((c, i) => (
+                  <span key={i} style={{ display: "block" }}>
+                    {c.email}{c.principal && correos.length > 1 ? " · Principal" : ""}
+                  </span>
+                ))
+            }
+          </span>
+        )}
+      </div>
     </div>
   );
 };
 
-export const PersonasContactoRenderer = ({ isEditing, personalcontacto, handlePersonalContactoChange, opcionesParentesco = [] }) => {
-  const p = personalcontacto ?? {};
+// N contactos de emergencia — cada uno con su propio bloque de campos,
+// agregar/quitar libremente (mismo patrón que RedesSocialesRenderer).
+export const PersonasContactoRenderer = ({ isEditing, personalcontactos, setPersonalContactos, opcionesParentesco = [] }) => {
+  const contactos = personalcontactos ?? [];
+  const CONTACTO_VACIO = { nombreContacto: "", parenstesco: "", telefonoContacto: "", correoContacto: "", direccionContacto: "", whatsappContacto: "", telegramContacto: "", facebookContacto: "" };
+  const add    = () => setPersonalContactos([...contactos, { ...CONTACTO_VACIO }]);
+  const remove = (i) => setPersonalContactos(contactos.filter((_, idx) => idx !== i));
+  const update = (i, field, val) => { const up = [...contactos]; up[i] = { ...up[i], [field]: val }; setPersonalContactos(up); };
+
+  if (!isEditing) {
+    return (
+      <div className="section-inner">
+        <h3 className="section-title">Contacto de Emergencia</h3>
+        {contactos.length === 0 ? (
+          <p className="field-empty" style={{ fontStyle: "italic" }}>Sin contactos registrados.</p>
+        ) : contactos.map((p, i) => (
+          <div key={i} style={{ marginBottom: i < contactos.length - 1 ? 16 : 0, paddingBottom: i < contactos.length - 1 ? 16 : 0, borderBottom: i < contactos.length - 1 ? "1px solid var(--hr-border)" : "none" }}>
+            <Field label="Nombre"    value={p.nombreContacto}    isEditing={false} />
+            <Field label="Parentesco" value={p.parenstesco}      isEditing={false} />
+            <Field label="Teléfono"  value={p.telefonoContacto}  isEditing={false} />
+            <Field label="WhatsApp"  value={p.whatsappContacto}  isEditing={false} />
+            <Field label="Telegram"  value={p.telegramContacto}  isEditing={false} />
+            <Field label="Facebook"  value={p.facebookContacto}  isEditing={false} />
+            <Field label="Correo"    value={p.correoContacto}    isEditing={false} />
+            <Field label="Dirección" value={p.direccionContacto} isEditing={false} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="section-inner">
       <h3 className="section-title">Contacto de Emergencia</h3>
-      <Field label="Nombre"    value={p.nombreContacto}    isEditing={isEditing} onChange={v => handlePersonalContactoChange("nombreContacto", v)} />
-      <SelectField label="Parentesco" value={p.parenstesco} isEditing={isEditing} options={opcionesParentesco} onChange={v => handlePersonalContactoChange("parenstesco", v)} />
-      <Field label="Teléfono"  value={p.telefonoContacto}  isEditing={isEditing} onChange={v => handlePersonalContactoChange("telefonoContacto", v)} type="tel" />
-      <Field label="Correo"    value={p.correoContacto}    isEditing={isEditing} onChange={v => handlePersonalContactoChange("correoContacto", v)}   type="email" />
-      <Field label="Dirección" value={p.direccionContacto} isEditing={isEditing} onChange={v => handlePersonalContactoChange("direccionContacto", v)} />
+      {contactos.map((p, i) => (
+        <div key={i} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: "1px solid var(--hr-border)" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button className="btn-icon btn-icon--danger" onClick={() => remove(i)}><FiX /></button>
+          </div>
+          <Field label="Nombre"    value={p.nombreContacto}    isEditing onChange={v => update(i, "nombreContacto", v)} />
+          <SelectField label="Parentesco" value={p.parenstesco} isEditing options={opcionesParentesco} onChange={v => update(i, "parenstesco", v)} />
+          <Field label="Teléfono"  value={p.telefonoContacto}  isEditing onChange={v => update(i, "telefonoContacto", v)} type="tel" />
+          <Field label="WhatsApp"  value={p.whatsappContacto}  isEditing onChange={v => update(i, "whatsappContacto", v)} />
+          <Field label="Telegram"  value={p.telegramContacto}  isEditing onChange={v => update(i, "telegramContacto", v)} />
+          <Field label="Facebook"  value={p.facebookContacto}  isEditing onChange={v => update(i, "facebookContacto", v)} />
+          <Field label="Correo"    value={p.correoContacto}    isEditing onChange={v => update(i, "correoContacto", v)} type="email" />
+          <Field label="Dirección" value={p.direccionContacto} isEditing onChange={v => update(i, "direccionContacto", v)} />
+        </div>
+      ))}
+      <button className="btn-ghost" onClick={add}>+ Agregar contacto de emergencia</button>
     </div>
   );
 };

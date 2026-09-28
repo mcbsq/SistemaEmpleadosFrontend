@@ -13,16 +13,17 @@ export const contactoService = {
 
   getPersonas: () => apiFetch("/personascontacto"),
 
+  // Devuelve { Contactos: [...] } — N contactos de emergencia por empleado.
   getPersonasByEmpleado: (id) => apiFetch(`/personascontacto/empleado/${id}`),
 
-  createPersona: (datos) =>
-    apiFetch("/personascontacto", { method: "POST", body: JSON.stringify(datos) }),
-
-  // Mismo caso que updateRedes: el backend ya tenía el PUT, nada lo llamaba.
-  updatePersona: (id, personalcontacto) =>
+  // Reemplaza la lista COMPLETA de contactos de emergencia (agregar/quitar
+  // uno es responsabilidad del caller: arma el arreglo nuevo y lo manda
+  // completo). El backend ignora contactos sin nombre/parentesco en vez de
+  // rechazar todo el guardado.
+  updatePersona: (id, contactos) =>
     apiFetch(`/personascontacto/empleado/${id}`, {
       method: "PUT",
-      body: JSON.stringify({ personalcontacto }),
+      body: JSON.stringify({ personalcontacto: contactos }),
     }),
 
   getRedes: () => apiFetch("/redsocial"),
@@ -39,7 +40,9 @@ export const contactoService = {
     }),
 
   // Mapea los campos del estado local (telefonoF, IDwhatsapp...)
-  // a los campos que espera Flask (TelFijo, IdWhatsApp...)
+  // a los campos que espera Flask (TelFijo, IdWhatsApp...). ListaCorreos
+  // pasó de string único a lista [{email, principal}] — el nombre del campo
+  // en Mongo ya se llamaba así desde siempre, solo nadie mandaba una lista.
   updateDatos: (id, datos) =>
     apiFetch(`/datoscontacto/empleado/${id}`, {
       method: "PUT",
@@ -48,7 +51,7 @@ export const contactoService = {
         TelCelular:   datos.telefonoC   || "",
         IdWhatsApp:   datos.IDwhatsapp  || "",
         IdTelegram:   datos.IDtelegram  || "",
-        ListaCorreos: datos.correo      || "",
+        ListaCorreos: (datos.correos || []).filter(c => c.email?.trim()),
         empleado_id:  id,
       }),
     }),

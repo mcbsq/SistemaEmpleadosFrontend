@@ -53,13 +53,27 @@ const AVATAR_FALLBACK =
   );
 
 // ─── CONSTANTES INICIALES ───────────────────────────────────────────────────
-const CONTACTO_INIT  = { telefonoF:"", telefonoC:"", IDwhatsapp:"", IDtelegram:"", correo:"" };
-const PERS_CONT_INIT = { parenstesco:"", nombreContacto:"", telefonoContacto:"", correoContacto:"", direccionContacto:"" };
+const CONTACTO_INIT  = { telefonoF:"", telefonoC:"", IDwhatsapp:"", IDtelegram:"", correos:[] };
 const DIR_INIT       = { Calle:"", NumExterior:"", NumInterior:"", Municipio:"", Ciudad:"", CodigoP:"", lat:null, lng:null };
 const RH_INIT       = { Puesto:"", JefeInmediato:"", JefeInmediato_id:"", HorarioLaboral:{ HoraEntrada:"", HoraSalida:"", TiempoComida:"", DiasTrabajados:"" }, ExpedienteDigitalPDF:null };
 const EXP_INIT       = { tipoSangre:"", Padecimientos:"", NumeroSeguroSocial:"", Datossegurodegastos:"", PDFSegurodegastosmedicos:null };
 
 // ─── Modal verificación ───────────────────────────────────────────────────────
+// Indicador de auto-guardado — reemplaza al botón "Guardar cambios" para
+// las secciones que se guardan solas (Datos de Contacto, Contacto de
+// Emergencia, Redes Sociales). Sin esto, nada le confirma al usuario que
+// su cambio ya quedó, que fue justo la queja: "no aparece ningún botón".
+function AutoSaveBadge({ status }) {
+  if (!status) return null;
+  const TEXTO = { editando: "Editando…", guardando: "Guardando…", guardado: "✓ Guardado", error: "No se pudo guardar" };
+  const COLOR = { editando: "var(--hr-muted)", guardando: "var(--hr-accent)", guardado: "var(--hr-success)", error: "var(--hr-danger)" };
+  return (
+    <span style={{ float: "right", fontSize: "0.75rem", fontWeight: 600, color: COLOR[status] }}>
+      {TEXTO[status]}
+    </span>
+  );
+}
+
 function VerifyPasswordModal({ onConfirm, onCancel, loading, error }) {
   const [pwd, setPwd] = useState("");
   const operatorUser  = sessionStorage.getItem("user_name") || "administrador";
@@ -189,9 +203,9 @@ function Perfil() {
   const [educationItems,   setEducationItems]   = useState([]);
   const [experienciaItems, setExperienciaItems] = useState([]);
   const [habilidades,      setHabilidades]      = useState([]);
-  const [redesSociales,    setRedesSociales]    = useState([]);
-  const [datosContacto,    setDatosContacto]    = useState(CONTACTO_INIT);
-  const [personalContacto, setPersonalContacto] = useState(PERS_CONT_INIT);
+  const [redesSociales,     setRedesSociales]     = useState([]);
+  const [datosContacto,     setDatosContacto]     = useState(CONTACTO_INIT);
+  const [personalContactos, setPersonalContactos] = useState([]);
   const [direccion,        setDireccion]        = useState(DIR_INIT);
   const [rh,               setRh]               = useState(RH_INIT);
   const [expediente,       setExpediente]       = useState(EXP_INIT);
@@ -255,8 +269,19 @@ function Perfil() {
         direccionService.getByEmpleado(empleadoId).catch(()=>({})),
       ]);
 
-      setDatosContacto({ telefonoF:dc?.TelFijo||"", telefonoC:dc?.TelCelular||"", IDwhatsapp:dc?.IdWhatsApp||"", IDtelegram:dc?.IdTelegram||"", correo:dc?.ListaCorreos||"" });
-      if (pc?.personalcontacto) setPersonalContacto(pc.personalcontacto);
+      // ListaCorreos era un string suelto — empleados viejos aún lo tienen
+      // así en la BD. Normalizarlo a la lista [{email, principal}] nueva
+      // sin perder ese dato ni tronar si ya viene como arreglo.
+      const correosCrudo = dc?.ListaCorreos;
+      const correos = Array.isArray(correosCrudo)
+        ? correosCrudo
+        : (correosCrudo ? [{ email: correosCrudo, principal: true }] : []);
+      setDatosContacto({ telefonoF:dc?.TelFijo||"", telefonoC:dc?.TelCelular||"", IDwhatsapp:dc?.IdWhatsApp||"", IDtelegram:dc?.IdTelegram||"", correos });
+      // FIX: el backend siempre devolvió { Contactos: [...] } (una lista,
+      // desde antes de este cambio) — este código pedía pc.personalcontacto,
+      // una forma que nunca existió, así que jamás se veían los contactos
+      // de emergencia ya guardados aunque sí estuvieran en la BD.
+      setPersonalContactos(Array.isArray(pc?.Contactos) ? pc.Contactos : []);
       setRedesSociales(rs[0]?.RedesSociales || []);
 
       if (ed) {
@@ -371,6 +396,40 @@ function Perfil() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Auto-guardado ──────────────────────────────────────────────────────
+  // Datos de Contacto, Correos, Contacto de Emergencia y Redes Sociales se
+  // guardan solos 900ms después de cada cambio, mientras se está editando —
+  // sin depender de que alguien encuentre y presione un botón. El gate en
+  // `isEditing` evita que la carga inicial del perfil (cargarPerfil, que
+  // llena estos mismos estados) dispare un guardado fantasma.
+  const [autoSaveStatus, setAutoSaveStatus] = useState({});
+  const autoSaveTimers = useRef({});
+
+  const useAutoSave = (key, value, saveFn) => {
+    const primerRender = useRef(true);
+    useEffect(() => {
+      if (primerRender.current) { primerRender.current = false; return; }
+      if (!isEditing) return;
+      clearTimeout(autoSaveTimers.current[key]);
+      setAutoSaveStatus(s => ({ ...s, [key]: "editando" }));
+      autoSaveTimers.current[key] = setTimeout(async () => {
+        setAutoSaveStatus(s => ({ ...s, [key]: "guardando" }));
+        try {
+          await saveFn(value);
+          setAutoSaveStatus(s => ({ ...s, [key]: "guardado" }));
+          setTimeout(() => setAutoSaveStatus(s => (s[key] === "guardado" ? { ...s, [key]: null } : s)), 2000);
+        } catch {
+          setAutoSaveStatus(s => ({ ...s, [key]: "error" }));
+        }
+      }, 900);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value]);
+  };
+
+  useAutoSave("contacto", datosContacto, (v) => contactoService.updateDatos(empleadoId, v));
+  useAutoSave("emergencia", personalContactos, (v) => contactoService.updatePersona(empleadoId, v));
+  useAutoSave("redes", redesSociales, (v) => contactoService.updateRedes(empleadoId, v));
+
   const handleSaveClick = async () => {
     setSaveStatus("saving"); setIsEditing(false);
     try {
@@ -388,21 +447,16 @@ function Perfil() {
       const rhParaGuardar = { ...rh };
       const expParaGuardar = { ...expediente };
 
+      // Datos de Contacto, Correos, Contacto de Emergencia y Redes Sociales
+      // ya NO viven aquí — se auto-guardan solos (ver useEffect debounced
+      // más abajo). El cliente reportó dos veces que la info "se perdía":
+      // la causa real era depender de este botón único para todo, fácil de
+      // no encontrar o no presionar a tiempo.
       const saves = [
         educacionService.update(empleadoId, payloadEducacion),
-        contactoService.updateDatos(empleadoId, datosContacto),
-        contactoService.updateRedes(empleadoId, redesSociales),
         clinicoService.update(empleadoId, expParaGuardar),
         direccionService.update(empleadoId, direccion),
       ];
-      // El backend exige nombreContacto y parentesco para guardar el
-      // contacto de emergencia (tiene sentido para crearlo) — pero la
-      // mayoría de empleados no lo ha capturado todavía, así que solo se
-      // manda si ya hay algo real que guardar; si no, se omite en vez de
-      // tronar el guardado completo del perfil.
-      if (personalContacto.nombreContacto?.trim() && personalContacto.parenstesco?.trim()) {
-        saves.push(contactoService.updatePersona(empleadoId, personalContacto));
-      }
       if (canViewSensitive) saves.push(rhService.update(empleadoId, rhParaGuardar));
 
       if (isAdmin && rh.JefeInmediato) {
@@ -547,13 +601,14 @@ function Perfil() {
           </div>
           <div id="seccion-contacto" className={`section-card${!isRevealed?" section-card--blurred":""}`}>
             {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
+            <AutoSaveBadge status={autoSaveStatus.contacto} />
             <InfoPersonalRenderer isEditing={isEditing&&canEdit&&isRevealed} datoscontacto={datosContacto} handleInputChangedatoscontacto={(f,v)=>setDatosContacto(p=>({...p,[f]:v}))}/>
           </div>
           <div className={`section-card${!isRevealed?" section-card--blurred":""}`}>
             {!isRevealed&&<BlurOverlay onReveal={()=>setVerifyModal(true)}/>}
             <TriggerCard
               titulo="Contacto de Emergencia"
-              subtitulo={personalContacto.nombreContacto || "Sin datos"}
+              subtitulo={personalContactos.length > 0 ? `${personalContactos.length} contacto${personalContactos.length !== 1 ? "s" : ""}` : "Sin datos"}
               onClick={() => isRevealed && setPopupAbierto("contacto")}
             />
           </div>
@@ -576,7 +631,8 @@ function Perfil() {
 
         {popupAbierto === "contacto" && (
           <ProfileModal onClose={() => setPopupAbierto(null)}>
-            <PersonasContactoRenderer isEditing={isEditing&&canEdit&&isRevealed} personalcontacto={personalContacto} handlePersonalContactoChange={(f,v)=>setPersonalContacto(p=>({...p,[f]:v}))} opcionesParentesco={catalogos.parentesco}/>
+            <AutoSaveBadge status={autoSaveStatus.emergencia} />
+            <PersonasContactoRenderer isEditing={isEditing&&canEdit&&isRevealed} personalcontactos={personalContactos} setPersonalContactos={setPersonalContactos} opcionesParentesco={catalogos.parentesco}/>
           </ProfileModal>
         )}
         {popupAbierto === "domicilio" && (
@@ -586,6 +642,7 @@ function Perfil() {
         )}
         {popupAbierto === "redes" && (
           <ProfileModal onClose={() => setPopupAbierto(null)}>
+            <AutoSaveBadge status={autoSaveStatus.redes} />
             <RedesSocialesRenderer isEditing={isEditing&&canEdit} redesSociales={redesSociales} setRedesSociales={setRedesSociales}/>
           </ProfileModal>
         )}

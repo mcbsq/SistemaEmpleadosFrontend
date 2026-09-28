@@ -25,6 +25,7 @@ import { usuarioService }   from "../services/usuarioService";
 import { direccionService } from "../services/direccionService";
 import { catalogoService, FALLBACK } from "../services/catalogoService";
 import { authService } from "../services/authService";
+import { correoPrincipal } from "../utils/correos";
 // Genera slug URL-friendly desde nombre y registra el mapeo slug→id
 const toSlug = (str = "") =>
   str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
@@ -186,7 +187,7 @@ const ContactoIcons = ({ dc }) => {
     dc.TelCelular   && { href:`tel:${dc.TelCelular}`,                                              icon:<FaPhone />,    cls:"",     title:dc.TelCelular },
     dc.IdWhatsApp   && { href:`https://wa.me/${dc.IdWhatsApp.replace(/\D/g,"")}`, target:"_blank",  icon:<FaWhatsapp />, cls:"wa",   title:dc.IdWhatsApp },
     dc.IdTelegram   && { href:`https://t.me/${dc.IdTelegram}`,                    target:"_blank",  icon:<FaTelegram />, cls:"tg",   title:dc.IdTelegram },
-    dc.ListaCorreos && { href:`mailto:${dc.ListaCorreos}`,                                          icon:<FaEnvelope />, cls:"mail", title:dc.ListaCorreos },
+    correoPrincipal(dc.ListaCorreos) && { href:`mailto:${correoPrincipal(dc.ListaCorreos)}`,        icon:<FaEnvelope />, cls:"mail", title:correoPrincipal(dc.ListaCorreos) },
   ].filter(Boolean);
   if (!items.length) return <span className="emp-dim">Sin datos</span>;
   return (
@@ -627,7 +628,14 @@ function Empleados() {
     try {
       await Promise.all([
         direccionService.create({...formDir, empleado_id:formEmp._id}),
-        contactoService.createDatos({...formDC, empleado_id:formEmp._id}),
+        // ListaCorreos ahora es una lista [{email, principal}] — este
+        // wizard solo captura un correo al dar de alta, así que se manda
+        // como la lista de un solo elemento.
+        contactoService.createDatos({
+          ...formDC,
+          empleado_id: formEmp._id,
+          ListaCorreos: formDC.ListaCorreos ? [{ email: formDC.ListaCorreos, principal: true }] : [],
+        }),
       ]);
       setModal("usuario");
     } finally { setGuardando(false); }

@@ -6,6 +6,7 @@ import { empleadoService } from "../services/empleadoService";
 import { contactoService }  from "../services/contactoService";
 import { authService }      from "../services/authService";
 import { rhService }        from "../services/rhService";
+import { correoPrincipal }  from "../utils/correos";
 
 // Sin PNG externo — un ícono simple es más robusto que un asset que puede
 // faltar (y evita el parpadeo de "imagen rota" antes de que dispare onError).
@@ -310,8 +311,8 @@ function Home() {
             <div className="info-card-content">
               <h4>{getFullName(hoveredEmpleado)}</h4>
               <hr />
-              {datosContacto.ListaCorreos && (
-                <p><strong><FiMail style={{verticalAlign:"-2px",marginRight:4}}/>Email</strong>{datosContacto.ListaCorreos}</p>
+              {correoPrincipal(datosContacto.ListaCorreos) && (
+                <p><strong><FiMail style={{verticalAlign:"-2px",marginRight:4}}/>Email</strong>{correoPrincipal(datosContacto.ListaCorreos)}</p>
               )}
               {datosContacto.TelCelular && (
                 <p><strong><FiPhone style={{verticalAlign:"-2px",marginRight:4}}/>Celular</strong>{datosContacto.TelCelular}</p>
@@ -322,7 +323,7 @@ function Home() {
               {datosContacto.IdTelegram && (
                 <p><strong><FiSend style={{verticalAlign:"-2px",marginRight:4}}/>Telegram</strong>{datosContacto.IdTelegram}</p>
               )}
-              {!datosContacto.ListaCorreos && !datosContacto.TelCelular && (
+              {!correoPrincipal(datosContacto.ListaCorreos) && !datosContacto.TelCelular && (
                 <p className="no-contact">Sin datos de contacto registrados.</p>
               )}
               <Link to={`/Perfil/${hoveredEmpleado._id}`} className="btn-ver-perfil">

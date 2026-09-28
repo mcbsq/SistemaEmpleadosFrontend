@@ -6,6 +6,7 @@ import { contactoService } from "../services/contactoService";
 import { rhService }        from "../services/rhService";
 import { clinicoService }   from "../services/clinicoService";
 import { authService }      from "../services/authService";
+import { correoPrincipal }  from "../utils/correos";
 
 // ─── Helper: extraer ID ───────────────────────────────────────────────────────
 const getId = (item) => item?._id?.$oid || item?._id || "";
@@ -149,7 +150,7 @@ function EmployeeQuickView({ emp, anchorRect, onClose }) {
                   <Row label="Celular"   value={contacto?.TelCelular} mono />
                   <Row label="WhatsApp"  value={contacto?.IdWhatsApp} mono />
                   <Row label="Telegram"  value={contacto?.IdTelegram} mono />
-                  <Row label="Correo"    value={contacto?.ListaCorreos} />
+                  <Row label="Correo"    value={correoPrincipal(contacto?.ListaCorreos)} />
                 </div>
               )}
 

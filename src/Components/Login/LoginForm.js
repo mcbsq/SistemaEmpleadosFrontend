@@ -158,8 +158,8 @@ function LoginForm({ onClose }) {
         contactoService.createDatos({ ...formCont, empleado_id: empleadoId }),
         direccionService.create({ ...formDir, empleado_id: empleadoId }),
       ];
-      if (formPers.nombreContacto && contactoService.createPersona) {
-        promises.push(contactoService.createPersona({ ...formPers, empleado_id: empleadoId }));
+      if (formPers.nombreContacto && formPers.parenstesco) {
+        promises.push(contactoService.updatePersona(empleadoId, [formPers]));
       }
       await Promise.all(promises);
       setAlert({ msg: "Cuenta creada. En espera de activación por el administrador.", ok: true });
