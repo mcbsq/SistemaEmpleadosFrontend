@@ -132,7 +132,7 @@
 /* ── Grid de contenido ───────────────────────────────────────── */
 .perfil-grid {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 360px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -524,7 +524,7 @@ select {
 }
 
 /* ── Responsive ──────────────────────────────────────────────── */
-@media (max-width: 1100px) { .perfil-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .perfil-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 680px) {
   .Perfil, .Personal { padding: 70px 4% 60px; }
   .perfil-hero { flex-direction: column; text-align: center; padding: 28px 20px; gap: 20px; }

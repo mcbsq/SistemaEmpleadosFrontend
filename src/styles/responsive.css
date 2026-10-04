@@ -1,0 +1,94 @@
+/* src/styles/responsive.css
+ * Ajustes de celular y tableta para TODO el sistema (oct 2026). Se carga al
+ * final (index.js) y antepone `body` a los selectores para ganar sobre las
+ * reglas de cada pantalla sin tocar su diseño de escritorio.
+ * La app móvil (Expo) replica esta versión responsiva: lo que se vea bien
+ * aquí a 375 px es la referencia de la app nativa.
+ */
+
+/* ── Base: nada se sale del ancho de la pantalla ───────────────────────── */
+html, body { overflow-x: hidden; }
+body img, body video, body canvas, body svg { max-width: 100%; }
+body .rc-title, body .rc-meta, body .hr-title, body .hr-subtitle,
+body .mdl-title, body .mdl-sub, body .field-value { overflow-wrap: anywhere; }
+
+/* ── Tableta (≤ 900 px) ────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  body .mr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body .an-hbar-label { width: 110px; }
+}
+
+/* ── Celular (≤ 640 px) ────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Encabezados de página: título y acciones se acomodan sin empujarse */
+  body .hr-page-header { align-items: center; margin-bottom: 14px; }
+  body .hr-page-header > div:first-child { flex: 1 1 200px; min-width: 0; }
+  body .hr-title { font-size: 1.3rem; }
+  body .hr-subtitle { font-size: 0.86rem; }
+
+  /* Raíces de pantalla con el mismo margen lateral (16 px) */
+  body .mr-root, body .cm-root, body .orgs-root, body .rhp-root,
+  body .adm-root, body .de-root, body .cm-root { padding-left: 14px; padding-right: 14px; }
+
+  /* Tarjetas de registro: el contenido no empuja a los botones */
+  body .rc-grid, body .rc-grid--ancho { grid-template-columns: minmax(0, 1fr); }
+  body .rc-card { gap: 10px; padding: 12px; }
+  body .rc-actions { flex-shrink: 0; }
+  body .rc-filtros { flex-direction: column; align-items: stretch; }
+  body .rc-filtros .rc-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  body .rc-filtros .rc-chips::-webkit-scrollbar { display: none; }
+  body .rc-chip { flex-shrink: 0; }
+  body .rc-section-head { margin-bottom: 14px; }
+
+  /* Buscadores a todo lo ancho */
+  body .srh-buscar { min-width: 0; width: 100%; height: 44px; }
+
+  /* Mi resumen (empleado) y Analítica */
+  body .mr-grid { grid-template-columns: minmax(0, 1fr); }
+  body .an-hbar-label { width: 92px; }
+  body .an-modal-overlay { padding: 0; align-items: flex-end; }
+  body .an-modal { max-height: 92vh; border-radius: 22px 22px 0 0; }
+
+  /* Carga masiva: el contenido de cada paso usa todo el ancho */
+  body .cm-paso-body { margin-left: 0; }
+  body .cm-btn { width: 100%; justify-content: center; }
+
+  /* Configuración: pestañas desplazables y colores del fondo en 2 columnas */
+  body .orgs-tabs { flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  body .orgs-tabs::-webkit-scrollbar { display: none; }
+  body .orgs-tab { flex-shrink: 0; }
+  body .orgs-grad-colores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body .orgs-incident-list, body .orgs-module-list, body .orgs-kpi-list { grid-template-columns: minmax(0, 1fr); }
+  body .orgs-flujo-paso { padding: 12px; gap: 10px; }
+  body .orgs-puesto-nuevo { flex-wrap: nowrap; }
+
+  /* Evaluaciones: metas en dos renglones */
+  body .des-meta-row { grid-template-columns: 1fr 80px auto; }
+
+  /* Nómina (configuración de deducciones): concepto arriba, montos abajo */
+  body .nom-deduccion-row { grid-template-columns: 1fr 1fr; }
+  body .nom-deduccion-row > :first-child { grid-column: 1 / -1; }
+
+  /* Paneles flotantes a lo ancho de la pantalla */
+  body .eqv-panel { width: calc(100vw - 24px); max-width: 360px; }
+  body .ot-tooltip { width: calc(100vw - 32px); max-width: 320px; }
+  body .spot-panel { width: calc(100vw - 24px); }
+
+  /* Ajustes de perfil: dos opciones por fila se vuelven una */
+  body .ap-reglas, body .ap-opciones { grid-template-columns: 1fr; }
+
+  /* Empresas */
+  body .tn-grid { grid-template-columns: minmax(0, 1fr); }
+
+  /* Objetivos táctiles de al menos 44 px (Apple HIG) */
+  body .icon-btn--sm { width: 38px; height: 38px; }
+}
+
+/* ── Celular chico (≤ 380 px, iPhone SE / mini) ────────────────────────── */
+@media (max-width: 380px) {
+  body .rhp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  body .rhp-kpi { padding: 12px; }
+  body .rhp-kpi-num { font-size: 1.6rem; }
+  body .rc-tile { width: 44px; height: 44px; }
+  body .hr-title { font-size: 1.2rem; }
+}

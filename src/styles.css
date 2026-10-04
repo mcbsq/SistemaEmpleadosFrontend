@@ -258,7 +258,10 @@ body {
 }
 
 /* ── Main ─────────────────────────────────────────────────────── */
-.app-main  { flex: 1; min-height: 100vh; position: relative; z-index: 1; padding-top: 52px; }
+/* min-width: 0 — sin esto, un elemento flexible nunca es más angosto que su
+   contenido: una fila ancha (p. ej. las 7 pestañas del perfil) estiraba toda
+   la página a ~900 px y el celular la mostraba alejada, como vista de escritorio. */
+.app-main  { flex: 1; min-width: 0; min-height: 100vh; position: relative; z-index: 1; padding-top: 52px; }
 /* Mismo guard que la burbuja flotante de arriba: solo quita el padding que
    reserva espacio para app-topbar cuando app-topbar de verdad está oculto
    (mouse real). En táctil ≥1024px la topbar con hamburguesa sigue visible,
