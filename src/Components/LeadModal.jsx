@@ -46,7 +46,7 @@ function LeadModal({ onClose }) {
 
   return (
     <div className="lead-modal-overlay" onClick={onClose}>
-      <div className="lead-modal" onClick={e => e.stopPropagation()}>
+      <div className="lead-modal" role="dialog" aria-modal="true" aria-label="Solicitar información para crear tu empresa" onClick={e => e.stopPropagation()}>
         <button className="lead-modal-close" onClick={onClose} aria-label="Cerrar"><FiX /></button>
 
         {enviado ? (

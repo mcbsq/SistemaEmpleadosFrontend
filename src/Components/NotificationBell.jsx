@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { FiBell, FiX } from "react-icons/fi";
+import { FiBell, FiX, FiCheckCircle } from "react-icons/fi";
 import { apiFetch } from "../services/apiConfig";
 import "./NotificationBell.css";
 
@@ -88,7 +88,7 @@ function NotificationBell({ align = "right" }) {
             <div className="nb-panel-header">
               <span>Notificaciones</span>
               {count > 0 && (
-                <button className="nb-mark-all" onClick={handleMarcarTodas}>Marcar todas leídas</button>
+                <button className="nb-mark-all" onClick={handleMarcarTodas} aria-label="Marcar todas leídas" title="Marcar todas leídas"><FiCheckCircle aria-hidden="true" /></button>
               )}
               <button className="nb-close-btn" onClick={() => setOpen(false)} aria-label="Cerrar">
                 <FiX />

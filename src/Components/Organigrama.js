@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef, useLayoutEffect } from "react";
+import { FiArrowRight } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import "./Organigrama.css";
 import { authService }         from "../services/authService";
@@ -191,7 +192,7 @@ function SinAsignarModal({ empleados, fotosMap, onNodeClick, onClose }) {
                   )}
                 </span>
                 <span className="org-modal-item-nombre">{nombre}</span>
-                <span className="org-modal-item-ver">Ver perfil →</span>
+                <span className="org-modal-item-ver">Ver perfil <FiArrowRight aria-hidden="true" className="btn-trail-icon" /></span>
               </button>
             );
           })}

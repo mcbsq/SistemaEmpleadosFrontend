@@ -1,0 +1,172 @@
+/* ══════════════════════════════════════════════════════════════════
+   MOVIMIENTO — sistema de animaciones y transiciones de todo el sitio
+   Una sola curva (ease-out exponencial) y tres duraciones, para que todo
+   se sienta del mismo "material": entra rápido, se asienta suave.
+   Todo se apaga con "reducir movimiento" (sistema operativo o
+   Ajustes de perfil → Preferencias → Animaciones reducidas).
+══════════════════════════════════════════════════════════════════ */
+:root {
+  --mo-ease:      cubic-bezier(0.16, 1, 0.3, 1);
+  --mo-ease-in:   cubic-bezier(0.7, 0, 0.84, 0);
+  --mo-fast:      160ms;
+  --mo-base:      320ms;
+  --mo-slow:      640ms;
+}
+
+/* El vidrio deja pasar más del fondo vivo (sigue siendo legible: blur 40px) */
+[data-theme="dark"]  { --hr-glass-bg: rgba(14, 18, 30, 0.7); }
+[data-theme="light"] { --hr-glass-bg: rgba(255, 255, 255, 0.72); }
+
+/* Las páginas dejan de pintar su propio fondo sólido: el fondo es uno solo */
+body { background: var(--hr-bg); }
+.app-main, .orgs-root, .login-page, .public-site,
+[data-theme="light"] .Perfil, [data-theme="light"] .Personal,
+[data-theme="light"] .orgs-root, [data-theme="light"] .organigrama-section { background: transparent !important; }
+.ambient-glow { display: none; }
+.app-shell, .login-page, .public-site { position: relative; z-index: 1; isolation: isolate; }
+
+/* ── Transición entre pantallas ───────────────────────────────────── */
+.fade-in-page { animation: none; } /* .route-view ya anima la entrada */
+.route-view { animation: mo-route-in var(--mo-slow) var(--mo-ease) backwards; }
+@keyframes mo-route-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.995); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* ── Entrada escalonada de tarjetas y filas ───────────────────────── */
+.mo-stagger > * { animation: mo-rise var(--mo-slow) var(--mo-ease) backwards; }
+.mo-stagger > *:nth-child(1)  { animation-delay: 40ms; }
+.mo-stagger > *:nth-child(2)  { animation-delay: 90ms; }
+.mo-stagger > *:nth-child(3)  { animation-delay: 140ms; }
+.mo-stagger > *:nth-child(4)  { animation-delay: 190ms; }
+.mo-stagger > *:nth-child(5)  { animation-delay: 240ms; }
+.mo-stagger > *:nth-child(6)  { animation-delay: 290ms; }
+.mo-stagger > *:nth-child(7)  { animation-delay: 340ms; }
+.mo-stagger > *:nth-child(n+8){ animation-delay: 390ms; }
+@keyframes mo-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Listas y tablas que ya existen: filas entran en cascada */
+.emp-table tbody tr, .orgs-incident-row, .fin-doc-row, .nb-item, .rm-rol-card,
+.adm-kpi, .recl-card, .an-resumen-item {
+  animation: mo-rise var(--mo-base) var(--mo-ease) backwards;
+}
+.emp-table tbody tr:nth-child(2), .orgs-incident-row:nth-child(2), .rm-rol-card:nth-child(2), .adm-kpi:nth-child(2) { animation-delay: 35ms; }
+.emp-table tbody tr:nth-child(3), .orgs-incident-row:nth-child(3), .rm-rol-card:nth-child(3), .adm-kpi:nth-child(3) { animation-delay: 70ms; }
+.emp-table tbody tr:nth-child(4), .orgs-incident-row:nth-child(4), .rm-rol-card:nth-child(4), .adm-kpi:nth-child(4) { animation-delay: 105ms; }
+.emp-table tbody tr:nth-child(5), .orgs-incident-row:nth-child(5), .rm-rol-card:nth-child(5), .adm-kpi:nth-child(5) { animation-delay: 140ms; }
+.emp-table tbody tr:nth-child(n+6), .orgs-incident-row:nth-child(n+6), .rm-rol-card:nth-child(n+6), .adm-kpi:nth-child(n+6) { animation-delay: 175ms; }
+
+/* ── Modales: el fondo se difumina, la ventana "llega" desde abajo ── */
+.nb-overlay, .vp-overlay, .pm-overlay, .rm-overlay, .rf-overlay, .recl-modal-overlay,
+.eqv-backdrop, .spot-backdrop, .ot-overlay, .modal-backdrop, .sidebar-overlay {
+  animation: mo-overlay-in var(--mo-base) var(--mo-ease) backwards;
+}
+.nb-panel, .vp-card, .pm-card, .rm-modal, .rf-modal, .recl-modal, .eqv-panel,
+.spot-panel, .lead-modal, .org-modal, .modal-dialog, .skill-catalogo-panel {
+  animation: mo-dialog-in var(--mo-base) var(--mo-ease) backwards;
+}
+@keyframes mo-overlay-in {
+  from { opacity: 0; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
+  to   { opacity: 1; }
+}
+@keyframes mo-dialog-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); filter: blur(4px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* ── Microinteracciones de controles ──────────────────────────────── */
+button, .btn, a.public-button, .perfil-btn, .btn-ghost, .sb-item, .public-button {
+  transition:
+    transform var(--mo-fast) var(--mo-ease),
+    background-color var(--mo-base) var(--mo-ease),
+    border-color var(--mo-base) var(--mo-ease),
+    color var(--mo-base) var(--mo-ease),
+    box-shadow var(--mo-base) var(--mo-ease),
+    opacity var(--mo-base) var(--mo-ease);
+}
+button:not(:disabled):active, .perfil-btn:not(:disabled):active, .btn-ghost:active,
+.public-button:active, .sb-item:active { transform: scale(0.97); }
+
+/* Tarjetas que SE PUEDEN abrir: se levantan y su borde toma el acento */
+.adm-kpi--clickable, .emp-card, .org-area-card, .recl-card, .rm-rol-card, .public-card, .pm-trigger-card {
+  transition: transform var(--mo-base) var(--mo-ease), box-shadow var(--mo-base) var(--mo-ease), border-color var(--mo-base) var(--mo-ease);
+}
+.adm-kpi--clickable:hover, .emp-card:hover, .org-area-card:hover, .recl-card:hover, .rm-rol-card:hover, .public-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px -18px rgba(var(--hr-accent-rgb), 0.45);
+}
+
+/* Barra lateral: el ícono se desliza un poco al pasar el mouse */
+.sb-item .sb-item-icon { transition: transform var(--mo-base) var(--mo-ease); }
+.sb-item:hover .sb-item-icon { transform: translateX(2px) scale(1.08); }
+
+/* Campos: el foco "enciende" el borde con un halo suave */
+input, select, textarea {
+  transition: border-color var(--mo-base) var(--mo-ease), box-shadow var(--mo-base) var(--mo-ease), background-color var(--mo-base) var(--mo-ease);
+}
+
+/* Carga: brillo que recorre los esqueletos */
+.mo-skeleton {
+  position: relative; overflow: hidden;
+  background: rgba(var(--hr-accent-rgb), 0.08); border-radius: 8px;
+}
+.mo-skeleton::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.12) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: mo-shimmer 1.4s var(--mo-ease) infinite;
+}
+@keyframes mo-shimmer { to { transform: translateX(100%); } }
+
+/* Toasts: entran desde la derecha y "rebotan" sin exagerar */
+.save-toast { animation: mo-toast-in var(--mo-base) var(--mo-ease) backwards; }
+@keyframes mo-toast-in {
+  from { opacity: 0; transform: translateX(24px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Selección de texto y scroll con el color del sistema */
+::selection { background: rgba(var(--hr-accent-rgb), 0.35); color: inherit; }
+* { scrollbar-width: thin; scrollbar-color: rgba(var(--hr-accent-rgb), 0.35) transparent; }
+
+/* ── Reducir movimiento: todo instantáneo ─────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+}
+html[data-motion="reduced"] *, html[data-motion="reduced"] *::before, html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+}
+
+/* ══ Superficies unificadas con el Panel de RH (oct 2026) ═══════════════
+   El dashboard general, los dashboards por rol y Analítica tenían fondo
+   negro sólido; ahora todo es vidrio sobre el fondo animado, igual que RH. */
+.adm-root, .de-root, [data-theme="light"] .adm-root, [data-theme="light"] .de-root {
+  --ad-bg: transparent; --de-bg: transparent;
+  --ad-surface: var(--hr-glass-bg); --de-surface: var(--hr-glass-bg);
+  --ad-border: var(--hr-glass-border); --de-border: var(--hr-glass-border);
+  background: transparent !important;
+}
+.adm-kpi, .adm-card, .de-kpi, .de-card, .hr-card, .an-stat-tile, .an-resumen-item, .payroll-state {
+  background: var(--hr-glass-bg) !important;
+  border: 1px solid var(--hr-glass-border) !important;
+  border-radius: 20px !important;
+  backdrop-filter: var(--hr-blur); -webkit-backdrop-filter: var(--hr-blur);
+  transition: transform var(--mo-base) var(--mo-ease), border-color var(--mo-base) var(--mo-ease), box-shadow var(--mo-base) var(--mo-ease);
+}
+.adm-kpi, .de-kpi, .an-stat-tile { padding: 16px 18px !important; }
+.adm-card, .de-card, .hr-card { padding: 18px 20px !important; }
+.adm-kpi:hover, .de-kpi:hover, .an-stat-tile:hover {
+  transform: translateY(-3px); border-color: rgba(var(--hr-accent-rgb), 0.45) !important;
+  box-shadow: 0 16px 34px -20px rgba(var(--hr-accent-rgb), 0.8);
+}
+.adm-card-title, .de-card-title, .hr-card-title {
+  text-transform: none !important; letter-spacing: 0 !important;
+  font-size: 1rem !important; font-weight: 600 !important; color: var(--hr-text) !important;
+}

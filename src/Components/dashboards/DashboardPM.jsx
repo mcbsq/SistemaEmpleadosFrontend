@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
+import NumeroAnimado from "../NumeroAnimado";
 import "./DashboardEspecializado.css";
 import { empleadoService } from "../../services/empleadoService";
 import { rhService }        from "../../services/rhService";
@@ -8,14 +9,11 @@ import EmployeeQuickView    from "../EmployeeQuickView";
 const getId = (i) => i?._id?.$oid || i?._id || "";
 const COLORS = ["#5B8AF0","#4ECAAC","#9B7FE8","#F5A623","#E86B5F","#73C990","#5DC8F5","#F07E6E"];
 
-// Proyectos mockeados — cuando exista endpoint real solo cambiar el fetch
-const PROYECTOS_MOCK = [
-  { id:1, nombre:"Portal Web Cibercom",     avance:75,  estado:"Activo",     entrega:"2026-04-30", equipo:3 },
-  { id:2, nombre:"App Móvil Empleados",     avance:40,  estado:"Activo",     entrega:"2026-06-15", equipo:2 },
-  { id:3, nombre:"Migración Base de Datos", avance:100, estado:"Completado", entrega:"2026-02-01", equipo:2 },
-  { id:4, nombre:"API de Integraciones",    avance:20,  estado:"Activo",     entrega:"2026-07-01", equipo:4 },
-  { id:5, nombre:"Dashboard Directivo",     avance:60,  estado:"Activo",     entrega:"2026-05-15", equipo:2 },
-];
+// Proyectos: todavía no hay módulo ni endpoint de proyectos. Antes aquí
+// vivía una lista de ejemplo fija que aparecía igual en TODAS las empresas
+// (dato falso y mezclado entre universos); mientras no exista el módulo, la
+// lista va vacía. Cuando exista el endpoint, cargarla por empresa con apiFetch.
+const PROYECTOS = [];
 
 const estadoColor = { Activo: "#4ECAAC", Completado: "#5B8AF0", Pausado: "#F5A623", Cancelado: "#E86B5F" };
 
@@ -23,7 +21,7 @@ const KpiCard = ({ label, value, sub, color }) => (
   <div className="de-kpi">
     <span className="de-kpi-accent" style={{ background: color }} />
     <div>
-      <div className="de-kpi-val">{value}</div>
+      <div className="de-kpi-val"><NumeroAnimado value={value} /></div>
       <div className="de-kpi-lbl">{label}</div>
       {sub && <div className="de-kpi-sub">{sub}</div>}
     </div>
@@ -79,10 +77,10 @@ function DashboardPM() {
       .map(([jefe, count]) => ({ jefe, count }))
       .sort((a, b) => b.count - a.count).slice(0, 6);
 
-    const activos    = PROYECTOS_MOCK.filter(p => p.estado === "Activo").length;
-    const completados = PROYECTOS_MOCK.filter(p => p.estado === "Completado").length;
+    const activos    = PROYECTOS.filter(p => p.estado === "Activo").length;
+    const completados = PROYECTOS.filter(p => p.estado === "Completado").length;
     const avancePromedio = Math.round(
-      PROYECTOS_MOCK.filter(p => p.estado === "Activo")
+      PROYECTOS.filter(p => p.estado === "Activo")
         .reduce((s, p) => s + p.avance, 0) /
       Math.max(activos, 1)
     );
@@ -121,7 +119,8 @@ function DashboardPM() {
       {/* Proyectos */}
       <div className="de-card" style={{ marginBottom: 10 }}>
         <div className="de-card-title">Estado de proyectos</div>
-        {PROYECTOS_MOCK.map(p => (
+        {PROYECTOS.length === 0 && <p className="de-empty">Aún no hay proyectos registrados en esta empresa.</p>}
+        {PROYECTOS.map(p => (
           <div key={p.id} className="de-proyecto-row">
             <div className="de-proyecto-info">
               <span className="de-proyecto-nombre">{p.nombre}</span>

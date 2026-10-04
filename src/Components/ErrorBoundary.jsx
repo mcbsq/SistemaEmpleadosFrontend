@@ -2,6 +2,8 @@
 // roto no deje la pantalla en blanco: registra el incidente (categoría
 // "render", visible en /monitor) y muestra un fallback con opción de reintento.
 import React from "react";
+import { FiHome } from "react-icons/fi";
+import IconButton from "./IconButton";
 import { logRenderError } from "../utils/incidentLogger";
 
 class ErrorBoundary extends React.Component {
@@ -32,18 +34,8 @@ class ErrorBoundary extends React.Component {
             Puedes reintentar o volver al inicio.
           </p>
           <div style={{ display: "flex", gap: 10 }}>
-            <button
-              onClick={() => this.setState({ hasError: false })}
-              style={{ padding: "9px 22px", borderRadius: 8, cursor: "pointer",
-                       border: "1px solid rgba(128,128,128,0.35)", background: "transparent", color: "inherit" }}>
-              Reintentar
-            </button>
-            <button
-              onClick={() => { window.location.href = "/Dashboard"; }}
-              style={{ padding: "9px 22px", borderRadius: 8, cursor: "pointer",
-                       border: "none", background: "#5B8AF0", color: "#fff" }}>
-              Ir al inicio
-            </button>
+            <IconButton accion="refrescar" size="lg" label="Reintentar" onClick={() => this.setState({ hasError: false })} />
+            <IconButton icon={FiHome} tone="save" size="lg" label="Ir al inicio" onClick={() => { window.location.href = "/Dashboard"; }} />
           </div>
         </div>
       );

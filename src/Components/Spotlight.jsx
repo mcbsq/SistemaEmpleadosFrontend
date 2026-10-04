@@ -4,10 +4,17 @@
 // barra de búsqueda fija que vivía dentro del sidebar.
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FiSearch, FiX, FiGrid, FiUsers, FiShare2, FiList, FiShield, FiZap } from "react-icons/fi";
+import { FiSearch, FiX, FiGrid, FiUsers, FiShare2, FiList, FiShield, FiZap, FiFileText, FiSun, FiSettings, FiUser, FiArrowUp, FiArrowDown, FiCornerDownLeft, FiMessageSquare, FiInbox, FiUploadCloud } from "react-icons/fi";
 import "./Spotlight.css";
 import { empleadoService } from "../services/empleadoService";
 import { rhService }        from "../services/rhService";
+import { authService }      from "../services/authService";
+import { documentosFinancierosService } from "../services/documentosFinancierosService";
+import { abrirAjustes }     from "../services/perfilService";
+import { abrirContactoRH }  from "../services/solicitudesRhService";
+
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const sinAcentos = (t = "") => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const getId = (item) => item?._id?.$oid || item?._id || "";
 
@@ -19,12 +26,20 @@ const avatarColor = (str = "") =>
   AVATAR_COLORS[(str.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 
 const SECCIONES = [
-  { label: "Dashboard · analíticos",  icon: FiGrid,   tipo: "scroll", target: "admin-dashboard-section", roles: ["ADMIN","SUPER_ADMIN","CONTADOR","PROJECT_MANAGER","MEDICO","JEFE_AREA"] },
-  { label: "Mi equipo · carrusel",     icon: FiUsers,  tipo: "scroll", target: "home-section",            roles: ["EMPLOYEE","JEFE_AREA","ADMIN","SUPER_ADMIN"] },
-  { label: "Organigrama",              icon: FiShare2, tipo: "scroll", target: "organigrama-section",     roles: ["EMPLOYEE","JEFE_AREA","ADMIN","SUPER_ADMIN","CONTADOR","PROJECT_MANAGER","MEDICO"] },
-  { label: "Empleados / RH · tabla",   icon: FiList,   tipo: "ruta",   target: "/empleados",              roles: ["ADMIN","SUPER_ADMIN"] },
+  { label: "Dashboard · analíticos",  icon: FiGrid,   tipo: "scroll", target: "admin-dashboard-section", roles: ["ADMIN","SUPER_ADMIN","RH","CONTADOR","PROJECT_MANAGER","MEDICO","JEFE_AREA"] },
+  { label: "Mi equipo · carrusel",     icon: FiUsers,  tipo: "scroll", target: "home-section",            roles: ["EMPLOYEE","JEFE_AREA","ADMIN","SUPER_ADMIN","RH"] },
+  { label: "Organigrama",              icon: FiShare2, tipo: "scroll", target: "organigrama-section",     roles: ["EMPLOYEE","JEFE_AREA","ADMIN","SUPER_ADMIN","CONTADOR","PROJECT_MANAGER","MEDICO","RH"] },
+  { label: "Empleados / RH · tabla",   icon: FiList,   tipo: "ruta",   target: "/empleados",              roles: ["ADMIN","SUPER_ADMIN","RH"] },
   { label: "Gestión de roles",         icon: FiShield, tipo: "ruta",   target: "/roles",                  roles: ["SUPER_ADMIN"] },
   { label: "Monitor de incidencias",   icon: FiZap,    tipo: "ruta",   target: "/monitor",                roles: ["SUPER_ADMIN"] },
+  // Secciones personales — llevan a TU perfil en la pestaña correcta.
+  { label: "Mi perfil",                icon: FiUser,     tipo: "perfil", target: "resumen" },
+  { label: "Mis vacaciones",           icon: FiSun,      tipo: "perfil", target: "vacaciones" },
+  { label: "Mis recibos de nómina",    icon: FiFileText, tipo: "perfil", target: "documentos" },
+  { label: "Ajustes de perfil · contraseña, foto, tema", icon: FiSettings, tipo: "ajustes" },
+  { label: "Escribir a Recursos Humanos",  icon: FiMessageSquare, tipo: "contacto-rh" },
+  { label: "Carga masiva · importar empleados desde Excel", icon: FiUploadCloud, tipo: "ruta", target: "/carga-masiva", roles: ["SUPER_ADMIN","RH"] },
+  { label: "Solicitudes a RH · bandeja",   icon: FiInbox,  tipo: "ruta",   target: "/solicitudes",            roles: ["ADMIN","SUPER_ADMIN","RH"] },
 ];
 
 function Spotlight({ userRole }) {
@@ -34,6 +49,8 @@ function Spotlight({ userRole }) {
   const [rhData,    setRhData]    = useState([]);
   const [loaded,    setLoaded]    = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
+  const [recibos,   setRecibos]   = useState([]);
+  const miId = authService.getEmpleadoId();
 
   const inputRef = useRef(null);
   const navigate = useNavigate();
@@ -44,12 +61,15 @@ function Spotlight({ userRole }) {
     Promise.all([
       empleadoService.getAll().catch(() => []),
       rhService.getAll().catch(() => []),
-    ]).then(([emps, rh]) => {
+      // Solo TUS recibos/facturas: nadie encuentra los de otra persona aquí.
+      miId ? documentosFinancierosService.getByEmpleado(miId).catch(() => []) : Promise.resolve([]),
+    ]).then(([emps, rh, docs]) => {
       setEmpleados(Array.isArray(emps) ? emps : []);
       setRhData(Array.isArray(rh)     ? rh   : []);
+      setRecibos(Array.isArray(docs) ? docs.filter(d => /^\d{4}-\d{2}$/.test(d.periodo || "")) : []);
       setLoaded(true);
     });
-  }, [open, loaded]);
+  }, [open, loaded, miId]);
 
   useEffect(() => {
     setOpen(false);
@@ -82,12 +102,28 @@ function Spotlight({ userRole }) {
   }, [open]);
 
   const getResults = useCallback(() => {
-    if (!query.trim()) return { emps: [], secs: [] };
+    if (!query.trim()) return { emps: [], secs: [], docs: [] };
     const q = query.toLowerCase();
+    const qn = sinAcentos(query.trim());
 
     const secs = SECCIONES
       .filter(s => !s.roles || s.roles.includes(userRole))
-      .filter(s => s.label.toLowerCase().includes(q));
+      .filter(s => !["perfil", "contacto-rh"].includes(s.tipo) || miId)
+      .filter(s => sinAcentos(s.label).includes(qn));
+
+    // "recibo julio", "nómina 2026", "factura marzo": todas las palabras
+    // tienen que aparecer en "recibo nomina julio 2026".
+    const palabras = qn.split(/\s+/).filter(Boolean);
+    const docs = recibos
+      .map(d => {
+        const [y, m] = d.periodo.split("-");
+        const mesNombre = MESES[Number(m) - 1] || m;
+        const tipo = d.tipo === "cfdi" ? "factura cfdi" : "recibo nomina";
+        return { d, titulo: `${d.tipo === "cfdi" ? "Factura" : "Recibo de nómina"} · ${mesNombre} ${y}`, texto: `${tipo} ${mesNombre} ${y} ${m}/${y}` };
+      })
+      .filter(r => palabras.every(p => r.texto.includes(p)))
+      .sort((a, b) => b.d.periodo.localeCompare(a.d.periodo))
+      .slice(0, 6);
 
     const emps = empleados
       .map(emp => {
@@ -100,12 +136,13 @@ function Spotlight({ userRole }) {
       })
       .slice(0, 8);
 
-    return { secs, emps };
-  }, [query, empleados, rhData, userRole]);
+    return { secs, emps, docs };
+  }, [query, empleados, rhData, userRole, recibos, miId]);
 
-  const { secs, emps } = getResults();
+  const { secs, emps, docs } = getResults();
   const allResults = [
     ...secs.map(s => ({ type: "seccion", data: s })),
+    ...docs.map(r => ({ type: "recibo", data: r })),
     ...emps.map(r => ({ type: "empleado", data: r })),
   ];
   const total = allResults.length;
@@ -116,9 +153,19 @@ function Spotlight({ userRole }) {
     if (!item) return;
     setOpen(false);
     setQuery("");
+    if (item.type === "recibo") {
+      navigate(`/Perfil/${miId}?tab=documentos&periodo=${item.data.d.periodo}`);
+      return;
+    }
     if (item.type === "seccion") {
       const sec = item.data;
-      if (sec.tipo === "ruta") {
+      if (sec.tipo === "ajustes") {
+        abrirAjustes("perfil");
+      } else if (sec.tipo === "contacto-rh") {
+        abrirContactoRH();
+      } else if (sec.tipo === "perfil") {
+        navigate(`/Perfil/${miId}?tab=${sec.target}`);
+      } else if (sec.tipo === "ruta") {
         navigate(sec.target);
       } else if (location.pathname !== "/Dashboard") {
         navigate("/Dashboard");
@@ -129,7 +176,7 @@ function Spotlight({ userRole }) {
     } else {
       navigate(`/Perfil/${getId(item.data.emp)}`);
     }
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, miId]);
 
   const handleKeyDown = (e) => {
     if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, total - 1)); }
@@ -155,7 +202,7 @@ function Spotlight({ userRole }) {
           <input
             ref={inputRef}
             className="spot-input"
-            placeholder="Buscar empleados, secciones…"
+            placeholder="Buscar personas, secciones o tus recibos…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -168,7 +215,7 @@ function Spotlight({ userRole }) {
         <div className="spot-body">
           {!hasQuery ? (
             <div className="spot-quick-list">
-              {SECCIONES.filter(s => !s.roles || s.roles.includes(userRole)).map(s => {
+              {SECCIONES.filter(s => !s.roles || s.roles.includes(userRole)).filter(s => !["perfil", "contacto-rh"].includes(s.tipo) || miId).map(s => {
                 const Icon = s.icon;
                 return (
                   <button key={s.label} className="spot-quick-item" onClick={() => selectItem({ type: "seccion", data: s })}>
@@ -197,11 +244,29 @@ function Spotlight({ userRole }) {
                   })}
                 </div>
               )}
+              {docs.length > 0 && (
+                <div className="spot-group">
+                  <div className="spot-group-label">Mis documentos</div>
+                  {docs.map((r, i) => {
+                    const gIdx = secs.length + i;
+                    return (
+                      <div key={r.d._id} className={`spot-result ${activeIdx === gIdx ? "spot-result--active" : ""}`}
+                        onClick={() => selectItem({ type: "recibo", data: r })} onMouseEnter={() => setActiveIdx(gIdx)}>
+                        <FiFileText className="spot-result-icon" />
+                        <div className="spot-result-info">
+                          <span className="spot-result-name">{r.titulo}</span>
+                          {r.d.nombre_archivo && <span className="spot-result-sub">{r.d.nombre_archivo}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {emps.length > 0 && (
                 <div className="spot-group">
                   <div className="spot-group-label">Empleados</div>
                   {emps.map(({ emp, puesto }, i) => {
-                    const gIdx = secs.length + i;
+                    const gIdx = secs.length + docs.length + i;
                     const nombre = `${emp.Nombre || ""} ${emp.ApelPaterno || ""}`.trim();
                     const foto = emp.Fotografias?.[0] || emp.Fotografia;
                     const [bg, fg] = avatarColor(emp.Nombre || "");
@@ -226,8 +291,8 @@ function Spotlight({ userRole }) {
         </div>
 
         <div className="spot-footer">
-          <span><kbd>↑</kbd><kbd>↓</kbd> navegar</span>
-          <span><kbd>↵</kbd> ir</span>
+          <span><kbd><FiArrowUp aria-label="arriba" /></kbd><kbd><FiArrowDown aria-label="abajo" /></kbd> navegar</span>
+          <span><kbd><FiCornerDownLeft aria-label="Enter" /></kbd> ir</span>
           <span><kbd>ESC</kbd> cerrar</span>
         </div>
       </div>

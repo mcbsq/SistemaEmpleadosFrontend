@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
+import IconButton from "./IconButton";
+import NumeroAnimado from "./NumeroAnimado";
 import { Link } from "react-router-dom";
 import "./AdminDashboard.css";
 import { empleadoService } from "../services/empleadoService";
@@ -10,7 +12,7 @@ import { contactoService }  from "../services/contactoService";
 import { useOrg } from "../context/OrgContext";
 import { ReportesCard } from "./Analitica";
 import { apiFetch } from "../services/apiConfig";
-import { FiClock, FiActivity, FiCheckCircle } from "react-icons/fi";
+import { FiClock, FiActivity, FiCheckCircle, FiArrowRight } from "react-icons/fi";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getId = (item) => item?._id?.$oid || item?._id || "";
@@ -76,7 +78,7 @@ const KpiCard = ({ label, value, sub, color, to }) => {
     <>
       <span className="adm-kpi-accent" style={{ background: color }} />
       <div>
-        <div className="adm-kpi-val">{value}</div>
+        <div className="adm-kpi-val"><NumeroAnimado value={value} /></div>
         <div className="adm-kpi-lbl">{label}</div>
         {sub && <div className="adm-kpi-sub">{sub}</div>}
       </div>
@@ -128,25 +130,26 @@ const Avatar = ({ emp, size = 28 }) => {
   );
 };
 
-// ─── Gauge SVG ────────────────────────────────────────────────────────────────
+// ─── Medidor semicircular ─────────────────────────────────────────────────────
+// Antes el arco usaba "large-arc" > 50%: un semicírculo nunca pasa de 180°, así
+// que SVG dibujaba el camino largo y salía un gancho. Ahora el arco se pinta
+// con stroke-dasharray sobre un solo trazo (siempre correcto) y se anima.
 const Gauge = ({ pct }) => {
-  const safe  = Math.min(100, Math.max(0, pct));
-  const angle = (safe / 100) * Math.PI;
-  const ex    = 60 + 50 * Math.cos(Math.PI + angle);
-  const ey    = 60 + 50 * Math.sin(Math.PI + angle);
-  const lFlag = safe > 50 ? 1 : 0;
+  const safe = Math.min(100, Math.max(0, Math.round(pct || 0)));
+  const largo = Math.PI * 50;              // longitud del semicírculo (r = 50)
+  const tono = safe >= 90 ? "#10b981" : safe >= 60 ? "#f5a623" : "#e86b5f";
   return (
-    <svg viewBox="0 0 120 70" width="120" height="70" aria-label={`Completitud ${pct}%`}>
-      <path d="M 10 60 A 50 50 0 0 1 110 60"
-        fill="none" stroke="var(--ad-border)" strokeWidth="9" strokeLinecap="round" />
-      {safe > 0 && (
-        <path d={`M 10 60 A 50 50 0 ${lFlag} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}`}
-          fill="none" stroke="#5B8AF0" strokeWidth="9" strokeLinecap="round" />
-      )}
-      <text x="60" y="50" textAnchor="middle" fontSize="16" fontWeight="500"
-        fill="var(--ad-text)">{pct}%</text>
-      <text x="60" y="63" textAnchor="middle" fontSize="9"
-        fill="var(--ad-text-muted)">completos</text>
+    <svg className="adm-gauge-svg" viewBox="0 0 120 72" role="img" aria-label={`${safe}% de expedientes al día`}>
+      <defs>
+        <linearGradient id="adm-gauge-grad" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="var(--hr-accent, #5B8AF0)" />
+          <stop offset="100%" stopColor={tono} />
+        </linearGradient>
+      </defs>
+      <path d="M 10 62 A 50 50 0 0 1 110 62" fill="none" stroke="var(--ad-border, rgba(255,255,255,.08))" strokeWidth="10" strokeLinecap="round" />
+      <path className="adm-gauge-arc" d="M 10 62 A 50 50 0 0 1 110 62" fill="none" stroke="url(#adm-gauge-grad)" strokeWidth="10"
+        strokeLinecap="round" strokeDasharray={largo} strokeDashoffset={largo * (1 - safe / 100)} />
+      <text x="60" y="56" textAnchor="middle" fontSize="20" fontWeight="700" fill="var(--ad-text)">{safe}%</text>
     </svg>
   );
 };
@@ -310,17 +313,7 @@ function AdminDashboard() {
     return (
       <div className="adm-loading" role="alert">
         <span>No se pudieron cargar los datos del dashboard.</span>
-        <button
-          type="button"
-          onClick={() => setReintento(n => n + 1)}
-          style={{
-            marginTop: 12, padding: "8px 20px", borderRadius: 8,
-            border: "1px solid var(--hr-border, #d2d2d7)", background: "transparent",
-            color: "inherit", cursor: "pointer", fontSize: "0.85rem",
-          }}
-        >
-          Reintentar
-        </button>
+        <IconButton accion="refrescar" label="Reintentar" style={{ marginTop: 12 }} onClick={() => setReintento(n => n + 1)} />
       </div>
     );
   }
@@ -385,14 +378,14 @@ function AdminDashboard() {
         </div>
 
         <div className="adm-card adm-gauge-card">
-          <div className="adm-card-title">Completitud</div>
+          <div className="adm-card-title">Expedientes al día</div>
           <div className="adm-gauge-center">
             <Gauge pct={stats.pctCompleto} />
           </div>
           <p className="adm-gauge-hint">
             {stats.sinClinico > 0
-              ? `${stats.sinClinico} sin expediente clínico`
-              : "Todos los perfiles completos"}
+              ? `${stats.sinClinico} ${stats.sinClinico === 1 ? "persona" : "personas"} sin expediente clínico`
+              : "Todos los expedientes tienen sus datos"}
           </p>
         </div>
 
@@ -420,7 +413,7 @@ function AdminDashboard() {
           }
           {pendientesVac.length > 0 && (
             <Link to="/vacaciones" className="adm-emp-link" style={{ display: "inline-block", marginTop: 10 }}>
-              Ver todas ({pendientesVac.length}) →
+              Ver todas ({pendientesVac.length}) <FiArrowRight aria-hidden="true" className="btn-trail-icon" />
             </Link>
           )}
         </div>
@@ -450,7 +443,7 @@ function AdminDashboard() {
               )
             }
             <Link to="/settings" className="adm-emp-link" style={{ display: "inline-block", marginTop: 10 }}>
-              Ver bitácora completa →
+              Ver bitácora completa <FiArrowRight aria-hidden="true" className="btn-trail-icon" />
             </Link>
           </div>
         )}
@@ -478,7 +471,7 @@ function AdminDashboard() {
                 }
                 className="adm-emp-link"
               >
-                Ver →
+                Ver <FiArrowRight aria-hidden="true" className="btn-trail-icon" />
               </Link>
             </div>
           ))}

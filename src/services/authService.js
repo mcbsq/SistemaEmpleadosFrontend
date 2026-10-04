@@ -51,6 +51,9 @@ export const authService = {
         sessionStorage.setItem("depto_id",     data.depto_id     ?? "");
         sessionStorage.setItem("org_id",       data.org_id       ?? "cibercom");
         if (data.user) sessionStorage.setItem("user_name", data.user);
+        // Cuenta suprema de la plataforma (dueño de la app), no solo admin de una empresa.
+        sessionStorage.setItem("plataforma", data.plataforma ? "1" : "");
+        sessionStorage.removeItem("universo");
 
         // Guardar permisos: primero los que devuelve el backend,
         // si no, usar los defaults según el rol
@@ -91,6 +94,9 @@ export const authService = {
     // sí, solo UX: entry_org_slug se guarda en OrgGate.js al validar la URL.
     const entrySlug = sessionStorage.getItem("entry_org_slug");
     sessionStorage.removeItem("access_token");
+    sessionStorage.removeItem("plataforma");
+    sessionStorage.removeItem("universo");
+    sessionStorage.removeItem("universo_nombre");
     sessionStorage.removeItem("user_role");
     sessionStorage.removeItem("empleado_id");
     sessionStorage.removeItem("depto_id");
@@ -113,8 +119,21 @@ export const authService = {
   isSuperAdmin() { return sessionStorage.getItem("user_role") === "SUPER_ADMIN"; },
   isAdmin() {
     const role = sessionStorage.getItem("user_role");
-    return role === "ADMIN" || role === "SUPER_ADMIN";
+    // RH administra personas igual que ADMIN (ver backend api/auth_decorators.py).
+    return role === "ADMIN" || role === "SUPER_ADMIN" || role === "RH";
   },
+  isPlataforma() { return sessionStorage.getItem("plataforma") === "1"; },
+
+  // Modo soporte: la cuenta de plataforma "entra" a ver otra empresa. Toda
+  // petición manda X-Universo y el backend responde con los datos de esa
+  // empresa, en solo lectura (ver backend app.py → cargar_org_id).
+  getUniverso() { return sessionStorage.getItem("universo") || ""; },
+  getUniversoNombre() { return sessionStorage.getItem("universo_nombre") || ""; },
+  setUniverso(orgId, nombre) {
+    if (orgId) { sessionStorage.setItem("universo", orgId); sessionStorage.setItem("universo_nombre", nombre || orgId); }
+    else { sessionStorage.removeItem("universo"); sessionStorage.removeItem("universo_nombre"); }
+  },
+
   isEmployee() { return sessionStorage.getItem("user_role") === "EMPLOYEE"; },
 
   // ─── NUEVO: Sistema de permisos granulares ────────────────────────────────

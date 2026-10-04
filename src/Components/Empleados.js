@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import "./Empleados.css";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import IconButton from "./IconButton";
 import { Modal, ModalHeader, ModalBody } from "reactstrap";
 import {
   CiFacebook, CiLinkedin, CiYoutube,
   CiUser, CiSearch, CiFileOn, CiBoxList, CiFolderOn
 } from "react-icons/ci";
-import { FiCheck, FiX, FiUsers, FiUserCheck, FiUserX, FiGrid, FiChevronUp, FiChevronDown } from "react-icons/fi";
+import { FiCheck, FiX, FiUsers, FiUserCheck, FiUserX, FiGrid, FiChevronUp, FiChevronDown, FiArrowRight, FiUploadCloud } from "react-icons/fi";
 import {
   FaInstagram, FaTiktok, FaPlus,
   FaChevronLeft, FaChevronRight, FaFileExcel, FaGithub,
@@ -25,6 +26,7 @@ import { usuarioService }   from "../services/usuarioService";
 import { direccionService } from "../services/direccionService";
 import { catalogoService, FALLBACK } from "../services/catalogoService";
 import { authService } from "../services/authService";
+import { useOrg } from "../context/OrgContext";
 import { correoPrincipal } from "../utils/correos";
 // Genera slug URL-friendly desde nombre y registra el mapeo slug→id
 const toSlug = (str = "") =>
@@ -287,7 +289,7 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
     <div className="exp-empty">
       <p className="emp-dim">{texto}</p>
       <Link to={buildProfileUrl(id, empleado.Nombre||"", empleado.ApelPaterno||"")} className="exp-empty-link">
-        Completar en el perfil →
+        Completar en el perfil <FiArrowRight aria-hidden="true" className="btn-trail-icon" />
       </Link>
     </div>
   );
@@ -437,7 +439,7 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
         <span className="emp-dim" style={{fontSize:"0.78rem"}}>
           Para editar esta información, accede al perfil del empleado.
         </span>
-        <button className="exp-close-action" onClick={onClose}>Cerrar</button>
+        <IconButton accion="cerrar" label="Cerrar" tooltipPos="left" onClick={onClose} />
       </div>
 
     </Modal>
@@ -448,6 +450,10 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
 function Empleados() {
 
   const isPrivileged = authService.isAdmin();
+  const navigate = useNavigate();
+  // Redes sociales es un módulo apagado por defecto (Configuración → Módulos).
+  const { isModuleActive, orgConfig } = useOrg();
+  const conRedes = isModuleActive("redes_sociales");
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const [empleados,     setEmpleados]     = useState([]);
@@ -486,7 +492,7 @@ function Empleados() {
       const [emp,dc,rs,rh,pc,ed,clin] = await Promise.all([
         empleadoService.getAll(),
         contactoService.getDatos().catch(()=>[]),
-        contactoService.getRedes().catch(()=>[]),
+        conRedes ? contactoService.getRedes().catch(()=>[]) : Promise.resolve([]),
         rhService.getAll().catch(()=>[]),
         contactoService.getPersonas().catch(()=>[]),
         educacionService.getAll().catch(()=>[]),
@@ -501,7 +507,7 @@ function Empleados() {
       setClinico(Array.isArray(clin)?clin:[]);
     } catch(err) { console.error("Error cargando:", err); }
     finally { setCargado(true); }
-  }, []);
+  }, [conRedes]);
 
   useEffect(()=>{ cargarTodo(); }, [cargarTodo]);
 
@@ -607,7 +613,7 @@ function Empleados() {
     })));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"Empleados");
-    XLSX.writeFile(wb,"Reporte_Empleados_Cibercom.xlsx");
+    XLSX.writeFile(wb,`Reporte_Empleados_${(orgConfig?.name || "empresa").replace(/[^\wÁÉÍÓÚáéíóúÑñ-]+/g, "_")}.xlsx`);
   };
 
   // ─── Registro 3 pasos ─────────────────────────────────────────────────────
@@ -788,7 +794,10 @@ function Empleados() {
               {departamentos.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           )}
-          <button className="btn-emp btn-emp--excel" onClick={exportarExcel}><FaFileExcel /></button>
+          <button className="btn-emp btn-emp--excel" onClick={exportarExcel} aria-label="Exportar a Excel" data-tooltip="Exportar a Excel" data-tooltip-pos="bottom"><FaFileExcel /></button>
+          {["RH", "SUPER_ADMIN"].includes(authService.getRole()) && (
+            <IconButton icon={FiUploadCloud} tone="add" label="Carga masiva desde Excel" tooltipPos="bottom" onClick={() => navigate("/carga-masiva")} />
+          )}
         </div>
 
         {/* Tabs */}
@@ -849,7 +858,7 @@ function Empleados() {
 
                   {activeTab===4 && <>
                     <th className="emp-th" scope="col">Medios de contacto</th>
-                    <th className="emp-th" scope="col">Redes sociales</th>
+                    {conRedes && <th className="emp-th" scope="col">Redes sociales</th>}
                   </>}
 
                   {/* ── Col expediente: solo privilegiados ── */}
@@ -921,13 +930,15 @@ function Empleados() {
                       {/* Tab 4 — Contactos */}
                       {activeTab===4 && <>
                         <td className="emp-td"><ContactoIcons dc={dc}/></td>
-                        <td className="emp-td">
-                          <div className="emp-social-row">
-                            {redes.length===0
-                              ? <span className="emp-dim">Sin redes</span>
-                              : redes.map((r,i)=><RedSocialLink key={i} red={r}/>)}
-                          </div>
-                        </td>
+                        {conRedes && (
+                          <td className="emp-td">
+                            <div className="emp-social-row">
+                              {redes.length===0
+                                ? <span className="emp-dim">Sin redes</span>
+                                : redes.map((r,i)=><RedSocialLink key={i} red={r}/>)}
+                            </div>
+                          </td>
+                        )}
                       </>}
 
                       {/* Col expediente — siempre al final si privilegiado */}
@@ -995,10 +1006,9 @@ function Empleados() {
             </div>
           </div>
         </ModalBody>
-        <div className="modal-footer border-0 pt-4">
-          <button className="btn btn-primary w-100" onClick={paso1} disabled={guardando||!formEmp.Nombre}>
-            {guardando?"Guardando...":"Siguiente"}
-          </button>
+        <div className="modal-footer border-0 pt-4 emp-modal-footer">
+          <IconButton accion="siguiente" size="lg" label="Siguiente: ubicación y contacto" tooltipPos="left"
+            onClick={paso1} busy={guardando} disabled={!formEmp.Nombre} />
         </div>
       </Modal>
 
@@ -1037,10 +1047,9 @@ function Empleados() {
             </div>
           </div>
         </ModalBody>
-        <div className="modal-footer border-0 pt-4">
-          <button className="btn btn-primary w-100" onClick={paso2} disabled={guardando}>
-            {guardando?"Guardando...":"Siguiente"}
-          </button>
+        <div className="modal-footer border-0 pt-4 emp-modal-footer">
+          <IconButton accion="siguiente" size="lg" label="Siguiente: credenciales" tooltipPos="left"
+            onClick={paso2} busy={guardando} />
         </div>
       </Modal>
 
@@ -1066,10 +1075,9 @@ function Empleados() {
               onChange={e=>setFormUser(p=>({...p,password:e.target.value}))}/>
           </div>
         </ModalBody>
-        <div className="modal-footer border-0 pt-4">
-          <button className="btn btn-primary w-100" onClick={paso3} disabled={guardando||!formUser.user||!formUser.email}>
-            {guardando?"Finalizando...":"Completar registro"}
-          </button>
+        <div className="modal-footer border-0 pt-4 emp-modal-footer">
+          <IconButton accion="confirmar" size="lg" label="Completar registro" tooltipPos="left"
+            onClick={paso3} busy={guardando} disabled={!formUser.user||!formUser.email} />
         </div>
       </Modal>
 

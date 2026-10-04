@@ -3,7 +3,10 @@
 // Vista dual: ADMIN/SUPER_ADMIN gestionan ciclos y califican; cualquier
 // empleado ve y llena su propia evaluación del ciclo activo.
 import React, { useState, useEffect, useCallback } from "react";
-import { FiAward, FiPlus, FiCheckCircle, FiClock } from "react-icons/fi";
+import Modal from "./Modal";
+import { RecordCard } from "./RecordCard";
+import IconButton from "./IconButton";
+import { FiAward, FiCheckCircle, FiClock, FiStar, FiLock } from "react-icons/fi";
 import { apiFetch } from "../services/apiConfig";
 import { authService } from "../services/authService";
 import "./Desempeno.css";
@@ -20,7 +23,7 @@ function EstrellasInput({ value, onChange, readOnly }) {
           className={`des-estrella ${value >= n ? "des-estrella--activa" : ""}`}
           onClick={() => !readOnly && onChange(n)}
           disabled={readOnly}
-        >★</button>
+        aria-label={`${n} de 5`}><FiStar aria-hidden="true" /></button>
       ))}
     </div>
   );
@@ -132,7 +135,7 @@ function VistaEmpleado() {
           <span className="orgs-desc">%</span>
         </div>
       ))}
-      <button className="orgs-refresh-btn" onClick={agregarMeta}><FiPlus style={{ verticalAlign: "-2px", marginRight: 4 }} />Agregar meta</button>
+      <IconButton accion="agregar" label="Agregar meta" onClick={agregarMeta} tooltipPos="right" />
 
       <div style={{ marginTop: 16 }}>
         <p className="orgs-desc">Autoevaluación por criterio</p>
@@ -143,9 +146,8 @@ function VistaEmpleado() {
         <textarea className="orgs-input" style={{ marginTop: 8, minHeight: 70 }} placeholder="Comentarios sobre tu desempeño este periodo…" value={comentario} onChange={e => setComentario(e.target.value)} />
       </div>
 
-      <button className="orgs-save-btn" style={{ marginTop: 14 }} onClick={guardarTodo} disabled={guardando || puntajeGeneral === 0}>
-        {guardando ? "Guardando…" : "Guardar autoevaluación"}
-      </button>
+      <IconButton accion="guardar" label="Guardar autoevaluación" busy={guardando} disabled={puntajeGeneral === 0}
+        onClick={guardarTodo} style={{ marginTop: 14 }} tooltipPos="right" />
 
       {evalActiva.evaluacion_jefe?.completada && (
         <div className="hr-card" style={{ marginTop: 16, background: "var(--hr-bg)" }}>
@@ -200,6 +202,7 @@ function VistaAdmin() {
   };
 
   const handleCerrarCiclo = async (ciclo) => {
+    if (!window.confirm(`¿Cerrar el ciclo "${ciclo.nombre}"?`)) return;
     await apiFetch(`/desempeno/ciclos/${ciclo._id}/cerrar`, { method: "PATCH" });
     cargarCiclos();
     if (cicloActivo?._id === ciclo._id) setCicloActivo({ ...ciclo, estado: "cerrado" });
@@ -230,29 +233,26 @@ function VistaAdmin() {
   if (cicloActivo) {
     return (
       <div>
-        <button className="orgs-refresh-btn" onClick={() => setCicloActivo(null)}>← Ciclos</button>
+        <IconButton accion="volver" label="Volver a ciclos" tooltipPos="right" onClick={() => setCicloActivo(null)} />
         <h3 className="hr-card-title" style={{ marginTop: 10 }}>{cicloActivo.nombre}</h3>
-        <div className="orgs-incident-list" style={{ marginTop: 10 }}>
-          {evaluaciones.map(ev => (
-            <div key={ev._id} className="orgs-incident-row" style={{ cursor: "pointer" }} onClick={() => abrirEvaluar(ev)}>
-              <span className={`orgs-sev-badge ${ev.autoevaluacion.completada ? "orgs-sev--info" : "orgs-sev--warning"}`}>
-                {ev.autoevaluacion.completada ? "Autoeval. lista" : "Pendiente"}
-              </span>
-              <div className="orgs-incident-info">
-                <span className="orgs-incident-msg">{ev.empleado_nombre}</span>
-                <span className="orgs-incident-meta">
-                  {ev.evaluacion_jefe.completada
-                    ? <span className="orgs-incident-code">Jefe: {ev.evaluacion_jefe.puntaje}/5</span>
-                    : <span>Sin evaluación de jefe</span>}
-                </span>
-              </div>
-            </div>
-          ))}
+        <div className="rc-grid mo-stagger" style={{ marginTop: 10 }}>
+          {evaluaciones.map(ev => {
+            const jefe = ev.evaluacion_jefe.completada;
+            const auto = ev.autoevaluacion.completada;
+            const tono = jefe ? "success" : auto ? "accent" : "warning";
+            return (
+              <RecordCard key={ev._id} tono={tono} onClick={() => abrirEvaluar(ev)}
+                tile={jefe ? <><span className="rc-tile-big">{ev.evaluacion_jefe.puntaje}</span><span className="rc-tile-small">de 5</span></> : <FiClock />}
+                titulo={ev.empleado_nombre}
+                badge={<span className={`rc-badge rc-badge--${tono}`}>{jefe ? "Evaluado" : auto ? "Autoeval. lista" : "Pendiente"}</span>}
+                meta={<span>{jefe ? `Jefe: ${ev.evaluacion_jefe.puntaje}/5` : "Sin evaluación de jefe"}{auto ? ` · Autoeval.: ${ev.autoevaluacion.puntaje}/5` : ""}</span>} />
+            );
+          })}
         </div>
 
-        {editando && (
-          <div className="hr-card" style={{ marginTop: 16 }}>
-            <div className="hr-card-title">Evaluar a {editando.empleado_nombre}</div>
+        <Modal abierto={!!editando} onClose={() => setEditando(null)} titulo={editando ? `Evaluar a ${editando.empleado_nombre}` : ""}
+          onGuardar={guardarEvaluacionJefe} labelGuardar="Guardar evaluación" puedeGuardar={puntajeJefePromedio > 0} ancho={620}>
+          {editando && (<>
             {editando.autoevaluacion.completada ? (
               <p className="orgs-desc">Autoevaluación: {editando.autoevaluacion.puntaje}/5 — "{editando.autoevaluacion.comentario}"</p>
             ) : (
@@ -263,13 +263,9 @@ function VistaAdmin() {
             {puntajeJefePromedio > 0 && (
               <p className="orgs-desc" style={{ marginTop: 8 }}>Promedio general: <strong>{puntajeJefePromedio}/5</strong></p>
             )}
-            <textarea className="orgs-input" style={{ marginTop: 8, minHeight: 70 }} value={comentarioJefe} onChange={e => setComentarioJefe(e.target.value)} placeholder="Comentarios del jefe…" />
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <button className="orgs-save-btn" onClick={guardarEvaluacionJefe} disabled={puntajeJefePromedio === 0}>Guardar</button>
-              <button className="orgs-refresh-btn" onClick={() => setEditando(null)}>Cancelar</button>
-            </div>
-          </div>
-        )}
+            <textarea className="orgs-input" style={{ marginTop: 8, minHeight: 70 }} value={comentarioJefe} onChange={e => setComentarioJefe(e.target.value)} placeholder="Comentarios del jefe…" aria-label="Comentarios del jefe" />
+          </>)}
+        </Modal>
       </div>
     );
   }
@@ -279,28 +275,24 @@ function VistaAdmin() {
       <div className="hr-page-header">
         <div>
           <h2 className="hr-title"><FiAward style={{ marginRight: 8, verticalAlign: "-3px" }} />Evaluaciones de desempeño</h2>
-          <p className="hr-subtitle">Ciclos, autoevaluación y evaluación de jefe · ADMIN / SUPER_ADMIN</p>
+          <p className="hr-subtitle">Ciclos de evaluación. Toca uno para calificar a cada persona.</p>
         </div>
-        <button className="orgs-save-btn" onClick={() => setNuevoCiclo({ nombre: "", fecha_inicio: "", fecha_fin: "" })}>
-          <FiPlus style={{ verticalAlign: "-2px", marginRight: 4 }} />Nuevo ciclo
-        </button>
+        <IconButton accion="agregar" size="lg" label="Nuevo ciclo de evaluación" tooltipPos="left"
+          onClick={() => setNuevoCiclo({ nombre: "", fecha_inicio: "", fecha_fin: "" })} />
       </div>
 
-      {nuevoCiclo && (
-        <div className="hr-card" style={{ marginBottom: 16 }}>
-          <div className="hr-card-title">Nuevo ciclo de evaluación</div>
-          <input className="orgs-input" placeholder="Nombre (ej. Q3 2026)" value={nuevoCiclo.nombre} onChange={e => setNuevoCiclo(c => ({ ...c, nombre: e.target.value }))} style={{ marginBottom: 8 }} />
+      <Modal abierto={!!nuevoCiclo} onClose={() => setNuevoCiclo(null)} titulo="Nuevo ciclo de evaluación"
+        subtitulo="Al crearlo se genera una evaluación vacía para cada empleado activo."
+        onGuardar={handleCrearCiclo} labelGuardar="Crear ciclo"
+        puedeGuardar={!!(nuevoCiclo?.nombre?.trim() && nuevoCiclo?.fecha_inicio && nuevoCiclo?.fecha_fin)}>
+        {nuevoCiclo && (<>
+          <input className="orgs-input" placeholder="Nombre (ej. Q3 2026)" aria-label="Nombre del ciclo" value={nuevoCiclo.nombre} onChange={e => setNuevoCiclo(c => ({ ...c, nombre: e.target.value }))} style={{ marginBottom: 8 }} />
           <div className="orgs-color-row">
-            <input type="date" className="orgs-input" value={nuevoCiclo.fecha_inicio} onChange={e => setNuevoCiclo(c => ({ ...c, fecha_inicio: e.target.value }))} />
-            <input type="date" className="orgs-input" value={nuevoCiclo.fecha_fin} onChange={e => setNuevoCiclo(c => ({ ...c, fecha_fin: e.target.value }))} />
+            <input type="date" className="orgs-input" aria-label="Inicio" value={nuevoCiclo.fecha_inicio} onChange={e => setNuevoCiclo(c => ({ ...c, fecha_inicio: e.target.value }))} />
+            <input type="date" className="orgs-input" aria-label="Fin" value={nuevoCiclo.fecha_fin} onChange={e => setNuevoCiclo(c => ({ ...c, fecha_fin: e.target.value }))} />
           </div>
-          <p className="orgs-desc" style={{ marginTop: 8 }}>Al crear el ciclo se genera automáticamente una evaluación vacía para cada empleado activo.</p>
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <button className="orgs-save-btn" onClick={handleCrearCiclo}>Crear</button>
-            <button className="orgs-refresh-btn" onClick={() => setNuevoCiclo(null)}>Cancelar</button>
-          </div>
-        </div>
-      )}
+        </>)}
+      </Modal>
 
       {loading ? (
         <div className="orgs-monitor-loading"><div className="hr-spinner" /><span>Cargando…</span></div>
@@ -310,21 +302,17 @@ function VistaAdmin() {
           <p>Sin ciclos de evaluación creados todavía</p>
         </div>
       ) : (
-        <div className="orgs-incident-list">
-          {ciclos.map(c => (
-            <div key={c._id} className="orgs-incident-row" style={{ cursor: "pointer" }} onClick={() => abrirCiclo(c)}>
-              <span className={`orgs-sev-badge ${c.estado === "activo" ? "orgs-sev--info" : "orgs-sev--error"}`}>{c.estado}</span>
-              <div className="orgs-incident-info">
-                <span className="orgs-incident-msg">{c.nombre}</span>
-                <span className="orgs-incident-meta"><FiClock style={{ verticalAlign: "-2px" }} />{c.fecha_inicio} → {c.fecha_fin}</span>
-              </div>
-              {c.estado === "activo" && (
-                <div className="orgs-apikey-actions" onClick={e => e.stopPropagation()}>
-                  <button className="orgs-refresh-btn" onClick={() => handleCerrarCiclo(c)}>Cerrar ciclo</button>
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="rc-grid mo-stagger">
+          {ciclos.map(c => {
+            const activo = c.estado === "activo";
+            return (
+              <RecordCard key={c._id} tono={activo ? "success" : "danger"} onClick={() => abrirCiclo(c)}
+                tile={<FiAward />} titulo={c.nombre}
+                badge={<span className={`rc-badge rc-badge--${activo ? "success" : "danger"}`}>{activo ? "Activo" : "Cerrado"}</span>}
+                meta={<span>{c.fecha_inicio} – {c.fecha_fin}</span>}
+                acciones={activo ? <IconButton icon={FiLock} label="Cerrar ciclo" tooltipPos="left" onClick={() => handleCerrarCiclo(c)} /> : undefined} />
+            );
+          })}
         </div>
       )}
     </div>

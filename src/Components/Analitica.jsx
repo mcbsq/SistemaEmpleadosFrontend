@@ -3,13 +3,13 @@
 // exportables. Cada usuario solo ve las secciones a las que el SUPER_ADMIN
 // le otorgó permiso (ADMIN/SUPER_ADMIN siempre ven todo).
 import React, { useState, useEffect, useCallback } from "react";
-import { FiBarChart2, FiDownload, FiLock, FiUsers, FiDollarSign, FiSun, FiAward, FiBriefcase, FiEye, FiX } from "react-icons/fi";
-import { apiFetch, API_URL } from "../services/apiConfig";
+import IconButton from "./IconButton";
+import { FiBarChart2, FiLock, FiUsers, FiDollarSign, FiSun, FiAward, FiBriefcase, FiEye, FiX } from "react-icons/fi";
+import { apiFetch, API_URL, sessionHeaders } from "../services/apiConfig";
 import "./Analitica.css";
 
 async function descargarArchivo(path, filename) {
-  const token = sessionStorage.getItem("access_token");
-  const res = await fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch(`${API_URL}${path}`, { headers: sessionHeaders() });
   if (!res.ok) return false;
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -165,14 +165,8 @@ export function ReportesCard({ compact = false }) {
               <span className="orgs-incident-meta">{r.descripcion}</span>
             </div>
             <div className="orgs-apikey-actions">
-              <button className="orgs-refresh-btn" onClick={() => setViendo(r)}>
-                <FiEye style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                Ver en línea
-              </button>
-              <button className="orgs-refresh-btn" onClick={() => handleExportar(r)} disabled={descargando === r.id}>
-                <FiDownload style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                {descargando === r.id ? "Exportando…" : "Exportar .xlsx"}
-              </button>
+              <IconButton icon={FiEye} label="Ver en línea" onClick={() => setViendo(r)} />
+              <IconButton accion="descargar" label="Exportar .xlsx" tooltipPos="left" busy={descargando === r.id} onClick={() => handleExportar(r)} />
             </div>
           </div>
         ))}

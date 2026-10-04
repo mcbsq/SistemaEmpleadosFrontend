@@ -3,7 +3,8 @@
   overflow-x: auto;
 }
 .recl-columna {
-  background: var(--hr-surface); border: 0.5px solid var(--hr-border);
+  background: var(--hr-glass-bg, var(--hr-surface)); border: 0.5px solid var(--hr-border);
+  backdrop-filter: blur(var(--hr-blur, 14px)); -webkit-backdrop-filter: blur(var(--hr-blur, 14px));
   border-radius: var(--hr-radius); padding: 10px; min-width: 180px;
   display: flex; flex-direction: column; gap: 8px; min-height: 200px;
 }
@@ -13,12 +14,18 @@
   border-bottom: 0.5px solid var(--hr-border);
 }
 .recl-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; font: inherit; color: var(--hr-text);
   background: var(--hr-bg); border: 0.5px solid var(--hr-border);
-  border-radius: var(--hr-radius-sm); padding: 10px;
+  border-radius: var(--hr-radius-sm); padding: 10px; cursor: pointer;
+  transition: transform var(--mo-fast, .15s) var(--mo-ease, ease), border-color var(--mo-fast, .15s) var(--mo-ease, ease);
 }
-.recl-card-nombre { font-weight: 600; font-size: var(--hr-font-sm); margin-bottom: 4px; }
-.recl-card-detalle { font-size: var(--hr-font-xs); color: var(--hr-muted); }
-.recl-etapa-select { margin-top: 8px; font-size: var(--hr-font-xs); padding: 4px 6px; }
+.recl-card:hover { transform: translateY(-2px); border-color: var(--hr-accent); }
+.recl-card:focus-visible { outline: 2px solid var(--hr-accent); outline-offset: 2px; }
+.recl-card-nombre { font-weight: 600; font-size: var(--hr-font-sm); margin-bottom: 2px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recl-card-detalle { font-size: var(--hr-font-xs); color: var(--hr-muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recl-contacto { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.recl-contacto span { display: inline-flex; align-items: center; gap: 6px; }
 
 .recl-card-score {
   display: inline-flex; align-items: center;
@@ -32,13 +39,6 @@
   font-size: 16px; color: var(--hr-border); padding: 0; display: flex;
 }
 .recl-estrella--activa { color: #f5a623; }
-
-.recl-modal-overlay {
-  position: fixed; inset: 0; background: rgba(4,5,9,0.62);
-  backdrop-filter: blur(3px); z-index: 200;
-  display: flex; align-items: center; justify-content: center;
-}
-.recl-modal { width: 420px; max-width: calc(100vw - 32px); max-height: 80vh; overflow-y: auto; }
 
 @media (max-width: 900px) {
   .recl-pipeline { grid-template-columns: 1fr; }

@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from "react";
+import IconButton from "./IconButton";
 import { FiZap, FiX } from "react-icons/fi";
 import "./IncidentMonitor.css";
 import { getIncidents, clearIncidents } from "../utils/incidentLogger";
 import { useOrg } from "../context/OrgContext";
+import { sessionHeaders } from "../services/apiConfig";
 
 // ─── Backdoor key: /monitor?key=cibercom2026 ─────────────────────────────────
 // Accesible sin login. Ruta: /monitor
@@ -115,7 +117,7 @@ function IncidentMonitor() {
       const base  = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
       if (token && base) {
         const r = await fetch(`${base}/monitor/incidents`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: sessionHeaders(),
         });
         if (r.ok) {
           const docs = await r.json();
@@ -236,13 +238,8 @@ function IncidentMonitor() {
             />
             <span>Auto-refresh 5s</span>
           </label>
-          <button className="im-btn im-btn--refresh" onClick={refresh}>Actualizar</button>
-          <button
-            className="im-btn im-btn--clear"
-            onClick={() => { clearIncidents(); refresh(); }}
-          >
-            Limpiar log
-          </button>
+          <IconButton accion="refrescar" label="Actualizar" onClick={refresh} />
+          <IconButton accion="eliminar" label="Limpiar log" tooltipPos="left" onClick={() => { clearIncidents(); refresh(); }} />
         </div>
       </div>
 

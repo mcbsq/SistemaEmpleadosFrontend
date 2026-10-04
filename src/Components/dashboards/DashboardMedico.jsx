@@ -1,5 +1,6 @@
 // ── DashboardMedico.jsx ───────────────────────────────────────────────────────
 import React, { useEffect, useState, useMemo } from "react";
+import NumeroAnimado from "../NumeroAnimado";
 import "./DashboardEspecializado.css";
 import { empleadoService } from "../../services/empleadoService";
 import { clinicoService }   from "../../services/clinicoService";
@@ -16,7 +17,7 @@ const KpiCard = ({ label, value, sub, color }) => (
   <div className="de-kpi">
     <span className="de-kpi-accent" style={{ background: color }} />
     <div>
-      <div className="de-kpi-val">{value}</div>
+      <div className="de-kpi-val"><NumeroAnimado value={value} /></div>
       <div className="de-kpi-lbl">{label}</div>
       {sub && <div className="de-kpi-sub">{sub}</div>}
     </div>

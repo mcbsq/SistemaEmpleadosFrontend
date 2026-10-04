@@ -4,13 +4,13 @@
 // que el onboarding de Perrucho. Se dispara una sola vez por usuario (se
 // recuerda en localStorage) la primera vez que entra al Dashboard.
 import React, { useState, useEffect, useCallback } from "react";
-import { FiX, FiChevronRight, FiChevronLeft } from "react-icons/fi";
+import { FiX, FiChevronRight, FiChevronLeft, FiCheck } from "react-icons/fi";
 import "./OnboardingTour.css";
 
 const PASOS_BASE = [
   {
     selector: "[data-tour='logo']",
-    titulo: "Bienvenido a Cibercom",
+    titulo: "Bienvenido",
     texto: "Este es tu sistema de gestión de empleados. Te damos un recorrido rápido de 30 segundos por lo esencial.",
   },
   {
@@ -123,13 +123,13 @@ function OnboardingTour() {
           <span className="ot-tooltip-progreso">{paso + 1} / {pasosDisponibles.length}</span>
           <div className="ot-tooltip-nav">
             {paso > 0 && (
-              <button className="ot-btn-ghost" onClick={() => setPaso(p => p - 1)}><FiChevronLeft /></button>
+              <button className="ot-btn-ghost" onClick={() => setPaso(p => p - 1)} aria-label="Anterior"><FiChevronLeft /></button>
             )}
             {esUltimo ? (
-              <button className="ot-btn-primary" onClick={finalizar}>Entendido</button>
+              <button className="ot-btn-primary" onClick={finalizar} aria-label="Entendido"><FiCheck /></button>
             ) : (
-              <button className="ot-btn-primary" onClick={() => setPaso(p => p + 1)}>
-                Siguiente <FiChevronRight style={{ verticalAlign: "-2px" }} />
+              <button className="ot-btn-primary" onClick={() => setPaso(p => p + 1)} aria-label="Siguiente">
+                <FiChevronRight />
               </button>
             )}
           </div>

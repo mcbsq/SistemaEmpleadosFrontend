@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { FiX } from "react-icons/fi";
+import { FiX, FiMapPin } from "react-icons/fi";
+import IconButton from "../IconButton";
 
 let leafletLoaded = false;
 
@@ -213,18 +214,7 @@ function MapaPopup({ direccion, lat, lng, isEditing, onCoordsChange }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button
-        className="btn-ghost"
-        onClick={() => setOpen(true)}
-        style={{ display:"flex", alignItems:"center", gap:6, width:"100%", justifyContent:"center" }}
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="1.8">
-          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-        Ver en mapa
-      </button>
+      <IconButton icon={FiMapPin} label="Ver en mapa" onClick={() => setOpen(true)} />
 
       {open && (
         <MapaPopupFullscreen

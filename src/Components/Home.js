@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { FiX, FiChevronLeft, FiChevronRight, FiUser, FiMail, FiPhone, FiMessageCircle, FiSend } from "react-icons/fi";
+import { FiX, FiChevronLeft, FiChevronRight, FiUser, FiMail, FiPhone, FiMessageCircle, FiSend, FiArrowRight } from "react-icons/fi";
 import "./Home.css";
 import { empleadoService } from "../services/empleadoService";
 import { contactoService }  from "../services/contactoService";
@@ -327,7 +327,7 @@ function Home() {
                 <p className="no-contact">Sin datos de contacto registrados.</p>
               )}
               <Link to={`/Perfil/${hoveredEmpleado._id}`} className="btn-ver-perfil">
-                Ver perfil completo →
+                Ver perfil completo <FiArrowRight aria-hidden="true" className="btn-trail-icon" />
               </Link>
             </div>
           </div>

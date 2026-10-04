@@ -3,7 +3,8 @@
 // CONTADOR) + calculadora de referencia por empleado. El cálculo es una
 // simplificación de la tabla pública del SAT — no reemplaza timbrado fiscal.
 import React, { useState, useEffect, useCallback } from "react";
-import { FiDollarSign, FiPlus, FiTrash2, FiSave } from "react-icons/fi";
+import IconButton from "./IconButton";
+import { FiDollarSign, FiCheck } from "react-icons/fi";
 import { apiFetch } from "../services/apiConfig";
 import { empleadoService } from "../services/empleadoService";
 import "./NominaConfig.css";
@@ -100,9 +101,8 @@ function NominaConfig() {
           <h2 className="hr-title"><FiDollarSign style={{ marginRight: 8, verticalAlign: "-3px" }} />Motor de nómina</h2>
           <p className="hr-subtitle">Parámetros de ISR, IMSS y deducciones · ADMIN / CONTADOR</p>
         </div>
-        <button className="orgs-save-btn" onClick={handleGuardar} disabled={saving}>
-          {saving ? "Guardando…" : saved ? "Guardado" : "Guardar parámetros"}
-        </button>
+        <IconButton accion="guardar" size="lg" icon={saved ? FiCheck : undefined} busy={saving}
+          label={saved ? "Guardado" : "Guardar parámetros"} onClick={handleGuardar} tooltipPos="left" />
       </div>
 
       <div className="orgs-grid">
@@ -130,12 +130,10 @@ function NominaConfig() {
                 <option value="monto_fijo">Monto fijo</option>
               </select>
               <input type="number" className="orgs-input" style={{ maxWidth: 100 }} value={d.valor} onChange={e => actualizarDeduccion(i, "valor", e.target.value)} />
-              <button className="orgs-refresh-btn" onClick={() => eliminarDeduccion(i)}><FiTrash2 /></button>
+              <IconButton accion="eliminar" size="sm" label={`Quitar ${d.nombre || "deducción"}`} onClick={() => eliminarDeduccion(i)} />
             </div>
           ))}
-          <button className="orgs-refresh-btn" style={{ marginTop: 10 }} onClick={agregarDeduccion}>
-            <FiPlus style={{ verticalAlign: "-2px", marginRight: 4 }} />Agregar deducción
-          </button>
+          <IconButton accion="agregar" label="Agregar deducción" onClick={agregarDeduccion} style={{ marginTop: 10 }} tooltipPos="right" />
         </div>
       </div>
 

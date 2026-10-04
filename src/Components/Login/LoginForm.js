@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
 import { useFilePicker } from "use-file-picker";
 import { FileAmountLimitValidator, FileSizeValidator } from "use-file-picker/validators";
 
@@ -305,12 +306,12 @@ function LoginForm({ onClose }) {
 
         <div className="rf-footer">
           {current.back && (
-            <button type="button" className="rf-btn-back" onClick={current.back} disabled={loading}>← Atrás</button>
+            <button type="button" className="rf-btn-back" onClick={current.back} disabled={loading}><FiArrowLeft aria-hidden="true" className="btn-lead-icon" />Atrás</button>
           )}
           <button type="button" className="rf-btn-next" onClick={current.handler} disabled={loading}
             style={{ marginLeft: current.back ? 0 : "auto" }}>
             {loading && <span className="rf-spinner" aria-hidden="true" />}
-            {loading ? "Procesando..." : step < 3 ? "Continuar →" : "Completar registro"}
+            {loading ? "Procesando…" : step < 3 ? <>Continuar<FiArrowRight aria-hidden="true" className="btn-trail-icon" /></> : "Completar registro"}
           </button>
         </div>
 

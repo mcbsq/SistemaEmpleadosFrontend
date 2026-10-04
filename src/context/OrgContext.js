@@ -24,6 +24,7 @@ export const DEFAULT_ORG_CONFIG = {
     dashboard_jefe_area:   false,
     incident_monitor:      false,
     global_search:         true,
+    redes_sociales:        false,
   },
   kpis: [
     { id: "total_empleados",   label: "Total empleados",     visible: true,  color: "#5B8AF0" },

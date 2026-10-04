@@ -3,7 +3,12 @@
 // Acceso: solo SUPER_ADMIN (controlado por RoleRoute en App.js)
 
 import React, { useState, useEffect, useCallback } from "react";
-import { FiZap, FiCheck, FiKey, FiFileText, FiGitBranch, FiPlus, FiTrash2 } from "react-icons/fi";
+import Modal from "./Modal";
+import { MeshGradient } from "@paper-design/shaders-react";
+import { PRESETS_GRADIENTE, coloresGradiente } from "../utils/gradiente";
+import IconButton from "./IconButton";
+import { RecordCard } from "./RecordCard";
+import { FiZap, FiCheck, FiKey, FiFileText, FiGitBranch, FiTrash2, FiArrowRight, FiX } from "react-icons/fi";
 import { useOrg } from "../context/OrgContext";
 import { apiFetch } from "../services/apiConfig";
 import { catalogodeptoService } from "../services/catalogodeptoService";
@@ -14,6 +19,7 @@ const MODULE_CATALOG = [
   { key: "organigrama",         label: "Organigrama",            desc: "Árbol jerárquico interactivo" },
   { key: "empleados_table",     label: "Tabla de empleados",     desc: "CRUD completo de RH" },
   { key: "dashboard_admin",     label: "Dashboard Admin",        desc: "KPIs y analíticos generales" },
+  { key: "dashboard_rh",        label: "Panel de RH",            desc: "Pendientes, expedientes incompletos y la semana" },
   { key: "dashboard_medico",    label: "Dashboard Médico",       desc: "Expediente clínico y salud" },
   { key: "dashboard_pm",        label: "Dashboard PM",           desc: "Proyectos y capacidad del equipo" },
   { key: "dashboard_contador",  label: "Dashboard Contador",     desc: "Nómina y finanzas" },
@@ -23,11 +29,7 @@ const MODULE_CATALOG = [
   { key: "vacaciones",          label: "Vacaciones",             desc: "Solicitud y aprobación de vacaciones" },
   { key: "prestamos",           label: "Préstamos a empleados",  desc: "Registro y seguimiento de préstamos" },
   { key: "documentos_financieros", label: "Documentos financieros", desc: "Recibos de nómina y CFDI en el perfil" },
-];
-
-const ROLES_DISPONIBLES = [
-  "SUPER_ADMIN", "ADMIN", "EMPLOYEE", "CONTADOR",
-  "PROJECT_MANAGER", "JEFE_AREA", "MEDICO",
+  { key: "redes_sociales",      label: "Redes sociales",         desc: "Perfiles de redes en el perfil del empleado" },
 ];
 
 const SEV_MAP = {
@@ -59,6 +61,13 @@ function OrgSettings() {
   const [localVacaciones, setLocalVacaciones] = useState(
     orgConfig?.vacaciones || { tabla_dias_por_antiguedad: {}, roles_aprueban: [], notificar_por_correo: true }
   );
+  const gradiente = coloresGradiente({ branding: localColors }, "dark");
+  const [detalle, setDetalle] = useState(null); // tarjeta de Auditoría/Monitor abierta
+  const [modalArea, setModalArea] = useState(false);
+  const [modalKey, setModalKey] = useState(false);
+  const [areaAbierta, setAreaAbierta] = useState(null);
+  const [keyAbierta, setKeyAbierta] = useState(null);
+  const [nuevoPuesto, setNuevoPuesto] = useState("");
   const [saving,       setSaving]       = useState(false);
   const [saved,        setSaved]        = useState(false);
 
@@ -108,10 +117,27 @@ function OrgSettings() {
     cargarAreas();
   };
 
+  // Catálogo de puestos del área: se guarda al momento (agregar o quitar).
+  const guardarPuestos = async (area, puestos) => {
+    const id = area._id.$oid || area._id;
+    const r = await catalogodeptoService.setPuestos(id, puestos).catch(() => null);
+    if (!r) return;
+    const act = { ...area, Puestos: r.Puestos };
+    setAreas(lista => lista.map(a => (a.NombreDepto === area.NombreDepto ? act : a)));
+    setAreaAbierta(act);
+  };
+  const agregarPuesto = () => {
+    const nombre = nuevoPuesto.trim();
+    if (!nombre || !areaAbierta) return;
+    guardarPuestos(areaAbierta, [...(areaAbierta.Puestos || []), nombre]);
+    setNuevoPuesto("");
+  };
+
   const handleEliminarArea = async (area) => {
-    if (!window.confirm(`¿Eliminar el área "${area.NombreDepto}" del catálogo? Los empleados que ya la tengan asignada no se ven afectados.`)) return;
+    if (!window.confirm(`¿Eliminar el área "${area.NombreDepto}" del catálogo? Los empleados que ya la tengan asignada no se ven afectados.`)) return false;
     await catalogodeptoService.delete(area._id.$oid || area._id);
     cargarAreas();
+    return true;
   };
 
   // Monitor
@@ -171,11 +197,14 @@ function OrgSettings() {
   const handleRevocarApiKey = async (id) => {
     await apiFetch(`/apikeys/${id}/revocar`, { method: "PATCH" }).catch(() => null);
     cargarApiKeys();
+    return true;
   };
 
   const handleEliminarApiKey = async (id) => {
+    if (!window.confirm("¿Eliminar esta API key? Los sistemas que la usen dejarán de conectarse.")) return false;
     await apiFetch(`/apikeys/${id}`, { method: "DELETE" }).catch(() => null);
     cargarApiKeys();
+    return true;
   };
 
   // Auditoría
@@ -273,9 +302,8 @@ function OrgSettings() {
           <p className="hr-subtitle">Módulos · Identidad · KPIs · Monitor · Solo SUPER_ADMIN</p>
         </div>
         {activeTab !== "monitor" && activeTab !== "apikeys" && activeTab !== "auditoria" && (
-          <button className="orgs-save-btn" onClick={handleSave} disabled={saving}>
-            {saving ? "Guardando…" : saved ? <><FiCheck style={{ marginRight: 4, verticalAlign: "-2px" }} />Guardado</> : "Guardar cambios"}
-          </button>
+          <IconButton accion="guardar" size="lg" icon={saved ? FiCheck : undefined} busy={saving}
+            label={saved ? "Guardado" : "Guardar cambios"} onClick={handleSave} tooltipPos="left" />
         )}
       </div>
 
@@ -334,6 +362,40 @@ function OrgSettings() {
               />
             </div>
           </div>
+          <div className="hr-card orgs-card--ancha">
+            <div className="hr-card-title">Fondo animado</div>
+            <p className="orgs-desc">Los colores del gradiente que se mueve detrás de todo el sistema. Elige un estilo o arma el tuyo.</p>
+            <div className="orgs-grad">
+              <div className="orgs-grad-preview" aria-hidden="true">
+                <MeshGradient className="orgs-grad-mesh" colors={gradiente} speed={0.3} distortion={0.8} swirl={0.4} grainMixer={0} grainOverlay={0.03} fit="cover" />
+              </div>
+              <div className="orgs-grad-controles">
+                <div className="orgs-grad-presets" role="radiogroup" aria-label="Estilos predefinidos">
+                  {PRESETS_GRADIENTE.map(p => {
+                    const activo = p.colores.join() === gradiente.join();
+                    return (
+                      <button key={p.id} type="button" role="radio" aria-checked={activo}
+                        className={`orgs-grad-preset${activo ? " is-on" : ""}`}
+                        onClick={() => setLocalColors(c => ({ ...c, gradiente: p.colores }))}>
+                        <span className="orgs-grad-swatch" style={{ background: `linear-gradient(135deg, ${p.colores.join(", ")})` }} />
+                        <span>{p.nombre}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="orgs-grad-colores">
+                  {gradiente.map((c, i) => (
+                    <label key={i} className="orgs-grad-color">
+                      <input type="color" value={c} aria-label={`Color ${i + 1} del gradiente`}
+                        onChange={e => setLocalColors(cfg => { const g = [...gradiente]; g[i] = e.target.value; return { ...cfg, gradiente: g }; })} />
+                      <span>{c}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="orgs-desc">El primer color es el fondo; procura que sea oscuro para que el texto se lea bien. En tema claro se usan los mismos colores, aclarados.</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -387,6 +449,13 @@ function OrgSettings() {
             sin "Depende de" quedan como primer nivel, justo debajo de la empresa.
           </p>
 
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <IconButton accion="agregar" label="Agregar área" tooltipPos="left" onClick={() => setModalArea(true)} />
+          </div>
+          <Modal abierto={modalArea} onClose={() => setModalArea(false)} titulo="Agregar área"
+            subtitulo="Elige de qué área depende; el organigrama se dibuja con esta jerarquía."
+            onGuardar={async () => { await handleCrearArea(); setModalArea(false); }} guardando={creandoArea}
+            labelGuardar="Agregar área" puedeGuardar={!!areaNueva.NombreDepto.trim()}>
           <div className="orgs-color-row" style={{ marginBottom: 10 }}>
             <input className="orgs-input" placeholder="Nombre del área (ej. Tecnología)"
               value={areaNueva.NombreDepto} onChange={e => setAreaNueva(a => ({ ...a, NombreDepto: e.target.value }))} />
@@ -398,31 +467,58 @@ function OrgSettings() {
           </div>
           <input className="orgs-input" placeholder="Descripción (opcional)" style={{ marginBottom: 10 }}
             value={areaNueva.Descripcion} onChange={e => setAreaNueva(a => ({ ...a, Descripcion: e.target.value }))} />
-          <button className="orgs-save-btn" onClick={handleCrearArea} disabled={creandoArea || !areaNueva.NombreDepto.trim()}>
-            <FiPlus style={{ verticalAlign: "-2px", marginRight: 4 }} />{creandoArea ? "Creando…" : "Agregar área"}
-          </button>
+          </Modal>
+
+          <Modal abierto={!!areaAbierta} onClose={() => { setAreaAbierta(null); setNuevoPuesto(""); }} titulo={areaAbierta?.NombreDepto || ""}
+            subtitulo={areaAbierta?.Descripcion || "Sin descripción"}>
+            {areaAbierta && (
+              <>
+                <label className="field-label" htmlFor="area-padre">¿De qué área depende?</label>
+                <select id="area-padre" className="orgs-input" value={areaAbierta.DeptoPadre || ""}
+                  onChange={async e => { const v = e.target.value; await handleCambiarPadre(areaAbierta, v); setAreaAbierta(x => ({ ...x, DeptoPadre: v || null })); }}>
+                  <option value="">Primer nivel (no depende de nadie)</option>
+                  {areas.filter(x => x.NombreDepto !== areaAbierta.NombreDepto).map(x => (
+                    <option key={x.NombreDepto} value={x.NombreDepto}>Depende de: {x.NombreDepto}</option>
+                  ))}
+                </select>
+                <p className="field-hint">El cambio se guarda al momento y el Organigrama lo refleja.</p>
+
+                <span className="field-label" style={{ marginTop: 14, display: "block" }}>Puestos de esta área</span>
+                <div className="orgs-puestos">
+                  {(areaAbierta.Puestos || []).length === 0 && <span className="field-hint">Sin puestos todavía. Los empleados los eligen de esta lista en su perfil.</span>}
+                  {(areaAbierta.Puestos || []).map(p => (
+                    <span key={p} className="orgs-puesto">
+                      {p}
+                      <button type="button" aria-label={`Quitar ${p}`} title={`Quitar ${p}`}
+                        onClick={() => guardarPuestos(areaAbierta, areaAbierta.Puestos.filter(x => x !== p))}><FiX aria-hidden="true" /></button>
+                    </span>
+                  ))}
+                </div>
+                <div className="orgs-puesto-nuevo">
+                  <input className="orgs-input" type="text" placeholder="Nuevo puesto, ej. Desarrollador frontend" aria-label="Nuevo puesto"
+                    maxLength={60} value={nuevoPuesto} onChange={e => setNuevoPuesto(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); agregarPuesto(); } }} />
+                  <IconButton accion="agregar" label="Agregar puesto" tooltipPos="left" disabled={!nuevoPuesto.trim()} onClick={agregarPuesto} />
+                </div>
+                <div className="icon-btn-group" style={{ justifyContent: "flex-end", width: "100%", marginTop: 12 }}>
+                  <IconButton accion="eliminar" icon={FiTrash2} label="Eliminar área" tooltipPos="left"
+                    onClick={async () => { if (await handleEliminarArea(areaAbierta)) setAreaAbierta(null); }} />
+                </div>
+              </>
+            )}
+          </Modal>
 
           {areasLoading ? (
             <div className="orgs-monitor-loading" style={{ marginTop: 16 }}><div className="hr-spinner" /><span>Cargando…</span></div>
           ) : areas.length === 0 ? (
             <p className="orgs-desc" style={{ marginTop: 16 }}>Sin áreas en el catálogo todavía — el Organigrama seguirá mostrando un árbol de un solo nivel hasta que definas al menos una jerarquía aquí.</p>
           ) : (
-            <div className="orgs-incident-list" style={{ marginTop: 16 }}>
+            <div className="rc-grid mo-stagger" style={{ marginTop: 16 }}>
               {areas.map(a => (
-                <div key={a.NombreDepto} className="orgs-incident-row">
-                  <div className="orgs-incident-info">
-                    <span className="orgs-incident-msg">{a.NombreDepto}</span>
-                    <span className="orgs-incident-meta">{a.Descripcion || "Sin descripción"}</span>
-                  </div>
-                  <select className="orgs-input" style={{ maxWidth: 220 }} value={a.DeptoPadre || ""}
-                    onChange={e => handleCambiarPadre(a, e.target.value)}>
-                    <option value="">— Primer nivel —</option>
-                    {areas.filter(x => x.NombreDepto !== a.NombreDepto).map(x => (
-                      <option key={x.NombreDepto} value={x.NombreDepto}>Depende de: {x.NombreDepto}</option>
-                    ))}
-                  </select>
-                  <button className="orgs-refresh-btn" onClick={() => handleEliminarArea(a)}><FiTrash2 /></button>
-                </div>
+                <RecordCard key={a.NombreDepto} tono={a.DeptoPadre ? "accent" : "success"} onClick={() => setAreaAbierta(a)}
+                  tile={<FiGitBranch />} titulo={a.NombreDepto}
+                  badge={<span className={`rc-badge rc-badge--${a.DeptoPadre ? "accent" : "success"}`}>{a.DeptoPadre ? "Subárea" : "Primer nivel"}</span>}
+                  meta={<>{a.DeptoPadre && <span>Depende de {a.DeptoPadre}</span>}<span>{(a.Puestos || []).length} {(a.Puestos || []).length === 1 ? "puesto" : "puestos"}</span></>} />
               ))}
             </div>
           )}
@@ -456,39 +552,38 @@ function OrgSettings() {
           </div>
 
           <div className="hr-card">
-            <div className="hr-card-title">Quién puede aprobar solicitudes</div>
+            <div className="hr-card-title">Cómo se aprueban las vacaciones</div>
             <p className="orgs-desc">
-              ADMIN y SUPER_ADMIN siempre pueden aprobar. Agrega otros roles que también
-              deban poder hacerlo (ej. Jefe de Área para su propio equipo).
+              Una solicitud queda aprobada solo cuando recibe todos los vistos buenos. Si alguien la rechaza, se cierra.
             </p>
-            <div className="orgs-module-list">
-              {ROLES_DISPONIBLES.filter(r => r !== "SUPER_ADMIN" && r !== "ADMIN").map(rol => {
-                const activo = (localVacaciones.roles_aprueban || []).includes(rol);
-                return (
-                  <div key={rol} className="orgs-module-row">
-                    <div className="orgs-module-info">
-                      <span className="orgs-module-label">{rol}</span>
-                    </div>
-                    <button
-                      className={`orgs-toggle ${activo ? "orgs-toggle--on" : ""}`}
-                      onClick={() => setLocalVacaciones(p => {
-                        const actuales = p.roles_aprueban || [];
-                        return {
-                          ...p,
-                          roles_aprueban: activo ? actuales.filter(r => r !== rol) : [...actuales, rol],
-                        };
-                      })}
-                    >
-                      <span className="orgs-toggle-thumb" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+            <ol className="orgs-flujo">
+              <li className={`orgs-flujo-paso${localVacaciones.doble_aprobacion !== false ? "" : " is-off"}`}>
+                <span className="orgs-flujo-num">1</span>
+                <div className="orgs-module-info">
+                  <span className="orgs-module-label">Jefe directo</span>
+                  <span className="orgs-module-desc">El jefe inmediato que tiene la persona en su ficha laboral. Si no tiene jefe asignado, este paso se salta.</span>
+                </div>
+                <button
+                  className={`orgs-toggle ${localVacaciones.doble_aprobacion !== false ? "orgs-toggle--on" : ""}`}
+                  aria-label="Pedir visto bueno del jefe directo" aria-pressed={localVacaciones.doble_aprobacion !== false}
+                  onClick={() => setLocalVacaciones(p => ({ ...p, doble_aprobacion: p.doble_aprobacion === false }))}
+                >
+                  <span className="orgs-toggle-thumb" />
+                </button>
+              </li>
+              <li className="orgs-flujo-paso">
+                <span className="orgs-flujo-num">2</span>
+                <div className="orgs-module-info">
+                  <span className="orgs-module-label">Recursos Humanos o Administración</span>
+                  <span className="orgs-module-desc">Cualquier cuenta de RH, Administrador de área o Administrador general. Siempre se pide.</span>
+                </div>
+                <FiCheck className="orgs-flujo-fijo" aria-label="Siempre activo" />
+              </li>
+            </ol>
             <div className="orgs-module-row" style={{ marginTop: 12 }}>
               <div className="orgs-module-info">
-                <span className="orgs-module-label">Notificar por correo al admin</span>
-                <span className="orgs-module-desc">Avisa a los aprobadores cuando entra una solicitud nueva</span>
+                <span className="orgs-module-label">Avisar también por correo</span>
+                <span className="orgs-module-desc">Además de la campana, manda correo al jefe y a RH cuando entra una solicitud</span>
               </div>
               <button
                 className={`orgs-toggle ${localVacaciones.notificar_por_correo ? "orgs-toggle--on" : ""}`}
@@ -504,13 +599,12 @@ function OrgSettings() {
       {/* ── API Keys ──────────────────────────────────────────────── */}
       {activeTab === "apikeys" && (
         <div className="orgs-grid">
-          <div className="hr-card">
-            <div className="hr-card-title">Generar nueva API key</div>
-            <p className="orgs-desc">
-              Para que otro programa consuma información de este sistema (integraciones,
-              infraestructura propia, sistemas de terceros). La key se muestra una sola vez —
-              guárdala en un lugar seguro, no puede recuperarse después.
-            </p>
+          <Modal abierto={modalKey} onClose={() => { setModalKey(false); setKeyRecienCreada(null); }}
+            titulo={keyRecienCreada ? "API key generada" : "Generar API key"}
+            subtitulo={keyRecienCreada ? undefined : "Para que otro programa consuma información de este sistema. La key se muestra una sola vez."}
+            onGuardar={keyRecienCreada ? undefined : handleCrearApiKey} guardando={creandoKey} labelGuardar="Generar API key"
+            puedeGuardar={!!(nuevaKeyNombre.trim() && nuevaKeyScopes.length)}>
+            {!keyRecienCreada && (<>
             <div className="orgs-field">
               <label className="orgs-label">Nombre / propósito</label>
               <input
@@ -536,32 +630,43 @@ function OrgSettings() {
                 );
               })}
             </div>
-            <button
-              className="orgs-save-btn"
-              style={{ marginTop: 14 }}
-              disabled={creandoKey || !nuevaKeyNombre.trim() || nuevaKeyScopes.length === 0}
-              onClick={handleCrearApiKey}
-            >
-              {creandoKey ? "Generando…" : "Generar API key"}
-            </button>
-
+            </>)}
             {keyRecienCreada && (
               <div className="orgs-desc" style={{ marginTop: 14, padding: 12, border: "1px solid var(--orgs-border, #444)", borderRadius: 8 }}>
                 <strong>Copia esta key ahora — no volverá a mostrarse:</strong>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
                   <code style={{ userSelect: "all", wordBreak: "break-all" }}>{keyRecienCreada.key}</code>
-                  <button
-                    className="orgs-refresh-btn"
-                    onClick={() => { navigator.clipboard?.writeText(keyRecienCreada.key); }}
-                  >Copiar</button>
+                  <IconButton accion="copiar" label="Copiar" onClick={() => { navigator.clipboard?.writeText(keyRecienCreada.key); }} />
                 </div>
-                <button className="orgs-refresh-btn" style={{ marginTop: 8 }} onClick={() => setKeyRecienCreada(null)}>Cerrar</button>
+                <IconButton accion="confirmar" label="Listo, ya la copié" style={{ marginTop: 8 }} onClick={() => setKeyRecienCreada(null)} />
               </div>
             )}
-          </div>
-
-          <div className="hr-card">
-            <div className="hr-card-title">API keys existentes</div>
+          </Modal>
+          <Modal abierto={!!keyAbierta} onClose={() => setKeyAbierta(null)} titulo={keyAbierta?.nombre || ""}
+            subtitulo={keyAbierta ? `${keyAbierta.prefijo} · ${keyAbierta.activa ? "Activa" : "Revocada"}` : undefined}>
+            {keyAbierta && (
+              <>
+                <span className="field-label">Permisos</span>
+                <div className="mdl-chips">{(keyAbierta.scopes || []).map(sc => <span key={sc} className="rc-chip">{sc}</span>)}</div>
+                <p className="field-hint" style={{ marginTop: 12 }}>
+                  {keyAbierta.usos_totales || 0} llamadas
+                  {keyAbierta.ultimo_uso ? ` · último uso ${new Date(keyAbierta.ultimo_uso).toLocaleString("es-MX")}` : " · sin uso todavía"}
+                </p>
+                <div className="icon-btn-group" style={{ justifyContent: "flex-end", width: "100%", marginTop: 12 }}>
+                  {keyAbierta.activa && (
+                    <IconButton accion="cancelar" label="Revocar" onClick={async () => { await handleRevocarApiKey(keyAbierta._id); setKeyAbierta(null); }} />
+                  )}
+                  <IconButton accion="eliminar" icon={FiTrash2} label="Eliminar" tooltipPos="left"
+                    onClick={async () => { if (await handleEliminarApiKey(keyAbierta._id)) setKeyAbierta(null); }} />
+                </div>
+              </>
+            )}
+          </Modal>
+          <div className="hr-card" style={{ gridColumn: "1 / -1" }}>
+            <div className="hr-card-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              API keys
+              <IconButton accion="agregar" label="Generar API key" tooltipPos="left" onClick={() => { setKeyRecienCreada(null); setModalKey(true); }} />
+            </div>
             {keysLoading ? (
               <div className="orgs-monitor-loading"><div className="hr-spinner"/><span>Cargando…</span></div>
             ) : apiKeys.length === 0 ? (
@@ -570,28 +675,12 @@ function OrgSettings() {
                 <p>Sin API keys generadas todavía</p>
               </div>
             ) : (
-              <div className="orgs-incident-list">
+              <div className="rc-grid mo-stagger">
                 {apiKeys.map(k => (
-                  <div key={k._id} className="orgs-incident-row">
-                    <span className={`orgs-sev-badge ${k.activa ? "orgs-sev--info" : "orgs-sev--error"}`}>
-                      {k.activa ? "Activa" : "Revocada"}
-                    </span>
-                    <div className="orgs-incident-info">
-                      <span className="orgs-incident-msg">{k.nombre}</span>
-                      <span className="orgs-incident-meta">
-                        <code className="orgs-incident-code">{k.prefijo}</code>
-                        <span>{(k.scopes || []).join(", ")}</span>
-                        {k.ultimo_uso && <span className="orgs-incident-time">Último uso: {new Date(k.ultimo_uso).toLocaleString("es-MX")}</span>}
-                        <span className="orgs-incident-time">{k.usos_totales || 0} llamadas</span>
-                      </span>
-                    </div>
-                    <div className="orgs-apikey-actions">
-                      {k.activa && (
-                        <button className="orgs-refresh-btn" onClick={() => handleRevocarApiKey(k._id)}>Revocar</button>
-                      )}
-                      <button className="orgs-refresh-btn" onClick={() => handleEliminarApiKey(k._id)}>Eliminar</button>
-                    </div>
-                  </div>
+                  <RecordCard key={k._id} tono={k.activa ? "success" : "danger"} onClick={() => setKeyAbierta(k)}
+                    tile={<FiKey />} titulo={k.nombre}
+                    badge={<span className={`rc-badge rc-badge--${k.activa ? "success" : "danger"}`}>{k.activa ? "Activa" : "Revocada"}</span>}
+                    meta={<><code className="orgs-incident-code">{k.prefijo}</code><span>{k.usos_totales || 0} llamadas</span></>} />
                 ))}
               </div>
             )}
@@ -620,7 +709,7 @@ function OrgSettings() {
                 </button>
               ))}
             </div>
-            <button className="orgs-refresh-btn" onClick={() => cargarAuditoria(auditFiltro)}>↺ Refrescar</button>
+            <IconButton accion="refrescar" label="Refrescar" tooltipPos="left" onClick={() => cargarAuditoria(auditFiltro)} />
           </div>
 
           {auditLoading ? (
@@ -633,26 +722,18 @@ function OrgSettings() {
           ) : (
             <div className="orgs-incident-list">
               {auditLog.map(a => (
-                <div key={a._id} className="orgs-incident-row">
+                <button type="button" key={a._id} className="orgs-incident-row orgs-card-click"
+                  onClick={() => setDetalle({ tipo: "auditoria", item: a })}>
                   <span className="orgs-sev-badge orgs-sev--info">{a.accion}</span>
                   <div className="orgs-incident-info">
-                    <span className="orgs-incident-msg">
-                      <strong>{a.usuario || "—"}</strong> ({a.role || "—"}) modificó <strong>{a.entidad}</strong>
-                      {a.entidad_id ? ` (${a.entidad_id.slice(-6)})` : ""}
+                    <span className="orgs-incident-msg"><strong>{a.usuario || "—"}</strong> modificó <strong>{a.entidad}</strong></span>
+                    <span className="orgs-incident-meta">
+                      {a.cambios && Object.keys(a.cambios).length > 0
+                        ? `${Object.keys(a.cambios).length} ${Object.keys(a.cambios).length === 1 ? "campo" : "campos"} · `
+                        : ""}{new Date(a.creado_en).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}
                     </span>
-                    {a.detalle && <span className="orgs-incident-meta">{a.detalle}</span>}
-                    {a.cambios && Object.keys(a.cambios).length > 0 && (
-                      <span className="orgs-incident-meta" style={{ flexWrap: "wrap" }}>
-                        {Object.entries(a.cambios).map(([campo, { antes, despues }]) => (
-                          <code key={campo} className="orgs-incident-code">
-                            {campo}: {JSON.stringify(antes)} → {JSON.stringify(despues)}
-                          </code>
-                        ))}
-                      </span>
-                    )}
-                    <span className="orgs-incident-time">{new Date(a.creado_en).toLocaleString("es-MX")}</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -670,7 +751,7 @@ function OrgSettings() {
                 </button>
               ))}
             </div>
-            <button className="orgs-refresh-btn" onClick={cargarIncidentes}>↺ Refrescar</button>
+            <IconButton accion="refrescar" label="Refrescar" tooltipPos="left" onClick={cargarIncidentes} />
           </div>
 
           {monitorLoading ? (
@@ -685,7 +766,8 @@ function OrgSettings() {
               {filtrados.map((inc, i) => {
                 const sev = SEV_MAP[inc.severity || inc.type || "info"] || SEV_MAP.info;
                 return (
-                  <div key={inc.id || i} className="orgs-incident-row">
+                  <button type="button" key={inc.id || i} className="orgs-incident-row orgs-card-click"
+                    onClick={() => setDetalle({ tipo: "monitor", item: inc, sev })}>
                     <span className={`orgs-sev-badge ${sev.cls}`}>{sev.label}</span>
                     <div className="orgs-incident-info">
                       <span className="orgs-incident-msg">{inc.message || inc.error || inc.msg || "Sin descripción"}</span>
@@ -695,13 +777,45 @@ function OrgSettings() {
                       </span>
                     </div>
                     {inc.status && <span className="orgs-incident-status">{inc.status}</span>}
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
       )}
+
+      {/* Detalle de una tarjeta de Auditoría o Monitor */}
+      <Modal abierto={!!detalle} onClose={() => setDetalle(null)} ancho={640}
+        titulo={detalle?.tipo === "auditoria" ? `${detalle.item.usuario || "—"} modificó ${detalle.item.entidad}` : (detalle?.sev?.label || "Incidente")}
+        subtitulo={detalle ? new Date(detalle.item.creado_en || detalle.item.timestamp).toLocaleString("es-MX", { dateStyle: "full", timeStyle: "medium" }) : undefined}>
+        {detalle?.tipo === "auditoria" && (
+          <div className="orgs-detalle">
+            <p><strong>Rol:</strong> {detalle.item.role || "—"} · <strong>Acción:</strong> {detalle.item.accion}{detalle.item.entidad_id ? <> · <strong>Registro:</strong> <code>{detalle.item.entidad_id}</code></> : null}</p>
+            {detalle.item.detalle && <p>{detalle.item.detalle}</p>}
+            {detalle.item.cambios && Object.keys(detalle.item.cambios).length > 0 && (
+              <div className="orgs-cambios">
+                {Object.entries(detalle.item.cambios).map(([campo, { antes, despues }]) => (
+                  <div key={campo} className="orgs-cambio">
+                    <span className="orgs-cambio-campo">{campo}</span>
+                    <span className="orgs-cambio-antes">{JSON.stringify(antes) ?? "—"}</span>
+                    <FiArrowRight aria-label="cambió a" />
+                    <span className="orgs-cambio-despues">{JSON.stringify(despues) ?? "—"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {detalle?.tipo === "monitor" && (
+          <div className="orgs-detalle">
+            <p>{detalle.item.message || detalle.item.error || detalle.item.msg || "Sin descripción"}</p>
+            {detalle.item.endpoint && <p><strong>Ruta:</strong> <code>{detalle.item.endpoint}</code></p>}
+            {detalle.item.status && <p><strong>Código:</strong> {detalle.item.status}</p>}
+            <pre className="orgs-json">{JSON.stringify(detalle.item, null, 2)}</pre>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 // ─── URL base desde variable de entorno ───────────────────────────────────────
 // En desarrollo: crea un archivo .env con REACT_APP_API_URL=http://localhost:5001
 // En producción: configura la variable en tu servidor/CI
+import { sessionHeaders } from "../../services/apiConfig";
+
 const API_URL = process.env.REACT_APP_API_URL;
 
 if (!API_URL) {
@@ -18,10 +20,7 @@ const jsonHeaders = {
   'Content-Type': 'application/json',
 };
 
-const authHeaders = () => {
-  const token = sessionStorage.getItem('access_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+const authHeaders = () => sessionHeaders();
 
 // ─── Función base para fetch con manejo de errores ───────────────────────────
 async function apiFetch(endpoint, options = {}) {

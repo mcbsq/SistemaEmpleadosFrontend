@@ -32,7 +32,7 @@ if (!API_URL) {
     "[apiConfig] REACT_APP_API_URL no está definida. Revisa el Dashboard de Vercel."
   );
 } else {
-  console.log("🔍 API_URL FINAL CONFIGURADA:", API_URL);
+  console.log("API_URL configurada:", API_URL);
 }
 
 export { API_URL };
@@ -41,6 +41,22 @@ export const defaultHeaders = {
   "Content-Type": "application/json",
   "Accept": "application/json",
 };
+
+/**
+ * Headers de sesión: token + universo (modo soporte). TODA llamada al backend
+ * debe llevarlos — sin X-Universo el servidor responde con la empresa de la
+ * cuenta (Cibercom) y en modo soporte se mezclarían los datos de dos
+ * empresas. Usar siempre este helper (o apiFetch), nunca armar el
+ * Authorization a mano.
+ */
+export function sessionHeaders() {
+  const token = sessionStorage.getItem("access_token");
+  const universo = sessionStorage.getItem("universo");
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(universo ? { "X-Universo": universo } : {}),
+  };
+}
 
 /**
  * Helper con manejo de errores, token automático y limpieza de rutas.
@@ -54,8 +70,6 @@ export async function apiFetch(endpoint, options = {}) {
   // Construcción de la URL final (Al ser absoluta gracias a la limpieza de arriba, no se concatenará)
   const finalUrl = `${API_URL}${cleanEndpoint}`;
 
-  console.log(`🚀 Solicitando [${options.method || "GET"}]:`, finalUrl);
-
   try {
     const response = await fetch(finalUrl, {
       ...options,
@@ -65,7 +79,7 @@ export async function apiFetch(endpoint, options = {}) {
       cache: "no-store",
       headers: {
         ...defaultHeaders,
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...sessionHeaders(),
         ...options.headers,
       },
     });
@@ -92,13 +106,18 @@ export async function apiFetch(endpoint, options = {}) {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error || errorData.message || `Error ${response.status}`;
-      throw new Error(errorMessage);
+      const err = new Error(errorMessage);
+      // Errores por campo (ej. {CURP: "formato inválido"}) para marcarlos
+      // junto a cada input en vez de un solo mensaje genérico.
+      err.status = response.status;
+      err.campos = errorData.campos || null;
+      throw err;
     }
 
     return await response.json();
     
   } catch (error) {
-    console.error(`❌ Error en apiFetch (${cleanEndpoint}):`, error.message);
+    console.error(`Error en apiFetch (${cleanEndpoint}):`, error.message);
     throw error;
   }
 }

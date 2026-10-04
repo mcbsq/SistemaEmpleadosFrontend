@@ -1,4 +1,4 @@
-import { API_URL, defaultHeaders } from "./apiConfig";
+import { API_URL, defaultHeaders, sessionHeaders } from "./apiConfig";
 import { contactoService } from "./contactoService";
 import { educacionService } from "./educacionService";
 import { clinicoService } from "./clinicoService";
@@ -6,13 +6,7 @@ import { rhService } from "./rhService";
 import { usuarioService } from "./usuarioService";
 
 // ─── Headers con token automático ─────────────────────────────────────────────
-const authHeaders = () => {
-  const token = sessionStorage.getItem("access_token");
-  return {
-    ...defaultHeaders,
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-};
+const authHeaders = () => ({ ...defaultHeaders, ...sessionHeaders() });
 
 // ─── Helpers para ofuscar/desofuscar el ID en la URL ─────────────────────────
 // Usa base64 simple — no es cifrado fuerte, pero oculta el ObjectId de Mongo

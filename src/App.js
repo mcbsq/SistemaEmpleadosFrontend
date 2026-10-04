@@ -11,6 +11,7 @@ import Empleados         from "./Components/Empleados";
 import AdminDashboard    from "./Components/AdminDashboard";
 import IncidentMonitor   from "./Components/IncidentMonitor";
 import VacacionesAprobacion from "./Components/VacacionesAprobacion";
+import { vacacionesService } from "./services/vacacionesService";
 import RoleManager       from "./Components/RoleManager";
 import GestionUsuarios   from "./Components/GestionUsuarios";
 import ConexionesExternas from "./Components/ConexionesExternas";
@@ -23,17 +24,26 @@ import Reclutamiento     from "./Components/Reclutamiento";
 import Desempeno         from "./Components/Desempeno";
 import Analitica         from "./Components/Analitica";
 import OnboardingTour    from "./Components/OnboardingTour";
+import AmbientBackground from "./Components/AmbientBackground";
+import AjustesPerfil     from "./Components/AjustesPerfil";
+import ContactoRH        from "./Components/ContactoRH";
+import BandejaRH         from "./Components/SolicitudesRH";
+import CargaMasiva       from "./Components/CargaMasiva";
+import MiResumen         from "./Components/MiResumen";
+import { MotionConfig }  from "framer-motion";
+import { perfilService, abrirAjustes, PERFIL_ACTUALIZADO } from "./services/perfilService";
 import PublicLanding     from "./pages/PublicLanding";
 import CompanyRegistration from "./pages/CompanyRegistration";
 import {
   FiGrid, FiUsers, FiShare2, FiList, FiSun, FiSettings,
-  FiShield, FiUser, FiMoon, FiLogOut, FiDollarSign, FiBriefcase, FiAward, FiBarChart2, FiSearch, FiGlobe,
+  FiShield, FiUser, FiMoon, FiLogOut, FiSettings as FiAjustes, FiInbox, FiUploadCloud, FiEye, FiDollarSign, FiBriefcase, FiAward, FiBarChart2, FiSearch, FiGlobe,
 } from "react-icons/fi";
 
 import DashboardContador from "./Components/dashboards/DashboardContador";
 import DashboardPM       from "./Components/dashboards/DashboardPM";
 import DashboardMedico   from "./Components/dashboards/DashboardMedico";
 import DashboardJefeArea from "./Components/dashboards/DashboardJefeArea";
+import DashboardRH       from "./Components/dashboards/DashboardRH";
 
 import { authService }             from "./services/authService";
 import { encodeId }                from "./services/empleadoService";
@@ -42,7 +52,8 @@ import { OrgProvider, useOrg }      from "./context/OrgContext";
 import { useSidebarGlow }          from "./hooks/useRevealOnScroll";
 import { roleLabel }               from "./utils/roleLabels";
 
-const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN"];
+// RH entra a todo lo de personas; la sección "Sistema" sigue siendo de SUPER_ADMIN.
+const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN", "RH"];
 
 // Rutas reales de un solo segmento que YA existen en el sistema — cualquier
 // otro segmento único en la URL (ej. /perrucho) se interpreta como el link
@@ -50,7 +61,7 @@ const ROLES_ADMIN = ["ADMIN", "SUPER_ADMIN"];
 const RESERVED_ROOT_SEGMENTS = new Set([
   "login", "dashboard", "empleados", "vacaciones", "nomina", "reclutamiento",
   "desempeno", "analitica", "settings", "roles", "cuentas", "integraciones",
-  "monitor", "perfil", "tenants", "registro",
+  "monitor", "perfil", "tenants", "registro", "solicitudes", "carga-masiva",
 ]);
 
 // Tenant propio de Cibercom — el mismo criterio que usa el backend
@@ -120,6 +131,9 @@ const DashboardPage = ({ userRole }) => {
   // sigue viendo únicamente el dashboard de su propio puesto.
   return (
     <div className="vertical-landing fade-in-page">
+      {/* Panel de RH primero: es lo que hay que ATENDER hoy (solicitudes,
+          vacaciones, expedientes incompletos). Lo ven RH, ADMIN y SUPER_ADMIN. */}
+      {isAdmin                                          && isModuleActive("dashboard_rh")        && <section id="rh-panel-section"><DashboardRH /></section>}
       {isAdmin                                          && isModuleActive("dashboard_admin")     && <section id="admin-dashboard-section"><AdminDashboard /></section>}
       {(isAdmin || userRole === "CONTADOR")              && isModuleActive("dashboard_contador")  && <section id="admin-dashboard-section"><DashboardContador /></section>}
       {(isAdmin || userRole === "PROJECT_MANAGER")       && isModuleActive("dashboard_pm")        && <section id="admin-dashboard-section"><DashboardPM /></section>}
@@ -143,6 +157,9 @@ function AppInner() {
   const { theme, toggleTheme } = useTheme();
   const { orgConfig, loadOrgConfig, isModuleActive } = useOrg();
   const orgName = orgConfig?.name || "Cibercom";
+  // El título de la pestaña sigue a la empresa que se está viendo (incluido
+  // el modo soporte), no a Cibercom fijo.
+  useEffect(() => { document.title = `Sistema de Empleados | ${orgName}`; }, [orgName]);
 
   // Carga la configuración de la organización (branding, módulos, políticas
   // de vacaciones) de la EMPRESA REAL del usuario logueado — multi-tenencia:
@@ -150,7 +167,9 @@ function AppInner() {
   // login), así que dos empresas nunca comparten branding/módulos. Antes de
   // loguearse no hay org_id todavía, así que se usa "default" solo para la
   // pantalla de login (branding genérico, no específico de ninguna empresa).
-  useEffect(() => { loadOrgConfig(authService.getOrgId()); }, [loadOrgConfig, userRole]);
+  useEffect(() => { loadOrgConfig(authService.getUniverso() || authService.getOrgId()); }, [loadOrgConfig, userRole]);
+  const universo = authService.getUniverso();
+  const salirDeUniverso = () => { authService.setUniverso(null); window.location.href = "/tenants"; };
   const navigate = useNavigate();
   const location = useLocation();
   const glowRef  = useRef(null);
@@ -171,8 +190,25 @@ function AppInner() {
   const isMonitorPage = location.pathname === "/monitor";
   const isAdmin       = ROLES_ADMIN.includes(userRole);
   const isSuperAdmin  = userRole === "SUPER_ADMIN";
-  const isOperadorCibercom = isSuperAdmin && authService.getOrgId() === TENANT_CIBERCOM;
+  // Solo la cuenta suprema de la plataforma (marca `plataforma`), no el
+  // administrador de la EMPRESA Cibercom — ver backend api/tenants/routes.py.
+  const isOperadorCibercom = isSuperAdmin && authService.getOrgId() === TENANT_CIBERCOM && authService.isPlataforma();
   const hasSpecialDashboard = ["CONTADOR","PROJECT_MANAGER","MEDICO","JEFE_AREA"].includes(userRole);
+
+  // ─── Mi tarjeta en la barra lateral (foto + nombre para mostrar) ─────────
+  const [miPerfil, setMiPerfil] = useState(null);
+  useEffect(() => {
+    const id = authService.getEmpleadoId();
+    if (!isAuthenticated || !id) { setMiPerfil(null); return; }
+    const cargar = () => perfilService.getPublico(id).then(setMiPerfil).catch(() => {});
+    cargar();
+    window.addEventListener(PERFIL_ACTUALIZADO, cargar);
+    return () => window.removeEventListener(PERFIL_ACTUALIZADO, cargar);
+  }, [isAuthenticated]);
+  const miNombre = miPerfil
+    ? (miPerfil.NombrePreferido || `${miPerfil.Nombre || ""} ${miPerfil.ApelPaterno || ""}`.trim())
+    : (sessionStorage.getItem("user_name") || "");
+  const miFoto = miPerfil?.Fotografias?.[0] || null;
 
   // ─── Slug del perfil propio ───────────────────────────────────────────────
   // Construye /Perfil/juan-perez y registra el mapeo slug→id
@@ -241,6 +277,17 @@ function AppInner() {
     }
   }, [navigate, location.pathname]);
 
+  // Doble visto bueno de vacaciones: cualquier persona que sea jefe directo
+  // de alguien revisa las solicitudes de su equipo, aunque su rol no tenga
+  // menú de Gestión. Solo se muestra la entrada si de verdad tiene alguna.
+  const [vacDeMiEquipo, setVacDeMiEquipo] = useState(0);
+  useEffect(() => {
+    if (!isAuthenticated || isAdmin || hasSpecialDashboard || !isModuleActive("vacaciones")) return;
+    vacacionesService.getPendientes()
+      .then(d => setVacDeMiEquipo(Array.isArray(d) ? d.length : 0))
+      .catch(() => setVacDeMiEquipo(0));
+  }, [isAuthenticated, isAdmin, hasSpecialDashboard, isModuleActive, location.pathname]);
+
   const navGroups = [
     {
       section: "Principal",
@@ -255,7 +302,10 @@ function AppInner() {
           ? [{ label: "Organigrama", icon: FiShare2, action: () => scrollTo("organigrama-section") }]
           : []),
         { label: "Evaluaciones", icon: FiAward, isLink: true, to: "/desempeno" },
-        { label: "Analítica", icon: FiBarChart2, isLink: true, to: "/analitica" },
+        ...(vacDeMiEquipo > 0
+          ? [{ label: "Vacaciones de mi equipo", icon: FiSun, isLink: true, to: "/vacaciones" }] : []),
+        // El empleado ve SU resumen, no la analítica de la empresa.
+        { label: userRole === "EMPLOYEE" ? "Mi resumen" : "Analítica", icon: FiBarChart2, isLink: true, to: "/analitica" },
       ],
     },
     ...(isAdmin || hasSpecialDashboard
@@ -264,6 +314,10 @@ function AppInner() {
           entries: [
             ...(isAdmin && isModuleActive("empleados_table")
               ? [{ label: "Empleados / RH", icon: FiList, isLink: true, to: "/empleados" }] : []),
+            ...(isAdmin
+              ? [{ label: "Solicitudes a RH", icon: FiInbox, isLink: true, to: "/solicitudes" }] : []),
+            ...((userRole === "RH" || userRole === "SUPER_ADMIN")
+              ? [{ label: "Carga masiva", icon: FiUploadCloud, isLink: true, to: "/carga-masiva" }] : []),
             ...(isModuleActive("vacaciones")
               ? [{ label: "Solicitudes de vacaciones", icon: FiSun, isLink: true, to: "/vacaciones" }] : []),
             ...((isAdmin || userRole === "CONTADOR")
@@ -293,7 +347,8 @@ function AppInner() {
       section: "Cuenta",
       entries: [
         // URL limpia: /Perfil/juan-perez
-        ...(mySlug ? [{ label: "Mi perfil", icon: FiUser, isLink: true, to: `/Perfil/${mySlug}`, tour: "mi-perfil" }] : []),
+        // Las cuentas administrativas no son personas de la plantilla: no tienen perfil.
+        ...(mySlug && !["SUPER_ADMIN", "ADMIN"].includes(userRole) ? [{ label: "Mi perfil", icon: FiUser, isLink: true, to: `/Perfil/${mySlug}`, tour: "mi-perfil" }] : []),
       ],
     },
   ];
@@ -303,10 +358,12 @@ function AppInner() {
 
   if (isMonitorPage) return <Routes><Route path="/monitor" element={<IncidentMonitor />} /></Routes>;
 
-  if (!isAuthenticated && location.pathname === "/") return <PublicLanding />;
-  if (!isAuthenticated && location.pathname === "/registro") return <CompanyRegistration />;
+  if (!isAuthenticated && location.pathname === "/") return <><AmbientBackground intensidad="alta" /><PublicLanding /></>;
+  if (!isAuthenticated && location.pathname === "/registro") return <><AmbientBackground intensidad="alta" /><CompanyRegistration /></>;
 
   if (isLoginPage) return (
+    <>
+    <AmbientBackground intensidad="alta" />
     <Routes>
       <Route path="/Login" element={
         isAuthenticated
@@ -320,10 +377,12 @@ function AppInner() {
       } />
       <Route path="*" element={<Navigate to="/Login" replace />} />
     </Routes>
+    </>
   );
 
   return (
     <div className="app-shell">
+      <AmbientBackground />
       <div className="noise-overlay" />
       <div className="ambient-glow" ref={glowRef} />
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
@@ -370,9 +429,18 @@ function AppInner() {
               <span className="sb-theme-icon">{theme === "dark" ? <FiSun /> : <FiMoon />}</span>
               <span className="sb-theme-label">{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
             </button>
-            <div className="sb-user-row"><span className="sb-user-role">{roleLabel(userRole)}</span></div>
+            <button type="button" className="sb-me" onClick={() => abrirAjustes("perfil")} aria-label="Abrir ajustes de perfil" title="Ajustes de perfil">
+              <span className="sb-me-avatar">
+                {miFoto ? <img src={miFoto} alt="" /> : <span>{(miNombre || "?").trim()[0]?.toUpperCase()}</span>}
+              </span>
+              <span className="sb-me-text">
+                <span className="sb-me-name">{miNombre || "Mi cuenta"}</span>
+                <span className="sb-me-role">{roleLabel(userRole)}</span>
+              </span>
+              <FiAjustes className="sb-me-gear" aria-hidden="true" />
+            </button>
             <button className="sb-logout" onClick={handleLogout}>
-              <FiLogOut style={{ marginRight: 6 }} />
+              <span className="sb-item-icon"><FiLogOut /></span>
               <span className="sb-item-label">Cerrar sesión</span>
             </button>
           </div>
@@ -381,6 +449,8 @@ function AppInner() {
 
       {isAuthenticated && <Spotlight userRole={userRole} />}
       {isAuthenticated && <OnboardingTour />}
+      {isAuthenticated && <AjustesPerfil />}
+      {isAuthenticated && <ContactoRH />}
 
       {isAuthenticated && (
         <header className="app-topbar">
@@ -394,7 +464,15 @@ function AppInner() {
       )}
 
       <main className="app-main">
-        <Routes location={location} key={location.pathname}>
+        {universo && (
+          <div className="universo-banner" role="status">
+            <FiEye aria-hidden="true" />
+            <span>Estás viendo el universo de <strong>{authService.getUniversoNombre()}</strong> · modo soporte, solo lectura</span>
+            <button type="button" onClick={salirDeUniverso} aria-label="Salir del universo" title="Salir del universo"><FiLogOut aria-hidden="true" /></button>
+          </div>
+        )}
+        <div className="route-view" key={location.pathname}>
+        <Routes location={location}>
           <Route path="/Login" element={
             isAuthenticated
               ? <Navigate to="/Dashboard" replace />
@@ -406,10 +484,12 @@ function AppInner() {
           {/* Sin restricción de rol estática: quién aprueba vacaciones es
               configurable por SUPER_ADMIN, y el backend es la frontera real. */}
           <Route path="/vacaciones" element={<PrivateRoute><div className="page-padded fade-in-page"><VacacionesAprobacion /></div></PrivateRoute>} />
-          <Route path="/nomina"     element={<RoleRoute roles={["ADMIN","SUPER_ADMIN","CONTADOR"]}><div className="page-padded fade-in-page"><PayrollTable /></div></RoleRoute>} />
+          <Route path="/nomina"     element={<RoleRoute roles={["ADMIN","SUPER_ADMIN","RH","CONTADOR"]}><div className="page-padded fade-in-page"><PayrollTable /></div></RoleRoute>} />
+          <Route path="/carga-masiva" element={<RoleRoute roles={["RH", "SUPER_ADMIN"]}><div className="page-padded fade-in-page"><CargaMasiva /></div></RoleRoute>} />
+          <Route path="/solicitudes" element={<RoleRoute roles={ROLES_ADMIN}><div className="page-padded fade-in-page"><BandejaRH /></div></RoleRoute>} />
           <Route path="/reclutamiento" element={<RoleRoute roles={ROLES_ADMIN}><div className="page-padded fade-in-page"><Reclutamiento /></div></RoleRoute>} />
           <Route path="/desempeno" element={<PrivateRoute><div className="page-padded fade-in-page"><Desempeno /></div></PrivateRoute>} />
-          <Route path="/analitica" element={<PrivateRoute><div className="page-padded fade-in-page"><Analitica /></div></PrivateRoute>} />
+          <Route path="/analitica" element={<PrivateRoute><div className="page-padded fade-in-page">{userRole === "EMPLOYEE" ? <MiResumen /> : <Analitica />}</div></PrivateRoute>} />
           <Route path="/settings"   element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><OrgSettings /></div></RoleRoute>} />
           <Route path="/roles"      element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><RoleManager /></div></RoleRoute>} />
           <Route path="/cuentas"    element={<RoleRoute roles={["SUPER_ADMIN"]}><div className="page-padded fade-in-page"><GestionUsuarios /></div></RoleRoute>} />
@@ -425,18 +505,28 @@ function AppInner() {
           <Route path="/monitor"    element={<RoleRoute roles={["SUPER_ADMIN"]}><IncidentMonitor /></RoleRoute>} />
           <Route path="*"           element={<Navigate to={isAuthenticated ? "/Dashboard" : "/Login"} replace />} />
         </Routes>
+        </div>
         <footer className="app-footer"><p>Copyright © 2026 | {orgName} Sistemas</p></footer>
       </main>
     </div>
   );
 }
 
+// framer-motion sigue la misma preferencia que el CSS (Ajustes → Preferencias
+// o "reducir movimiento" del sistema operativo).
+function MotionShell({ children }) {
+  const { reducedMotion } = useTheme();
+  return <MotionConfig reducedMotion={reducedMotion ? "always" : "never"}>{children}</MotionConfig>;
+}
+
 function App() {
   return (
     <ThemeProvider>
-      <OrgProvider>
-        <AppInner />
-      </OrgProvider>
+      <MotionShell>
+        <OrgProvider>
+          <AppInner />
+        </OrgProvider>
+      </MotionShell>
     </ThemeProvider>
   );
 }

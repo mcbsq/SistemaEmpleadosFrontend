@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { FiX, FiFileText } from "react-icons/fi";
+import { FiX, FiFileText, FiDownload } from "react-icons/fi";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function normalizePDF(raw) {
+export function normalizePDF(raw) {
   if (!raw) return null;
   if (Array.isArray(raw) && raw.length > 0) {
     const first = raw[0];
@@ -28,7 +28,7 @@ function fileSizeLabel(dataUrl) {
 }
 
 // ─── PDFViewer montado en document.body via portal ────────────────────────────
-function PDFViewer({ pdf, onClose, label }) {
+export function PDFViewer({ pdf, onClose, label }) {
   const [loading, setLoading] = useState(true);
 
   // Cerrar con Escape
@@ -60,7 +60,7 @@ function PDFViewer({ pdf, onClose, label }) {
         <div className="pdf-titlebar">
           <span className="pdf-title">{pdf.name}</span>
           <div className="pdf-toolbar-actions">
-            <button className="pdf-action-btn" onClick={handleDownload}>⬇ Descargar</button>
+            <button className="pdf-action-btn" onClick={handleDownload} aria-label="Descargar" title="Descargar"><FiDownload aria-hidden="true" /></button>
             <button className="pdf-close-btn" onClick={onClose} title="Cerrar"><FiX /></button>
           </div>
         </div>

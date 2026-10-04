@@ -6,7 +6,9 @@
 // 4. Vista previa del dashboard que verá el rol
 
 import React, { useEffect, useState, useCallback } from "react";
-import { FiCheck, FiX } from "react-icons/fi";
+import { roleLabel } from "../utils/roleLabels";
+import IconButton from "./IconButton";
+import { FiCheck, FiX, FiUserPlus, FiSliders } from "react-icons/fi";
 import "./RoleManager.css";
 import { usuarioService }  from "../services/usuarioService";
 import { empleadoService } from "../services/empleadoService";
@@ -55,9 +57,22 @@ const MODULOS_POR_ROL = {
   CONTADOR:        ["dashboard_contador","home_carousel","organigrama"],
   PROJECT_MANAGER: ["dashboard_pm","home_carousel","organigrama"],
   MEDICO:          ["dashboard_medico","home_carousel","organigrama"],
+  RH:              ["dashboard_rh","home_carousel","organigrama"],
 };
 
-const ROLES_SISTEMA = ["EMPLOYEE","JEFE_AREA","CONTADOR","PROJECT_MANAGER","MEDICO","ADMIN","SUPER_ADMIN"];
+// Qué hace cada rol de sistema, en una línea que entiende cualquiera.
+const DESCRIPCION_ROL = {
+  EMPLOYEE:        "Ve y actualiza su propio perfil, pide vacaciones y escribe a RH.",
+  JEFE_AREA:       "Ve a su equipo directo (horarios, vacaciones) y aprueba sus solicitudes.",
+  CONTADOR:        "Consulta sueldos, nómina y recibos de toda la empresa.",
+  PROJECT_MANAGER: "Ve la capacidad y las habilidades del equipo de proyectos.",
+  MEDICO:          "Consulta los expedientes clínicos.",
+  RH:              "Administra a todas las personas: expedientes, sueldos, vacaciones, carga masiva y solicitudes.",
+  ADMIN:           "Administra a las personas de las áreas que se le asignen.",
+  SUPER_ADMIN:     "Control total: configuración, roles, cuentas e integraciones.",
+};
+
+const ROLES_SISTEMA = ["EMPLOYEE","JEFE_AREA","CONTADOR","PROJECT_MANAGER","MEDICO","RH","ADMIN","SUPER_ADMIN"];
 
 // Roles a los que se les puede otorgar/quitar reportes de Analítica —
 // ADMIN y SUPER_ADMIN siempre ven todos, así que no aplica editarlos aquí.
@@ -73,6 +88,7 @@ const PERMISOS_SISTEMA = {
   PROJECT_MANAGER: ["ver_empleados","ver_proyectos","ver_habilidades","ver_organigrama","ver_dashboard","ver_carrusel"],
   MEDICO:          ["ver_empleados","ver_expediente","ver_organigrama","ver_dashboard","ver_carrusel"],
   ADMIN:           ["ver_empleados","crud_empleados","ver_expediente","ver_rh","ver_proyectos","ver_organigrama","ver_habilidades","ver_dashboard","ver_carrusel","ver_perfil_propio","ver_perfil_equipo"],
+  RH:              ["ver_empleados","crud_empleados","ver_expediente","ver_rh","ver_proyectos","ver_organigrama","ver_habilidades","ver_dashboard","ver_carrusel","ver_perfil_equipo"],
   SUPER_ADMIN:     ["*"],
 };
 
@@ -190,7 +206,7 @@ function RoleManager() {
   // ─── Todos los roles ──────────────────────────────────────────────────────
   const todosRoles = [
     ...ROLES_SISTEMA.map(r => ({
-      id: r, nombre: r, descripcion: "", sistema: true,
+      id: r, nombre: r, descripcion: DESCRIPCION_ROL[r] || "", sistema: true,
       color:    r === "SUPER_ADMIN" ? "blue" : r === "ADMIN" ? "green" :
                 r === "EMPLOYEE" ? "gray" : "amber",
       permisos: getPermsSistema(r),
@@ -405,7 +421,7 @@ function RoleManager() {
           <h2 className="rm-title">Gestión de roles</h2>
           <p className="rm-sub">{todosRoles.length} roles · {usuarios.length} usuarios</p>
         </div>
-        <button className="rm-btn-primary" onClick={abrirCrear}>+ Nuevo rol</button>
+        <IconButton accion="agregar" size="lg" label="Nuevo rol" tooltipPos="left" onClick={abrirCrear} />
       </div>
 
       {/* ─── Grid de roles ─────────────────────────────────────────── */}
@@ -417,8 +433,8 @@ function RoleManager() {
             <div key={rol.id || rol.nombre}
               className={`rm-rol-card ${rol.sistema ? "rm-rol-card--sistema" : ""}`}>
               <div className="rm-rol-card-top">
-                <span className="rm-rol-badge" style={{ background: bg, color: fg }}>
-                  {rol.nombre}
+                <span className="rm-rol-badge" style={{ background: bg, color: fg }} title={rol.nombre}>
+                  {rol.sistema ? roleLabel(rol.nombre) : rol.nombre}
                 </span>
                 {rol.sistema && <span className="rm-rol-sistema-tag">Sistema</span>}
               </div>
@@ -449,23 +465,15 @@ function RoleManager() {
                 </span>
                 <div className="rm-rol-actions">
                   {!isSuperAdmin && (
-                    <button className="rm-btn-action" onClick={() => abrirAsignar(rol)}>
-                      Asignar
-                    </button>
+                    <IconButton icon={FiUserPlus} size="sm" label={`Asignar ${rol.nombre} a una cuenta`} onClick={() => abrirAsignar(rol)} />
                   )}
                   {rol.sistema && !isSuperAdmin && (
-                    <button className="rm-btn-action rm-btn-action--edit"
-                      onClick={() => abrirEditarSistema(rol)}
-                      title="Editar permisos de este rol">
-                      Permisos
-                    </button>
+                    <IconButton icon={FiSliders} size="sm" label="Editar permisos de este rol" onClick={() => abrirEditarSistema(rol)} />
                   )}
                   {!rol.sistema && (
                     <>
-                      <button className="rm-btn-action rm-btn-action--edit"
-                        onClick={() => abrirEditar(rol)}>Editar</button>
-                      <button className="rm-btn-action rm-btn-action--danger"
-                        onClick={() => eliminarRol(rol)}><FiX /></button>
+                      <IconButton accion="editar" size="sm" label={`Editar ${rol.nombre}`} onClick={() => abrirEditar(rol)} />
+                      <IconButton accion="eliminar" size="sm" label={`Eliminar ${rol.nombre}`} onClick={() => eliminarRol(rol)} />
                     </>
                   )}
                 </div>
@@ -594,15 +602,13 @@ function RoleManager() {
 
             <div className="rm-modal-footer">
               {paso > 1 && (
-                <button className="rm-btn-secondary" onClick={() => setPaso(p => p-1)}>← Anterior</button>
+                <IconButton accion="anterior" label="Anterior" onClick={() => setPaso(p => p-1)} />
               )}
               <div style={{flex:1}} />
               {paso < 3
-                ? <button className="rm-btn-primary" onClick={() => setPaso(p => p+1)}
-                    disabled={paso===1 && !form.nombre.trim()}>Siguiente →</button>
-                : <button className="rm-btn-primary" onClick={guardarRol} disabled={saving}>
-                    {saving ? "Guardando…" : modal==="editar" ? "Guardar cambios" : "Crear rol"}
-                  </button>
+                ? <IconButton accion="siguiente" label="Siguiente" tooltipPos="left" onClick={() => setPaso(p => p+1)}
+                    disabled={paso===1 && !form.nombre.trim()} />
+                : <IconButton accion="guardar" busy={saving} label={modal==="editar" ? "Guardar cambios" : "Crear rol"} onClick={guardarRol} tooltipPos="left" />
               }
             </div>
           </div>
@@ -625,9 +631,7 @@ function RoleManager() {
             <PanelPermisos conReportes={ROLES_ANALITICA.includes(editSistema.nombre)} />
             <div className="rm-modal-footer">
               <div style={{flex:1}}/>
-              <button className="rm-btn-primary" onClick={guardarPermsSistema}>
-                Guardar permisos
-              </button>
+              <IconButton accion="guardar" label="Guardar permisos" onClick={guardarPermsSistema} tooltipPos="left" />
             </div>
           </div>
         </div>
@@ -678,12 +682,10 @@ function RoleManager() {
                                 : <span style={{ fontSize: "0.7rem", color: "#30a46c" }}>Aegis: activa</span>
                         )}
                       </div>
-                      <button
-                        className={`rm-btn-asignar ${yaTiene?"rm-btn-asignar--ya":""}`}
-                        onClick={() => !yaTiene && asignarRolAUsuario(uid)}
-                        disabled={saving || yaTiene}>
-                        {yaTiene ? "Ya asignado" : "Asignar →"}
-                      </button>
+                      {yaTiene
+                        ? <span className="rm-ya-asignado" aria-label="Ya asignado" title="Ya asignado"><FiCheck aria-hidden="true" /></span>
+                        : <IconButton accion="siguiente" size="sm" label="Asignar este rol" tooltipPos="left"
+                            onClick={() => asignarRolAUsuario(uid)} disabled={saving} />}
                     </div>
                   );
                 })}

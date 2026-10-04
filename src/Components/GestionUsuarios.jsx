@@ -5,9 +5,11 @@
 // vez, igual que al dar de alta un empleado. Cada reseteo queda en la
 // auditoría (quién y cuándo, nunca el valor).
 import React, { useState, useEffect, useCallback } from "react";
-import { FiUsers, FiRefreshCw, FiCheckCircle, FiXCircle, FiCopy, FiX, FiAlertTriangle } from "react-icons/fi";
+import { FiUsers, FiRefreshCw, FiCopy, FiX, FiAlertTriangle } from "react-icons/fi";
 import { usuarioService } from "../services/usuarioService";
 import { roleLabel } from "../utils/roleLabels";
+import { RecordCard } from "./RecordCard";
+import IconButton from "./IconButton";
 
 function getId(item) { return item?._id?.$oid || item?._id || ""; }
 
@@ -115,30 +117,21 @@ function GestionUsuarios() {
           <p>Sin usuarios registrados todavía.</p>
         </div>
       ) : (
-        <div className="orgs-incident-list">
+        <div className="rc-grid rc-grid--ancho mo-stagger">
           {usuarios.map(u => {
             const id = getId(u);
             const aegis = u.aegis;
+            const inactiva = aegis?.is_active === false;
+            const tono = inactiva || aegis === null ? "danger" : aegis?.must_change_password ? "warning" : "success";
+            const estado = inactiva ? "Inactiva" : aegis === null ? "Sin Aegis" : aegis?.must_change_password ? "Clave temporal" : "Activa";
             return (
-              <div key={id} className="orgs-incident-row">
-                <span className={`orgs-sev-badge ${aegis?.is_active === false ? "orgs-sev--error" : "orgs-sev--info"}`}>
-                  {aegis?.is_active === false ? <FiXCircle /> : <FiCheckCircle />}
-                </span>
-                <div className="orgs-incident-info">
-                  <span className="orgs-incident-msg">{u.user}</span>
-                  <span className="orgs-incident-meta">
-                    {roleLabel(u.role)}{u.email ? ` · ${u.email}` : ""}
-                    {aegis?.must_change_password && " · Pendiente de cambiar contraseña"}
-                    {aegis === null && " · Sin identidad Aegis vinculada"}
-                  </span>
-                </div>
-                <div className="orgs-apikey-actions">
-                  <button className="orgs-refresh-btn" onClick={() => restablecer(u)} disabled={reseteando === id}>
-                    <FiRefreshCw style={{ verticalAlign: "-2px", marginRight: 4 }} />
-                    {reseteando === id ? "Restableciendo…" : "Restablecer contraseña"}
-                  </button>
-                </div>
-              </div>
+              <RecordCard key={id} tono={tono}
+                tile={<span className="rc-tile-big">{(u.user || "?").slice(0, 2).toUpperCase()}</span>}
+                titulo={u.user}
+                badge={<span className={`rc-badge rc-badge--${tono}`}>{estado}</span>}
+                meta={<><span>{roleLabel(u.role)}</span>{u.email && <span className="rc-meta-trunc" title={u.email}>{u.email}</span>}</>}
+                acciones={<IconButton icon={FiRefreshCw} label="Restablecer contraseña" tooltipPos="left"
+                  busy={reseteando === id} disabled={reseteando === id} onClick={() => restablecer(u)} />} />
             );
           })}
         </div>

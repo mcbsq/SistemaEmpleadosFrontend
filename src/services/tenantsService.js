@@ -9,6 +9,10 @@ export const tenantsService = {
     method: "POST",
     body: JSON.stringify(data),
   }),
+  // Conteos de uso por empresa (personas, cuentas, solicitudes abiertas).
+  resumen: () => apiFetch("/admin/tenants/resumen"),
+  // Modo soporte: registra la entrada en la auditoría de esa empresa.
+  entrar: (orgId) => apiFetch(`/admin/tenants/${encodeURIComponent(orgId)}/entrar`, { method: "POST" }),
   deliverAccess: (orgId, data) => apiFetch(`/admin/tenants/${encodeURIComponent(orgId)}/deliver-access`, {
     method: "POST",
     body: JSON.stringify(data),

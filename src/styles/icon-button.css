@@ -1,0 +1,43 @@
+/* ── Botones de ícono + tooltip (ver Components/IconButton.jsx) ───────── */
+.icon-btn {
+  position: relative; display: inline-grid; place-items: center; flex-shrink: 0;
+  width: 40px; height: 40px; padding: 0; border-radius: 12px; cursor: pointer;
+  font-size: 1.05rem; line-height: 1;
+  border: 1px solid var(--hr-glass-border); background: rgba(255, 255, 255, 0.04); color: var(--hr-text-2);
+}
+.icon-btn--sm { width: 32px; height: 32px; border-radius: 10px; font-size: 0.92rem; }
+.icon-btn--lg { width: 46px; height: 46px; border-radius: 14px; font-size: 1.15rem; }
+.icon-btn:hover:not(:disabled) { color: var(--hr-text); border-color: var(--hr-border-hover); background: rgba(var(--hr-accent-rgb), 0.08); }
+.icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.icon-btn:focus-visible { outline: 2px solid var(--hr-accent); outline-offset: 2px; }
+
+.icon-btn--add  { color: var(--hr-accent-2); border-color: rgba(var(--hr-accent-2-rgb), 0.4); border-style: dashed; }
+.icon-btn--add:hover:not(:disabled)  { color: #fff; border-style: solid; border-color: transparent; background: linear-gradient(135deg, var(--hr-accent), #10b981); }
+.icon-btn--edit { color: var(--hr-accent-2); border-color: rgba(var(--hr-accent-2-rgb), 0.35); background: rgba(var(--hr-accent-2-rgb), 0.08); }
+.icon-btn--edit:hover:not(:disabled) { background: rgba(var(--hr-accent-2-rgb), 0.18); color: var(--hr-accent-2); }
+.icon-btn--save { color: #fff; border-color: transparent; background: linear-gradient(135deg, var(--hr-accent), #10b981); box-shadow: 0 8px 20px -10px rgba(var(--hr-accent-rgb), 0.8); }
+.icon-btn--save:hover:not(:disabled) { color: #fff; filter: brightness(1.1); background: linear-gradient(135deg, var(--hr-accent), #10b981); }
+.icon-btn--danger { color: var(--hr-danger); border-color: rgba(232, 107, 95, 0.3); background: rgba(232, 107, 95, 0.06); }
+.icon-btn--danger:hover:not(:disabled) { color: #fff; background: var(--hr-danger); border-color: var(--hr-danger); }
+[data-theme="light"] .icon-btn--add, [data-theme="light"] .icon-btn--edit { color: #0F6E56; }
+
+/* Tooltip: aparece con hover o foco de teclado, nunca tapa el clic */
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute; left: 50%; bottom: calc(100% + 8px); z-index: 50;
+  padding: 5px 9px; border-radius: 8px; white-space: nowrap; pointer-events: none;
+  font-size: 0.74rem; font-weight: 600; letter-spacing: 0.01em; text-transform: none;
+  color: #fff; background: rgba(12, 16, 28, 0.94); box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+  opacity: 0; transform: translate(-50%, 4px) scale(0.96);
+  transition: opacity 160ms var(--mo-ease, ease), transform 160ms var(--mo-ease, ease);
+}
+[data-tooltip-pos="bottom"]::after { bottom: auto; top: calc(100% + 8px); transform: translate(-50%, -4px) scale(0.96); }
+[data-tooltip-pos="left"]::after   { left: auto; right: calc(100% + 8px); bottom: 50%; transform: translate(4px, 50%) scale(0.96); }
+[data-tooltip-pos="right"]::after  { left: calc(100% + 8px); bottom: 50%; transform: translate(-4px, 50%) scale(0.96); }
+[data-tooltip]:hover::after, [data-tooltip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0) scale(1); transition-delay: 220ms; }
+[data-tooltip-pos="left"]:hover::after, [data-tooltip-pos="left"]:focus-visible::after,
+[data-tooltip-pos="right"]:hover::after, [data-tooltip-pos="right"]:focus-visible::after { transform: translate(0, 50%) scale(1); }
+[data-tooltip]:disabled::after { display: none; }
+
+/* Grupo de acciones (guardar + cancelar, etc.) */
+.icon-btn-group { display: inline-flex; align-items: center; gap: 8px; }

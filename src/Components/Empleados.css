@@ -576,6 +576,8 @@
 .modal-body .mb-3 { margin-bottom:14px !important; }
 .modal-body .row  { row-gap:14px; }
 .modal-footer { border:none !important; padding:20px 0 0 !important; }
+.emp-modal-footer { display:flex; justify-content:flex-end; }
+.modal-body .form-label { margin-top:10px; }
 .modal-footer .btn { border-radius:var(--hr-radius-sm) !important; height:46px; font-weight:600 !important; }
 .modal-footer .btn-primary {
   background:var(--hr-accent) !important; border:none !important;

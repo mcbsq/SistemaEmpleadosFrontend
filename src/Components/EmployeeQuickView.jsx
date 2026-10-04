@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { FiX } from "react-icons/fi";
+import { FiX, FiArrowRight } from "react-icons/fi";
 import "./EmployeeQuickView.css";
 import { contactoService } from "../services/contactoService";
 import { rhService }        from "../services/rhService";
@@ -189,7 +189,7 @@ function EmployeeQuickView({ emp, anchorRect, onClose }) {
         {/* ── Footer con link al perfil completo ───────────────────── */}
         <div className="eqv-footer">
           <Link to={`/Perfil/${empId}`} className="eqv-profile-btn" onClick={onClose}>
-            Ver perfil completo →
+            Ver perfil completo <FiArrowRight aria-hidden="true" className="btn-trail-icon" />
           </Link>
         </div>
       </div>

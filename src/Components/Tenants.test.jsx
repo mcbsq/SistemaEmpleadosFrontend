@@ -13,6 +13,7 @@ test("permite preparar una empresa vacía y muestra su liga", async () => {
     login_url: "https://cibercomrh.com/herramientas-y-moldes-industriales",
   });
   render(<Tenants />);
+  fireEvent.click(await screen.findByRole("button", { name: "Nueva empresa" }));
 
   fireEvent.change(await screen.findByLabelText("Nombre de la empresa"), {
     target: { value: "Herramientas y moldes industriales" },
@@ -44,6 +45,7 @@ test("envía a la primera administradora las credenciales generadas en AEGIS", a
   });
   tenantsService.deliverAccess.mockResolvedValue({ email_sent: true });
   render(<Tenants />);
+  fireEvent.click(await screen.findByRole("button", { name: "Nueva empresa" }));
 
   fireEvent.change(await screen.findByLabelText("Nombre de la empresa"), { target: { value: "Mi empresa" } });
   fireEvent.change(screen.getByLabelText("Slug"), { target: { value: "mi-empresa" } });

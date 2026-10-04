@@ -180,3 +180,97 @@
   .orgs-grid   { grid-template-columns: 1fr; }
   .orgs-tabs   { width: 100%; justify-content: flex-start; overflow-x: auto; }
 }
+/* Fondo animado (Identidad) */
+.orgs-card--ancha { grid-column: 1 / -1; }
+.orgs-grad { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 20px; align-items: start; }
+.orgs-grad-preview { position: relative; height: 210px; border-radius: 18px; overflow: hidden; border: 1px solid var(--hr-glass-border); }
+.orgs-grad-mesh { position: absolute; inset: 0; width: 100%; height: 100%; }
+.orgs-grad-controles { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.orgs-grad-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.orgs-grad-preset {
+  display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--hr-border); background: transparent; color: var(--hr-text-2); font-size: 0.82rem; font-weight: 600; text-align: left;
+}
+.orgs-grad-preset:hover { border-color: var(--hr-border-hover); color: var(--hr-text); }
+.orgs-grad-preset.is-on { border-color: var(--hr-accent); color: var(--hr-text); box-shadow: 0 0 0 3px rgba(var(--hr-accent-rgb), 0.18); }
+.orgs-grad-preset:focus-visible { outline: 2px solid var(--hr-accent); outline-offset: 2px; }
+.orgs-grad-swatch { width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; }
+.orgs-grad-colores { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.orgs-grad-color { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.74rem; color: var(--hr-muted); font-variant-numeric: tabular-nums; }
+.orgs-grad-color input { width: 100%; height: 40px; padding: 2px !important; border-radius: 10px; cursor: pointer; }
+@media (max-width: 800px) { .orgs-grad { grid-template-columns: 1fr; } .orgs-grad-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ═══ Tarjetas en Configuración, Cuentas, Integraciones, Monitor ═══
+   Las listas de filas se vuelven una cuadrícula de tarjetas de vidrio. */
+.orgs-incident-list, .orgs-module-list, .orgs-kpi-list {
+  display: grid !important; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;
+}
+.orgs-incident-row, .orgs-module-row, .orgs-kpi-row {
+  position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 12px;
+  min-width: 0; margin: 0 !important; padding: 16px !important; border-radius: 18px !important;
+  border: 1px solid var(--hr-glass-border) !important; background: var(--hr-glass-bg) !important;
+  backdrop-filter: var(--hr-blur); -webkit-backdrop-filter: var(--hr-blur);
+  text-align: left; color: var(--hr-text); font: inherit;
+  transition: transform var(--mo-base) var(--mo-ease), border-color var(--mo-base) var(--mo-ease), box-shadow var(--mo-base) var(--mo-ease);
+}
+.orgs-incident-row:hover, .orgs-module-row:hover, .orgs-kpi-row:hover {
+  border-color: rgba(var(--hr-accent-rgb), 0.4) !important; box-shadow: 0 16px 34px -20px rgba(var(--hr-accent-rgb), 0.8);
+}
+.orgs-card-click { cursor: pointer; width: 100%; }
+.orgs-card-click:hover { transform: translateY(-3px); }
+.orgs-card-click:focus-visible { outline: 2px solid var(--hr-accent); outline-offset: 2px; }
+.orgs-incident-info, .orgs-module-info { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.orgs-incident-msg {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  overflow-wrap: anywhere; line-height: 1.45;
+}
+.orgs-incident-meta { overflow-wrap: anywhere; }
+.orgs-apikey-actions { flex-basis: 100%; display: flex; justify-content: flex-end; gap: 6px; }
+.orgs-kpi-row { align-items: center; }
+.orgs-module-row { align-items: center; justify-content: space-between; }
+
+.orgs-detalle { display: flex; flex-direction: column; gap: 10px; color: var(--hr-text-2); line-height: 1.55; }
+.orgs-detalle p { margin: 0; overflow-wrap: anywhere; }
+.orgs-detalle code, .orgs-cambio span { font-variant-numeric: tabular-nums; }
+.orgs-cambios { display: flex; flex-direction: column; gap: 8px; }
+.orgs-cambio {
+  display: grid; grid-template-columns: 120px minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px; border: 1px solid var(--hr-border); background: rgba(255, 255, 255, 0.03);
+}
+.orgs-cambio-campo { font-weight: 600; color: var(--hr-text); overflow-wrap: anywhere; }
+.orgs-cambio-antes { color: var(--hr-danger); text-decoration: line-through; overflow-wrap: anywhere; }
+.orgs-cambio-despues { color: #10b981; overflow-wrap: anywhere; }
+.orgs-json {
+  margin: 0; max-height: 260px; overflow: auto; padding: 12px; border-radius: 12px; font-size: 0.78rem;
+  background: rgba(0, 0, 0, 0.3); color: var(--hr-text-2); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+@media (max-width: 560px) { .orgs-cambio { grid-template-columns: 1fr; } }
+
+/* Flujo de aprobación de vacaciones (doble visto bueno) */
+.orgs-flujo { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.orgs-flujo-paso {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid var(--hr-glass-border); background: var(--hr-glass-bg);
+  transition: opacity var(--mo-base, .25s) var(--mo-ease, ease);
+}
+.orgs-flujo-paso .orgs-module-info { flex: 1; min-width: 0; }
+.orgs-flujo-paso.is-off { opacity: 0.55; }
+.orgs-flujo-num {
+  flex-shrink: 0; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
+  font-weight: 700; font-size: 0.85rem; color: #fff; background: linear-gradient(135deg, var(--hr-accent), #10b981);
+}
+.orgs-flujo-fijo { flex-shrink: 0; color: #10b981; font-size: 1.2rem; }
+
+/* Catálogo de puestos por área (pop-up de Áreas) */
+.orgs-puestos { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
+.orgs-puesto {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 6px 4px 10px; border-radius: 999px;
+  font-size: 0.82rem; color: var(--hr-text); background: rgba(var(--hr-accent-rgb), 0.12); border: 1px solid rgba(var(--hr-accent-rgb), 0.3);
+}
+.orgs-puesto button {
+  display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%;
+  background: transparent; color: var(--hr-text-2); cursor: pointer;
+}
+.orgs-puesto button:hover { color: #fff; background: var(--hr-danger); }
+.orgs-puesto-nuevo { display: flex; gap: 8px; align-items: center; }
+.orgs-puesto-nuevo .orgs-input { flex: 1; min-width: 0; }
