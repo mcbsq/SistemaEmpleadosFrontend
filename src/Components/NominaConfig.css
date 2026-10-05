@@ -24,3 +24,23 @@
   font-size: var(--hr-font-lg);
 }
 .payroll-filters{display:grid;grid-template-columns:minmax(220px,1fr) repeat(3,minmax(150px,.35fr));gap:10px;margin:20px 0}.payroll-filters label{display:flex;align-items:center;gap:8px}.payroll-filters input,.payroll-filters select{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid rgba(90,100,120,.22);border-radius:10px;background:var(--hr-surface,#fff);color:inherit}.payroll-state{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;background:var(--hr-surface,#fff);border:1px solid rgba(90,100,120,.13);border-radius:16px;padding:30px}.payroll-state>svg{font-size:2rem;color:var(--hr-accent,#5b8af0)}.payroll-state p{max-width:580px;color:var(--hr-muted,#667085)}.payroll-state--error{color:#b84040}.payroll-table-wrap{overflow:auto;background:var(--hr-surface,#fff);border:1px solid rgba(90,100,120,.13);border-radius:16px}.payroll-table{width:100%;border-collapse:collapse;min-width:920px}.payroll-table th,.payroll-table td{text-align:left;padding:14px 16px;border-bottom:1px solid rgba(90,100,120,.1)}.payroll-table th{font-size:.76rem;text-transform:uppercase;letter-spacing:.04em;color:var(--hr-muted,#667085)}.payroll-table td small{display:block;color:var(--hr-muted,#667085)}.payroll-status{display:inline-block;padding:5px 9px;border-radius:99px;background:rgba(100,110,130,.12);text-transform:capitalize}.payroll-status--paid{background:rgba(35,133,109,.12);color:#23856d}.payroll-status--cancelled{background:rgba(184,64,64,.1);color:#b84040}@media(max-width:850px){.payroll-filters{grid-template-columns:1fr 1fr}}@media(max-width:520px){.payroll-filters{grid-template-columns:1fr}}
+
+/* Prestaciones, aguinaldo y horas extra */
+.nom-prest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+.nom-check { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.9rem; color: var(--hr-text); cursor: pointer; }
+.nom-tabla-wrap { overflow-x: auto; border: 1px solid var(--hr-border); border-radius: 14px; }
+.nom-tabla { width: 100%; border-collapse: collapse; font-size: 0.86rem; min-width: 640px; }
+.nom-tabla th, .nom-tabla td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--hr-border); white-space: nowrap; }
+.nom-tabla th:first-child, .nom-tabla td:first-child { text-align: left; white-space: normal; }
+.nom-tabla th { color: var(--hr-muted); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.nom-tabla td { font-variant-numeric: tabular-nums; }
+.nom-tabla tfoot td { font-weight: 700; border-bottom: none; }
+.nom-tabla tbody tr:last-child td { border-bottom: none; }
+.nom-sub { display: block; color: var(--hr-muted); font-size: 0.76rem; }
+.nom-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+.nom-toolbar .orgs-input { max-width: 180px; }
+.nom-toolbar-fill { flex: 1; }
+.nom-aviso { color: var(--hr-muted); font-size: 0.84rem; margin: 10px 0 0; }
+.nom-semana { border: 1px solid var(--hr-border); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+.nom-semana-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-weight: 600; }
+.nom-alerta { color: var(--hr-warning, #f5a623); font-size: 0.8rem; margin: 6px 0 0; }

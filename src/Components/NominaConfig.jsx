@@ -11,15 +11,20 @@ import "./NominaConfig.css";
 
 const getId = (item) => item?._id?.$oid || item?._id || "";
 
-function NominaConfig() {
+const mesActual = () => new Date().toISOString().slice(0, 7);
+const pesos = (v) => `$${Number(v || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+function NominaConfig({ embebido = false }) {
   const [params, setParams] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [empleados, setEmpleados] = useState([]);
   const [empleadoSel, setEmpleadoSel] = useState("");
   const [periodo, setPeriodo] = useState("mensual");
+  const [mes, setMes] = useState(mesActual());
   const [resultado, setResultado] = useState(null);
   const [calcError, setCalcError] = useState("");
   const [calculando, setCalculando] = useState(false);
@@ -41,12 +46,12 @@ function NominaConfig() {
   useEffect(() => { cargar(); }, [cargar]);
 
   const handleGuardar = async () => {
-    setSaving(true);
+    setSaving(true); setSaveError("");
     try {
       await apiFetch("/nomina/parametros", { method: "PUT", body: JSON.stringify(params) });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch { /* noop */ }
+    } catch (e) { setSaveError(e.message || "No se pudieron guardar los parámetros."); }
     finally { setSaving(false); }
   };
 
@@ -81,7 +86,7 @@ function NominaConfig() {
     if (!empleadoSel) return;
     setCalculando(true); setCalcError(""); setResultado(null);
     try {
-      const data = await apiFetch(`/nomina/calcular/${empleadoSel}?periodo=${periodo}`);
+      const data = await apiFetch(`/nomina/calcular/${empleadoSel}?periodo=${periodo}${periodo === "mensual" ? `&mes=${mes}` : ""}`);
       setResultado(data);
     } catch (e) {
       setCalcError(e.message || "No se pudo calcular la nómina.");
@@ -98,8 +103,10 @@ function NominaConfig() {
     <div className="orgs-root">
       <div className="hr-page-header">
         <div>
-          <h2 className="hr-title"><FiDollarSign style={{ marginRight: 8, verticalAlign: "-3px" }} />Motor de nómina</h2>
-          <p className="hr-subtitle">Parámetros de ISR, IMSS y deducciones · ADMIN / CONTADOR</p>
+          {embebido
+            ? <h3 className="hr-card-title" style={{ margin: 0 }}>Parámetros y calculadora</h3>
+            : <h2 className="hr-title"><FiDollarSign style={{ marginRight: 8, verticalAlign: "-3px" }} />Motor de nómina</h2>}
+          <p className="hr-subtitle">ISR, IMSS, deducciones, aguinaldo y horas extra. Es un cálculo de referencia, no timbrado ante el SAT.</p>
         </div>
         <IconButton accion="guardar" size="lg" icon={saved ? FiCheck : undefined} busy={saving}
           label={saved ? "Guardado" : "Guardar parámetros"} onClick={handleGuardar} tooltipPos="left" />
@@ -117,6 +124,34 @@ function NominaConfig() {
               onChange={e => setParams(p => ({ ...p, imss_porcentaje: Number(e.target.value) }))}
             />
           </div>
+        </div>
+
+        <div className="hr-card">
+          <div className="hr-card-title">Prestaciones</div>
+          <p className="orgs-desc">Aguinaldo (mínimo de ley: 15 días) y base de las horas extra. La UMA es el tope de las partes exentas de ISR; actualízala cada enero.</p>
+          <div className="nom-prest-grid">
+            <div className="orgs-field">
+              <label className="orgs-label" htmlFor="nom-dias-ag">Días de aguinaldo</label>
+              <input id="nom-dias-ag" type="number" min="15" step="1" className="orgs-input" value={params.dias_aguinaldo ?? 15}
+                onChange={e => setParams(p => ({ ...p, dias_aguinaldo: Number(e.target.value) }))} />
+            </div>
+            <div className="orgs-field">
+              <label className="orgs-label" htmlFor="nom-uma">UMA diaria</label>
+              <input id="nom-uma" type="number" min="0" step="0.01" className="orgs-input" value={params.uma_diaria ?? ""}
+                onChange={e => setParams(p => ({ ...p, uma_diaria: Number(e.target.value) }))} />
+            </div>
+            <div className="orgs-field">
+              <label className="orgs-label" htmlFor="nom-jornada">Horas de la jornada</label>
+              <input id="nom-jornada" type="number" min="1" max="8" step="0.5" className="orgs-input" value={params.jornada_horas ?? 8}
+                onChange={e => setParams(p => ({ ...p, jornada_horas: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <label className="nom-check">
+            <input type="checkbox" checked={params.horas_extra_habilitadas !== false}
+              onChange={e => setParams(p => ({ ...p, horas_extra_habilitadas: e.target.checked }))} />
+            Pagar horas extra en la nómina
+          </label>
+          {saveError && <p className="field-error" style={{ marginTop: 8 }}>{saveError}</p>}
         </div>
 
         <div className="hr-card">
@@ -168,6 +203,9 @@ function NominaConfig() {
             <option value="mensual">Mensual</option>
             <option value="quincenal">Quincenal</option>
           </select>
+          {periodo === "mensual" && (
+            <input type="month" aria-label="Mes" className="orgs-input" style={{ maxWidth: 170 }} value={mes} onChange={e => setMes(e.target.value)} />
+          )}
           <button className="orgs-save-btn" onClick={handleCalcular} disabled={!empleadoSel || calculando}>
             {calculando ? "Calculando…" : "Calcular"}
           </button>
@@ -177,6 +215,10 @@ function NominaConfig() {
 
         {resultado && (
           <div className="nom-resultado">
+            {resultado.horas_extra && (<>
+              <div className="nom-resultado-row"><span>Sueldo</span><strong>{pesos(resultado.sueldo)}</strong></div>
+              <div className="nom-resultado-row"><span>Horas extra ({resultado.horas_extra.dobles} h dobles, {resultado.horas_extra.triples} h triples)</span><strong>{pesos(resultado.horas_extra.monto)}</strong></div>
+            </>)}
             <div className="nom-resultado-row"><span>Percepción bruta</span><strong>${resultado.percepcion_bruta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</strong></div>
             <div className="nom-resultado-row"><span>ISR</span><strong>-${resultado.isr.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</strong></div>
             <div className="nom-resultado-row"><span>IMSS</span><strong>-${resultado.imss.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</strong></div>

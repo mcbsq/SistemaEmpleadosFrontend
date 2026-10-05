@@ -12,6 +12,7 @@ import { useTheme }         from "../../context/ThemeContext";
 import { coloresGradiente } from "../../utils/gradiente";
 import IconButton           from "../IconButton";
 import { MisSolicitudes }   from "../SolicitudesRH";
+import { BajaModal, BajaAviso, ReingresoModal } from "./BajaEmpleado";
 import { abrirContactoRH }  from "../../services/solicitudesRhService";
 import { AnimatePresence, motion } from "framer-motion";
 import { MeshGradient }     from "@paper-design/shaders-react";
@@ -23,7 +24,7 @@ import { direccionService } from "../../services/direccionService";
 import { catalogoService, FALLBACK } from "../../services/catalogoService";
 import {
   FiAlertTriangle, FiCheck, FiX, FiMail, FiUser, FiHome,
-  FiBriefcase, FiDollarSign, FiSun, FiHeart, FiFileText, FiEyeOff, FiLoader, FiCamera, FiSettings, FiMessageSquare,
+  FiBriefcase, FiDollarSign, FiSun, FiHeart, FiFileText, FiEyeOff, FiLoader, FiCamera, FiSettings, FiMessageSquare, FiUserX,
 } from "react-icons/fi";
 
 import {
@@ -110,6 +111,7 @@ function DeleteModal({ empleado, onConfirm, onCancel, loading }) {
         <h3 className="vp-title" id="del-title">Eliminar empleado</h3>
         <p className="vp-sub" id="del-desc">
           Se borrará a <strong>{empleado?.Nombre} {empleado?.ApelPaterno}</strong> con todo su expediente. Esta acción no se puede deshacer.
+          {" "}Si la persona dejó la empresa, usa mejor <strong>Dar de baja</strong>: conserva el expediente y cuenta en la rotación.
         </p>
         <div className="vp-actions">
           <IconButton accion="cancelar" size="lg" label="Cancelar" onClick={onCancel} disabled={loading} autoFocus />
@@ -139,6 +141,8 @@ function Perfil() {
   const [saveStatus,    setSaveStatus]    = useState(null);
   const [rhErrores,     setRhErrores]     = useState({});
   const [deleteModal,   setDeleteModal]   = useState(false);
+  const [bajaModal,     setBajaModal]     = useState(false);
+  const [reingresoModal, setReingresoModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [listaEmpleados,   setListaEmpleados]   = useState([]);
@@ -490,6 +494,10 @@ function Perfil() {
 
   return (
     <div className="Perfil">
+      <BajaModal abierto={bajaModal} empleado={empleado} onClose={() => setBajaModal(false)}
+        onHecho={() => { setBajaModal(false); cargarPerfil(); }} />
+      <ReingresoModal abierto={reingresoModal} empleado={empleado} onClose={() => setReingresoModal(false)}
+        onHecho={() => { setReingresoModal(false); cargarPerfil(); }} />
       {deleteModal && (
         <DeleteModal empleado={empleado} onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteModal(false)} loading={deleteLoading} />
@@ -583,6 +591,9 @@ function Perfil() {
                   <IconButton accion="cancelar" size="lg" label="Cancelar" onClick={cancelarEdicion} />
                 </>
               )}
+              {esRH && !isEditing && !esPropio && empleado.estado !== "baja" && (
+                <IconButton icon={FiUserX} tone="danger" size="lg" label="Dar de baja" onClick={() => setBajaModal(true)} />
+              )}
               {esSuperAdmin && esRH && !isEditing && !esPropio && (
                 <IconButton accion="eliminar" size="lg" label="Eliminar empleado" onClick={() => setDeleteModal(true)} />
               )}
@@ -590,6 +601,10 @@ function Perfil() {
           )}
         </div>
       </header>
+
+      {empleado.estado === "baja" && (
+        <BajaAviso baja={empleado.baja} puedeReingresar={esRH && !esPropio} onReingresar={() => setReingresoModal(true)} />
+      )}
 
       {/* ── Pestañas ─────────────────────────────────────────────────────── */}
       {tabsVisibles.length > 1 && (

@@ -4,7 +4,7 @@
 // le otorgó permiso (ADMIN/SUPER_ADMIN siempre ven todo).
 import React, { useState, useEffect, useCallback } from "react";
 import IconButton from "./IconButton";
-import { FiBarChart2, FiLock, FiUsers, FiDollarSign, FiSun, FiAward, FiBriefcase, FiEye, FiX } from "react-icons/fi";
+import { FiBarChart2, FiLock, FiUsers, FiDollarSign, FiSun, FiAward, FiBriefcase, FiEye, FiX, FiUserMinus } from "react-icons/fi";
 import { apiFetch, API_URL, sessionHeaders } from "../services/apiConfig";
 import "./Analitica.css";
 
@@ -175,6 +175,51 @@ export function ReportesCard({ compact = false }) {
   );
 }
 
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const etiquetaMes = (ym) => { const [y, m] = ym.split("-"); return `${MESES[Number(m) - 1]} ${y.slice(2)}`; };
+
+// Rotación mensual: columnas = % de rotación del mes; debajo, bajas y altas.
+function RotacionCard({ rot }) {
+  const maxPct = Math.max(...rot.por_mes.map(m => m.rotacion_pct), 1);
+  const maxArea = Math.max(...rot.por_area.map(a => a.bajas), 1);
+  const maxTipo = Math.max(...rot.por_tipo.map(t => t.total), 1);
+  return (
+    <div className="hr-card" style={{ marginTop: 20 }}>
+      <div className="hr-card-title">Rotación de personal · últimos 12 meses</div>
+      <p className="orgs-desc" style={{ marginTop: 0 }}>
+        {rot.rotacion_pct}% en el periodo: {rot.bajas} bajas sobre una plantilla promedio de {((rot.plantilla_inicial + rot.plantilla_final) / 2).toFixed(1)} personas.
+        Rotación del mes = bajas ÷ plantilla promedio del mes.
+      </p>
+      <div className="an-rot-chart" role="img" aria-label={`Rotación mensual: ${rot.por_mes.map(m => `${etiquetaMes(m.mes)} ${m.rotacion_pct}%`).join(", ")}`}>
+        {rot.por_mes.map(m => (
+          <div key={m.mes} className="an-rot-col" title={`${etiquetaMes(m.mes)}: ${m.rotacion_pct}% · ${m.bajas} bajas · ${m.altas} altas · plantilla ${m.plantilla_final}`}>
+            <span className="an-rot-pct">{m.rotacion_pct > 0 ? `${m.rotacion_pct}%` : ""}</span>
+            <div className="an-rot-track"><div className="an-rot-bar" style={{ height: `${(m.rotacion_pct / maxPct) * 100}%` }} /></div>
+            <span className="an-rot-mes">{etiquetaMes(m.mes)}</span>
+            <span className="an-rot-mov"><b className="is-baja">−{m.bajas}</b> <b className="is-alta">+{m.altas}</b></span>
+          </div>
+        ))}
+      </div>
+      {rot.bajas > 0 && (
+        <div className="an-rot-split">
+          <div>
+            <div className="an-rot-sub">Bajas por área</div>
+            {rot.por_area.filter(a => a.bajas > 0).map((a, i) => (
+              <HBar key={a.area} label={`${a.area} (${a.rotacion_pct}%)`} value={a.bajas} max={maxArea} color={COLORS[(i + 4) % COLORS.length]} />
+            ))}
+          </div>
+          <div>
+            <div className="an-rot-sub">Bajas por tipo</div>
+            {rot.por_tipo.map((t, i) => (
+              <HBar key={t.tipo} label={t.label} value={t.total} max={maxTipo} color={COLORS[i % COLORS.length]} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Analitica() {
   const [resumen, setResumen] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -191,7 +236,7 @@ function Analitica() {
       <div className="hr-page-header">
         <div>
           <h2 className="hr-title"><FiBarChart2 style={{ marginRight: 8, verticalAlign: "-3px" }} />Analítica del sistema</h2>
-          <p className="hr-subtitle">Vista completa de headcount, nómina, vacaciones, desempeño y reclutamiento</p>
+          <p className="hr-subtitle">Vista completa de headcount, rotación, nómina, vacaciones, desempeño y reclutamiento</p>
         </div>
       </div>
 
@@ -209,6 +254,7 @@ function Analitica() {
             {resumen.nomina && <StatTile icon={FiDollarSign} label="Masa salarial neta" value={`$${resumen.nomina.masa_salarial_neta.toLocaleString("es-MX")}`} sub={`${resumen.nomina.empleados_en_nomina} en nómina`} color={COLORS[1]} />}
             {resumen.vacaciones && <StatTile icon={FiSun} label="Días de vacaciones tomados" value={resumen.vacaciones.dias_aprobados_anio} sub={`${resumen.vacaciones.solicitudes_pendientes} solicitudes pendientes`} color={COLORS[2]} />}
             {resumen.desempeno && <StatTile icon={FiAward} label="Autoevaluación promedio" value={resumen.desempeno.promedio_autoevaluacion ?? "—"} sub={`${resumen.desempeno.completadas}/${resumen.desempeno.total} completadas · ${resumen.desempeno.ciclo}`} color={COLORS[3]} />}
+            {resumen.rotacion && <StatTile icon={FiUserMinus} label="Rotación (12 meses)" value={`${resumen.rotacion.rotacion_pct}%`} sub={`${resumen.rotacion.bajas} bajas · ${resumen.rotacion.altas} altas`} color={COLORS[4]} />}
             {resumen.reclutamiento && <StatTile icon={FiBriefcase} label="Vacantes abiertas" value={resumen.reclutamiento.vacantes_abiertas} sub={`${resumen.reclutamiento.candidatos_total} candidatos en pipeline`} color={COLORS[4]} />}
           </div>
 
@@ -220,6 +266,8 @@ function Analitica() {
               ))}
             </div>
           )}
+
+          {resumen.rotacion && <RotacionCard rot={resumen.rotacion} />}
 
           {resumen.reclutamiento && Object.keys(resumen.reclutamiento.por_etapa).length > 0 && (
             <div className="hr-card" style={{ marginTop: 20 }}>

@@ -20,7 +20,7 @@ const ESTADOS = {
 };
 const iniciales = (n = "") => n.trim().split(/\s+/).slice(0, 2).map(x => x[0]?.toUpperCase()).join("") || "?";
 
-export default function PayrollTable() {
+export default function PayrollTable({ embebido = false }) {
   const [filters, setFilters] = useState({ search: "", status: "", period_start: "", period_end: "", page: 1, page_size: 25 });
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -39,12 +39,16 @@ export default function PayrollTable() {
 
   return (
     <div className="orgs-root payroll-root">
-      <div className="hr-page-header">
-        <div>
-          <h2 className="hr-title"><FiDollarSign style={{ marginRight: 8, verticalAlign: "-3px" }} />Nómina</h2>
-          <p className="hr-subtitle">Recibos que vienen de tu sistema de nómina. Toca uno para ver su detalle.</p>
+      {embebido ? (
+        <p className="hr-subtitle" style={{ margin: "0 0 12px" }}>Recibos que vienen de tu sistema de nómina. Toca uno para ver su detalle.</p>
+      ) : (
+        <div className="hr-page-header">
+          <div>
+            <h2 className="hr-title"><FiDollarSign style={{ marginRight: 8, verticalAlign: "-3px" }} />Nómina</h2>
+            <p className="hr-subtitle">Recibos que vienen de tu sistema de nómina. Toca uno para ver su detalle.</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="payroll-filters">
         <label><FiSearch aria-hidden="true" /><input aria-label="Buscar" name="search" placeholder="Empleado o número" value={filters.search} onChange={change} /></label>
