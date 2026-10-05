@@ -5,8 +5,9 @@
 // vez, igual que al dar de alta un empleado. Cada reseteo queda en la
 // auditoría (quién y cuándo, nunca el valor).
 import React, { useState, useEffect, useCallback } from "react";
-import { FiUsers, FiRefreshCw, FiCopy, FiX, FiAlertTriangle } from "react-icons/fi";
+import { FiUsers, FiRefreshCw, FiCopy, FiX, FiAlertTriangle, FiSmartphone } from "react-icons/fi";
 import { usuarioService } from "../services/usuarioService";
+import { apiFetch } from "../services/apiConfig";
 import { roleLabel } from "../utils/roleLabels";
 import { RecordCard } from "./RecordCard";
 import IconButton from "./IconButton";
@@ -73,6 +74,19 @@ function GestionUsuarios() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Si alguien pierde su teléfono: sus celulares dejan de entrar a la app con
+  // Face ID / huella y tendrán que volver a escribir la contraseña.
+  const desvincular = async (u) => {
+    if (!window.confirm(`¿Desvincular los celulares de "${u.user}"? Tendrá que volver a escribir su contraseña en la app.`)) return;
+    setError("");
+    try {
+      const r = await apiFetch(`/usuario/${getId(u)}/dispositivos`, { method: "DELETE" });
+      window.alert(r.desvinculados ? `Se desvincularon ${r.desvinculados} celular(es).` : "Esta cuenta no tenía celulares vinculados.");
+    } catch (e) {
+      setError(e.message || "No se pudieron desvincular los celulares.");
+    }
+  };
+
   const restablecer = async (u) => {
     const id = getId(u);
     if (!window.confirm(`¿Restablecer la contraseña de "${u.user}"? Se generará una nueva contraseña temporal.`)) return;
@@ -130,8 +144,11 @@ function GestionUsuarios() {
                 titulo={u.user}
                 badge={<span className={`rc-badge rc-badge--${tono}`}>{estado}</span>}
                 meta={<><span>{roleLabel(u.role)}</span>{u.email && <span className="rc-meta-trunc" title={u.email}>{u.email}</span>}</>}
-                acciones={<IconButton icon={FiRefreshCw} label="Restablecer contraseña" tooltipPos="left"
-                  busy={reseteando === id} disabled={reseteando === id} onClick={() => restablecer(u)} />} />
+                acciones={<>
+                  <IconButton icon={FiSmartphone} label="Desvincular celulares (Face ID / huella)" tooltipPos="left" onClick={() => desvincular(u)} />
+                  <IconButton icon={FiRefreshCw} label="Restablecer contraseña" tooltipPos="left"
+                    busy={reseteando === id} disabled={reseteando === id} onClick={() => restablecer(u)} />
+                </>} />
             );
           })}
         </div>
