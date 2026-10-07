@@ -319,3 +319,15 @@
 .rm-modal { backdrop-filter: var(--hr-blur); -webkit-backdrop-filter: var(--hr-blur); border-radius: 22px !important; }
 .rm-overlay { backdrop-filter: blur(10px) saturate(140%); -webkit-backdrop-filter: blur(10px) saturate(140%); }
 .rm-ya-asignado { display:inline-grid; place-items:center; width:32px; height:32px; border-radius:10px; color:#10b981; background:rgba(16,185,129,0.12); }
+
+/* Guía y roles ocultos (pruebas TST, oct 2026) */
+.rm-guia {
+  margin: 0 0 18px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--hr-border);
+  background: rgba(255, 255, 255, 0.03); color: var(--hr-muted); font-size: 0.88rem; line-height: 1.55;
+}
+.rm-guia strong, .rm-guia em { color: var(--hr-text); font-style: normal; font-weight: 600; }
+.rm-ver-ocultos {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 8px 14px; border-radius: 10px;
+  border: 1px solid var(--hr-border); background: transparent; color: var(--hr-muted); font: inherit; font-size: 0.86rem; cursor: pointer;
+}
+.rm-ver-ocultos:hover { color: var(--hr-text); border-color: var(--hr-accent); }

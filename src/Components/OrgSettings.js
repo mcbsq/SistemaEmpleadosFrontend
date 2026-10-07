@@ -2,13 +2,14 @@
 // Monitor de errores integrado como tab — el /monitor ya no necesita ser ruta separada.
 // Acceso: solo SUPER_ADMIN (controlado por RoleRoute en App.js)
 
+import { confirmar } from "../services/dialogo";
 import React, { useState, useEffect, useCallback } from "react";
 import Modal from "./Modal";
 import { MeshGradient } from "@paper-design/shaders-react";
 import { PRESETS_GRADIENTE, coloresGradiente } from "../utils/gradiente";
 import IconButton from "./IconButton";
 import { RecordCard } from "./RecordCard";
-import { FiZap, FiCheck, FiKey, FiFileText, FiGitBranch, FiTrash2, FiArrowRight, FiX } from "react-icons/fi";
+import { FiZap, FiCheck, FiKey, FiFileText, FiGitBranch, FiTrash2, FiArrowRight, FiX, FiUpload } from "react-icons/fi";
 import { useOrg } from "../context/OrgContext";
 import { apiFetch } from "../services/apiConfig";
 import { catalogodeptoService } from "../services/catalogodeptoService";
@@ -43,17 +44,71 @@ const TABS = [
   { id: "modulos",     label: "Módulos"     },
   { id: "kpis",        label: "KPIs"        },
   { id: "areas",       label: "Áreas"       },
+  { id: "expediente",  label: "Expediente"  },
   { id: "vacaciones",  label: "Vacaciones"  },
   { id: "apikeys",     label: "API Keys"    },
   { id: "auditoria",   label: "Auditoría"   },
   { id: "monitor",     label: "Monitor", icon: FiZap },
 ];
 
+// Campos de domicilio que cada empresa decide pedir (backend: api/org/logic.py).
+const CAMPOS_DIR = [
+  ["Calle", "Calle"], ["NumExterior", "Número exterior"], ["NumInterior", "Número interior"],
+  ["Colonia", "Colonia"], ["Manzana", "Manzana"], ["Lote", "Lote"],
+  ["Municipio", "Municipio / alcaldía"], ["Ciudad", "Estado"], ["CodigoP", "Código postal"],
+];
+const CAMPOS_DIR_DEFAULT = {
+  Calle: "obligatorio", NumExterior: "obligatorio", NumInterior: "opcional", Colonia: "obligatorio",
+  Manzana: "opcional", Lote: "opcional", Municipio: "obligatorio", Ciudad: "obligatorio", CodigoP: "obligatorio",
+};
+
+// Logo: se reduce en el navegador a 256 px y se guarda como PNG (también los
+// SVG, para que la app móvil pueda mostrarlo).
+function leerLogo(file) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) { reject(new Error("Usa una imagen PNG, JPG, WebP o SVG.")); return; }
+    const lector = new FileReader();
+    lector.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    lector.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("No se pudo abrir la imagen."));
+      img.onload = () => {
+        const lado = Math.max(img.width || 256, img.height || 256);
+        const escala = Math.min(1, 256 / lado) || 1;
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * escala); c.height = Math.round(img.height * escala);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/png"));
+      };
+      img.src = lector.result;
+    };
+    lector.readAsDataURL(file);
+  });
+}
+
+// Áreas en árbol: primero las de primer nivel y debajo, sangradas, las que dependen de cada una.
+function areasEnArbol(areas) {
+  const nombres = new Set(areas.map(a => a.NombreDepto));
+  const hijos = {};
+  areas.forEach(a => { const p = a.DeptoPadre && nombres.has(a.DeptoPadre) ? a.DeptoPadre : ""; (hijos[p] = hijos[p] || []).push(a); });
+  const out = [];
+  const visitar = (padre, nivel, vistos) => (hijos[padre] || []).sort((x, y) => x.NombreDepto.localeCompare(y.NombreDepto)).forEach(a => {
+    if (vistos.has(a.NombreDepto)) return;
+    out.push({ ...a, _nivel: nivel });
+    visitar(a.NombreDepto, nivel + 1, new Set([...vistos, a.NombreDepto]));
+  });
+  visitar("", 0, new Set());
+  return out;
+}
+
 function OrgSettings() {
   const { orgConfig, updateOrgConfig } = useOrg();
 
   const [activeTab,    setActiveTab]    = useState("identidad");
   const [localName,    setLocalName]    = useState(orgConfig?.name     || "");
+  const [localLogo,    setLocalLogo]    = useState(orgConfig?.logo     || null);
+  const [logoError,    setLogoError]    = useState("");
+  const [localCamposDir, setLocalCamposDir] = useState({ ...CAMPOS_DIR_DEFAULT, ...(orgConfig?.campos_direccion || {}) });
   const [localSessionMinutes, setLocalSessionMinutes] = useState(orgConfig?.sessionMinutes || 30);
   const [localColors,  setLocalColors]  = useState(orgConfig?.branding || {});
   const [localModules, setLocalModules] = useState(orgConfig?.modules  || {});
@@ -134,7 +189,7 @@ function OrgSettings() {
   };
 
   const handleEliminarArea = async (area) => {
-    if (!window.confirm(`¿Eliminar el área "${area.NombreDepto}" del catálogo? Los empleados que ya la tengan asignada no se ven afectados.`)) return false;
+    if (!(await confirmar(`¿Eliminar el área "${area.NombreDepto}" del catálogo? Los empleados que ya la tengan asignada no se ven afectados.`))) return false;
     await catalogodeptoService.delete(area._id.$oid || area._id);
     cargarAreas();
     return true;
@@ -201,7 +256,7 @@ function OrgSettings() {
   };
 
   const handleEliminarApiKey = async (id) => {
-    if (!window.confirm("¿Eliminar esta API key? Los sistemas que la usen dejarán de conectarse.")) return false;
+    if (!(await confirmar("¿Eliminar esta API key? Los sistemas que la usen dejarán de conectarse."))) return false;
     await apiFetch(`/apikeys/${id}`, { method: "DELETE" }).catch(() => null);
     cargarApiKeys();
     return true;
@@ -283,6 +338,7 @@ function OrgSettings() {
       await updateOrgConfig({
         name: localName, branding: localColors, modules: localModules, kpis: localKpis,
         vacaciones: localVacaciones, sessionMinutes: localSessionMinutes,
+        logo: localLogo || "", campos_direccion: localCamposDir,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -324,6 +380,27 @@ function OrgSettings() {
             <div className="orgs-field">
               <label className="orgs-label">Nombre de la empresa</label>
               <input className="orgs-input" value={localName} onChange={e => setLocalName(e.target.value)} placeholder="Nombre de tu organización" />
+            </div>
+            <div className="orgs-field">
+              <span className="orgs-label">Logo</span>
+              <div className="orgs-logo-row">
+                <div className="orgs-logo-preview">
+                  {localLogo ? <img src={localLogo} alt="Logo de la empresa" /> : <span>{(localName || "?")[0]}</span>}
+                </div>
+                <label className="perfil-baja-btn" style={{ cursor: "pointer" }}>
+                  <FiUpload aria-hidden="true" /> {localLogo ? "Cambiar logo" : "Subir logo"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden
+                    onChange={async e => {
+                      const f = e.target.files?.[0]; e.target.value = "";
+                      if (!f) return;
+                      setLogoError("");
+                      try { setLocalLogo(await leerLogo(f)); } catch (err) { setLogoError(err.message); }
+                    }} />
+                </label>
+                {localLogo && <IconButton accion="eliminar" size="sm" label="Quitar logo" onClick={() => setLocalLogo(null)} />}
+              </div>
+              <p className="orgs-desc" style={{ margin: "6px 0 0" }}>Aparece en el menú, en la página de acceso de tu empresa y en la app. Guarda los cambios para aplicarlo.</p>
+              {logoError && <p className="field-error">{logoError}</p>}
             </div>
           </div>
           <div className="hr-card">
@@ -443,11 +520,12 @@ function OrgSettings() {
       {activeTab === "areas" && (
         <div className="hr-card">
           <div className="hr-card-title"><FiGitBranch style={{ verticalAlign: "-2px", marginRight: 6 }} />Jerarquía de áreas</div>
-          <p className="orgs-desc">
-            Define de qué área depende cada una (ej. "Tecnología" depende de "Dirección General").
-            El Organigrama dibuja el árbol de arriba hacia abajo exactamente como quede aquí — las áreas
-            sin "Depende de" quedan como primer nivel, justo debajo de la empresa.
-          </p>
+          <ol className="orgs-guia">
+            <li><strong>Empieza por arriba.</strong> Da de alta primero el área de mayor nivel (ej. Dirección General) sin "Depende de".</li>
+            <li><strong>Baja un nivel a la vez.</strong> Después agrega las áreas que le reportan (Comercial, Producción, RH…) eligiendo de quién dependen. Solo puedes elegir áreas que ya existen.</li>
+            <li><strong>Agrega los puestos.</strong> Abre cada área y escribe sus puestos; los empleados los eligen de esa lista en su perfil.</li>
+          </ol>
+          <p className="orgs-desc">El Organigrama dibuja el árbol tal como quede aquí.</p>
 
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <IconButton accion="agregar" label="Agregar área" tooltipPos="left" onClick={() => setModalArea(true)} />
@@ -513,15 +591,42 @@ function OrgSettings() {
           ) : areas.length === 0 ? (
             <p className="orgs-desc" style={{ marginTop: 16 }}>Sin áreas en el catálogo todavía — el Organigrama seguirá mostrando un árbol de un solo nivel hasta que definas al menos una jerarquía aquí.</p>
           ) : (
-            <div className="rc-grid mo-stagger" style={{ marginTop: 16 }}>
-              {areas.map(a => (
-                <RecordCard key={a.NombreDepto} tono={a.DeptoPadre ? "accent" : "success"} onClick={() => setAreaAbierta(a)}
-                  tile={<FiGitBranch />} titulo={a.NombreDepto}
-                  badge={<span className={`rc-badge rc-badge--${a.DeptoPadre ? "accent" : "success"}`}>{a.DeptoPadre ? "Subárea" : "Primer nivel"}</span>}
-                  meta={<>{a.DeptoPadre && <span>Depende de {a.DeptoPadre}</span>}<span>{(a.Puestos || []).length} {(a.Puestos || []).length === 1 ? "puesto" : "puestos"}</span></>} />
+            <div className="orgs-arbol mo-stagger" style={{ marginTop: 16 }}>
+              {areasEnArbol(areas).map(a => (
+                <div key={a.NombreDepto} className="orgs-arbol-nodo" style={{ "--nivel": a._nivel }}>
+                  <RecordCard tono={a._nivel ? "accent" : "success"} onClick={() => setAreaAbierta(a)}
+                    tile={<FiGitBranch />} titulo={a.NombreDepto}
+                    badge={<span className={`rc-badge rc-badge--${a._nivel ? "accent" : "success"}`}>{a._nivel ? `Nivel ${a._nivel + 1}` : "Primer nivel"}</span>}
+                    meta={<>{a.DeptoPadre && <span>Depende de {a.DeptoPadre}</span>}<span>{(a.Puestos || []).length} {(a.Puestos || []).length === 1 ? "puesto" : "puestos"}</span></>} />
+                </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Expediente: qué datos de domicilio son obligatorios ───────── */}
+      {activeTab === "expediente" && (
+        <div className="hr-card">
+          <div className="hr-card-title">Datos de domicilio</div>
+          <p className="orgs-desc">
+            Decide qué pide tu empresa al dar de alta a alguien. <strong>Obligatorio</strong>: no se puede guardar sin él.
+            <strong> Opcional</strong>: se muestra pero puede quedar vacío. <strong>Oculto</strong>: no se pide (si ya tiene dato, se sigue viendo).
+          </p>
+          <div className="orgs-campos">
+            {CAMPOS_DIR.map(([campo, label]) => (
+              <div key={campo} className="orgs-campo">
+                <span>{label}</span>
+                <div className="orgs-seg" role="radiogroup" aria-label={label}>
+                  {["obligatorio", "opcional", "oculto"].map(v => (
+                    <button key={v} type="button" role="radio" aria-checked={localCamposDir[campo] === v}
+                      className={localCamposDir[campo] === v ? "is-on" : ""}
+                      onClick={() => setLocalCamposDir(c => ({ ...c, [campo]: v }))}>{v[0].toUpperCase() + v.slice(1)}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

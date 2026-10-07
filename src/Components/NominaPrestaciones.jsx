@@ -1,6 +1,7 @@
 // src/Components/NominaPrestaciones.jsx
 // Aguinaldo del año y horas extra. Los cálculos los hace el backend
 // (api/nomina/prestaciones.py, con la LFT): aquí solo se muestran.
+import { confirmar } from "../services/dialogo";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FiClock, FiCheck, FiX } from "react-icons/fi";
 import IconButton from "./IconButton";
@@ -173,7 +174,7 @@ export function HorasExtra() {
     cargar();
   };
   const eliminar = async (r) => {
-    if (!window.confirm(`¿Eliminar ${r.horas} h de ${r.nombre} del ${fechaCorta(r.fecha)}?`)) return;
+    if (!(await confirmar(`¿Eliminar ${r.horas} h de ${r.nombre} del ${fechaCorta(r.fecha)}?`))) return;
     await apiFetch(`/horas-extra/${r._id}`, { method: "DELETE" }).catch(e => setError(e.message));
     cargar();
   };

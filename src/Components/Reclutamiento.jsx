@@ -1,6 +1,7 @@
 // src/Components/Reclutamiento.jsx
 // Vacantes + candidatos con pipeline por etapas — patrón simplificado de
 // sistemas de mercado (Greenhouse/BambooHR). Solo ADMIN/SUPER_ADMIN.
+import { confirmar } from "../services/dialogo";
 import React, { useState, useEffect, useCallback } from "react";
 import Modal from "./Modal";
 import IconButton from "./IconButton";
@@ -91,7 +92,7 @@ function Reclutamiento() {
   };
 
   const handleEliminarVacante = async (v) => {
-    if (!window.confirm(`¿Eliminar la vacante "${v.titulo}" y sus candidatos?`)) return;
+    if (!(await confirmar(`¿Eliminar la vacante "${v.titulo}" y sus candidatos?`))) return;
     await apiFetch(`/vacantes/${v._id}`, { method: "DELETE" });
     if (vacanteActiva?._id === v._id) setVacanteActiva(null);
     cargarVacantes();
@@ -112,7 +113,7 @@ function Reclutamiento() {
   };
 
   const handleEliminarCandidato = async (candidato) => {
-    if (!window.confirm(`¿Quitar a ${candidato.nombre} de esta vacante?`)) return;
+    if (!(await confirmar(`¿Quitar a ${candidato.nombre} de esta vacante?`))) return;
     await apiFetch(`/candidatos/${candidato._id}`, { method: "DELETE" });
     cargarCandidatos(vacanteActiva._id);
     cargarVacantes();

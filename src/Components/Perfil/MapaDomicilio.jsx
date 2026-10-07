@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { FiX, FiMapPin } from "react-icons/fi";
+import { FiX, FiMapPin, FiCrosshair } from "react-icons/fi";
 import IconButton from "../IconButton";
 
 let leafletLoaded = false;
@@ -43,7 +43,11 @@ async function geocodificar(direccion) {
 }
 
 // ─── Mapa inline (el que se renderiza dentro del popup) ───────────────────────
-function MapaInline({ direccion, lat, lng, isEditing, onCoordsChange }) {
+// Fuera de edición el pin SIEMPRE marca la ubicación guardada (o la de la
+// dirección) y no se mueve. En edición, arrastrarlo solo PROPONE una
+// ubicación (onPendiente); se aplica con "Usar esta ubicación" y se puede
+// volver a la de la dirección. Cerrar sin aplicar no cambia nada.
+function MapaInline({ direccion, lat, lng, isEditing, onPendiente, recentrar = 0 }) {
   const containerRef = useRef(null);
   const mapRef       = useRef(null);
   const [status, setStatus] = useState("idle");
@@ -80,34 +84,35 @@ function MapaInline({ direccion, lat, lng, isEditing, onCoordsChange }) {
       marker.on("dragend", (e) => {
         const { lat: newLat, lng: newLng } = e.target.getLatLng();
         setCoords({ lat: newLat, lng: newLng });
-        onCoordsChange?.(newLat, newLng);
+        onPendiente?.(newLat, newLng);
       });
     }
 
     // Forzar resize después de montar — necesario cuando el contenedor
     // cambia de tamaño al abrirse el modal
     setTimeout(() => map.invalidateSize(), 100);
-  }, [isEditing, label, onCoordsChange]);
+  }, [isEditing, label, onPendiente]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setStatus("loading");
-      let clat = lat, clng = lng;
+      // recentrar > 0: "Volver a la dirección" — ignora lo guardado y geocodifica.
+      let clat = recentrar ? null : lat, clng = recentrar ? null : lng;
       if (!clat || !clng) {
         const geo = await geocodificar(direccion || {});
         if (cancelled) return;
         if (!geo) { setStatus("error"); return; }
         clat = geo.lat; clng = geo.lng;
-        setCoords({ lat: clat, lng: clng });
-        onCoordsChange?.(clat, clng);
+        if (recentrar) onPendiente?.(clat, clng);
       }
+      setCoords({ lat: clat, lng: clng });
       await initMap(clat, clng);
       if (!cancelled) setStatus("ok");
     }
     load();
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line
+  }, [recentrar]); // eslint-disable-line
 
   useEffect(() => {
     if (coords && status === "ok") initMap(coords.lat, coords.lng);
@@ -145,7 +150,7 @@ function MapaInline({ direccion, lat, lng, isEditing, onCoordsChange }) {
         }}
       />
       {isEditing && status === "ok" && (
-        <p className="mapa-drag-hint">Arrastra el pin para ajustar la ubicación exacta</p>
+        <p className="mapa-drag-hint">Arrastra el pin y luego toca "Usar esta ubicación"</p>
       )}
       {coords && (
         <p className="mapa-coords">{coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}</p>
@@ -158,6 +163,9 @@ function MapaInline({ direccion, lat, lng, isEditing, onCoordsChange }) {
 function MapaPopupFullscreen({ direccion, lat, lng, isEditing, onCoordsChange, onClose }) {
   const label = [direccion?.Calle, direccion?.NumExterior, direccion?.Municipio]
     .filter(Boolean).join(", ");
+  const [pendiente, setPendiente] = useState(null);
+  const [recentrar, setRecentrar] = useState(0);
+  const proponer = useCallback((la, ln) => setPendiente({ lat: la, lng: ln }), []);
 
   // Bloquear scroll del body mientras el popup está abierto
   useEffect(() => {
@@ -189,17 +197,29 @@ function MapaPopupFullscreen({ direccion, lat, lng, isEditing, onCoordsChange, o
             </svg>
             {label || "Domicilio del empleado"}
           </div>
-          <button className="mapa-fs-close" onClick={onClose} title="Cerrar (Esc)"><FiX /></button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {isEditing && (
+              <IconButton icon={FiCrosshair} label="Volver a la ubicación de la dirección" tooltipPos="left"
+                onClick={() => setRecentrar(n => n + 1)} />
+            )}
+            {isEditing && pendiente && (
+              <IconButton accion="confirmar" label="Usar esta ubicación" tooltipPos="left"
+                onClick={() => { onCoordsChange?.(pendiente.lat, pendiente.lng); onClose(); }} />
+            )}
+            <button className="mapa-fs-close" onClick={onClose} title="Cerrar (Esc)"><FiX /></button>
+          </div>
         </div>
 
         {/* Mapa ocupa todo el espacio restante */}
         <div className="mapa-fs-body">
           <MapaInline
+            key={recentrar}
             direccion={direccion}
             lat={lat}
             lng={lng}
             isEditing={isEditing}
-            onCoordsChange={onCoordsChange}
+            onPendiente={proponer}
+            recentrar={recentrar}
           />
         </div>
 
@@ -233,7 +253,7 @@ function MapaPopup({ direccion, lat, lng, isEditing, onCoordsChange }) {
 // ─── Export ───────────────────────────────────────────────────────────────────
 export default function MapaDomicilio({ direccion, lat, lng, isEditing=false, onCoordsChange, mode="popup" }) {
   if (mode === "inline") {
-    return <MapaInline direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} />;
+    return <MapaInline direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onPendiente={onCoordsChange} />;
   }
   return <MapaPopup direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} />;
 }

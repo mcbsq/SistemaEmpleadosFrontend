@@ -3,6 +3,7 @@
 // sistema, consumida en vivo y mostrada en el perfil del empleado). La API
 // key nunca se vuelve a mostrar en claro tras crearla — el backend solo
 // regresa un preview enmascarado.
+import { confirmar } from "../services/dialogo";
 import React, { useState, useEffect, useCallback } from "react";
 import Modal from "./Modal";
 import IconButton from "./IconButton";
@@ -65,7 +66,7 @@ function ConexionesExternas() {
   };
 
   const eliminar = async (c) => {
-    if (!window.confirm(`¿Eliminar la conexión "${c.nombre}"? Los perfiles dejarán de mostrar sus datos.`)) return;
+    if (!(await confirmar(`¿Eliminar la conexión "${c.nombre}"? Los perfiles dejarán de mostrar sus datos.`))) return;
     await conexionesExternasService.delete(c._id).catch(() => {});
     cargar();
   };

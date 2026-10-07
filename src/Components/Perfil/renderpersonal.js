@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { confirmar } from "../../services/dialogo";
 import IconButton from "../IconButton";
 import { RecordCard } from "../RecordCard";
 import { abrirContactoRH } from "../../services/solicitudesRhService";
@@ -16,7 +17,7 @@ import { prestamoService } from "../../services/prestamoService";
 import { conexionesExternasService } from "../../services/conexionesExternasService";
 import { PDFAttachment, PDFViewer, normalizePDF } from "./PDFAttachment";
 import MapaDomicilio from "./MapaDomicilio";
-import { API_URL, sessionHeaders } from "../../services/apiConfig";
+import { API_URL, sessionHeaders, apiFetch } from "../../services/apiConfig";
 import { catalogodeptoService } from "../../services/catalogodeptoService";
 
 // Descarga un .ics autenticado (fetch + blob, ya que un <a href> normal no
@@ -115,8 +116,15 @@ export const DescriptionRenderer = ({ isEditing, descripcion, setDescripcion }) 
 
 // Un correo marcado "principal" (radio) — igual que RedesSocialesRenderer:
 // agregar/quitar filas libremente, nunca un solo campo de texto.
-export const InfoPersonalRenderer = ({ isEditing, datoscontacto, handleInputChangedatoscontacto }) => {
+export const InfoPersonalRenderer = ({ isEditing, datoscontacto, handleInputChangedatoscontacto, errores = {} }) => {
   const dc = datoscontacto ?? {};
+  const soloDigitos = (t) => String(t || "").replace(/\D/g, "");
+  // WhatsApp suele ser el mismo número que el celular: se marca en vez de reescribirlo.
+  const waIgual = !!dc.telefonoC && soloDigitos(dc.IDwhatsapp) === soloDigitos(dc.telefonoC);
+  const cambiarCelular = (v) => {
+    handleInputChangedatoscontacto("telefonoC", v);
+    if (waIgual) handleInputChangedatoscontacto("IDwhatsapp", v);
+  };
   const correos = dc.correos?.length ? dc.correos : [];
   const setCorreos = (next) => handleInputChangedatoscontacto("correos", next);
   const addCorreo    = () => setCorreos([...correos, { email: "", principal: correos.length === 0 }]);
@@ -132,14 +140,25 @@ export const InfoPersonalRenderer = ({ isEditing, datoscontacto, handleInputChan
     <div className="section-inner">
       <h3 className="section-title">Datos de contacto</h3>
       <div className="field-grid">
-        <Field label="Celular"  value={dc.telefonoC}  isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("telefonoC", v)}  type="tel" />
-        <Field label="Fijo"     value={dc.telefonoF}  isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("telefonoF", v)}  type="tel" />
-        <Field label="WhatsApp" value={dc.IDwhatsapp} isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("IDwhatsapp", v)} type="tel" />
+        <Field label="Celular"  value={dc.telefonoC}  isEditing={isEditing} onChange={cambiarCelular}  type="tel" error={errores.TelCelular} />
+        <Field label="Fijo"     value={dc.telefonoF}  isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("telefonoF", v)}  type="tel" error={errores.TelFijo}
+          hint={isEditing ? "Opcional; no puede ser el mismo que el celular." : undefined} />
+        <div className="field-row">
+          <Field label="WhatsApp" value={dc.IDwhatsapp} isEditing={isEditing && !waIgual} onChange={v => handleInputChangedatoscontacto("IDwhatsapp", v)} type="tel" error={errores.IdWhatsApp} />
+          {isEditing && (
+            <label className="nom-check">
+              <input type="checkbox" checked={waIgual} disabled={!dc.telefonoC}
+                onChange={e => handleInputChangedatoscontacto("IDwhatsapp", e.target.checked ? dc.telefonoC : "")} />
+              Es el mismo que el celular
+            </label>
+          )}
+        </div>
         <Field label="Telegram" value={dc.IDtelegram} isEditing={isEditing} onChange={v => handleInputChangedatoscontacto("IDtelegram", v)} />
       </div>
 
       <div className="field-row">
         <span className="field-label">Correos</span>
+        {errores.ListaCorreos && <span className="field-error" role="alert">{errores.ListaCorreos}</span>}
         {isEditing ? (
           <div className="correo-edit-list">
             {correos.map((c, i) => (
@@ -225,19 +244,40 @@ export const PersonasContactoRenderer = ({ personalcontactos, puedeEditar, onSav
   );
 };
 
-export const DireccionRenderer = ({ isEditing, direccion = {}, onDireccionChange, lat, lng, onCoordsChange }) => {
+const CAMPOS_DOMICILIO = [
+  { field: "Calle", label: "Calle", span: true },
+  { field: "NumExterior", label: "Núm. exterior", placeholder: "Número o S/N" },
+  { field: "NumInterior", label: "Núm. interior" },
+  { field: "Colonia", label: "Colonia" },
+  { field: "CodigoP", label: "Código postal", inputMode: "numeric", maxLength: 5 },
+  { field: "Manzana", label: "Manzana" },
+  { field: "Lote", label: "Lote" },
+  { field: "Municipio", label: "Municipio / alcaldía" },
+  { field: "Ciudad", label: "Estado" },
+];
+const REGLAS_DOMICILIO = {
+  Calle: "obligatorio", NumExterior: "obligatorio", NumInterior: "opcional", Colonia: "obligatorio",
+  Manzana: "opcional", Lote: "opcional", Municipio: "obligatorio", Ciudad: "obligatorio", CodigoP: "obligatorio",
+};
+
+export const DireccionRenderer = ({ isEditing, direccion = {}, onDireccionChange, lat, lng, onCoordsChange, errores = {}, reglas = {} }) => {
   const upd = (f, v) => onDireccionChange?.(f, v);
+  const regla = (f) => ({ ...REGLAS_DOMICILIO, ...reglas })[f] || "opcional";
+  // Un campo oculto por la empresa igual se muestra si ya tiene dato.
+  const visibles = CAMPOS_DOMICILIO.filter(c => regla(c.field) !== "oculto" || direccion[c.field]);
   return (
     <div className="section-inner">
       <h3 className="section-title">Domicilio</h3>
       <div className="dir-layout">
         <div className="field-grid">
-          <div className="field-span-2"><Field label="Calle" value={direccion.Calle} isEditing={isEditing} onChange={v => upd("Calle", v)} /></div>
-          <Field label="Núm. exterior" value={direccion.NumExterior} isEditing={isEditing} onChange={v => upd("NumExterior", v)} />
-          <Field label="Núm. interior" value={direccion.NumInterior} isEditing={isEditing} onChange={v => upd("NumInterior", v)} />
-          <Field label="Municipio"     value={direccion.Municipio}   isEditing={isEditing} onChange={v => upd("Municipio", v)} />
-          <Field label="Ciudad / estado" value={direccion.Ciudad}    isEditing={isEditing} onChange={v => upd("Ciudad", v)} />
-          <Field label="Código postal" value={direccion.CodigoP}     isEditing={isEditing} onChange={v => upd("CodigoP", v)} inputMode="numeric" maxLength={5} />
+          {visibles.map(c => {
+            const campo = (
+              <Field key={c.field} label={`${c.label}${isEditing && regla(c.field) === "obligatorio" ? " *" : ""}`} value={direccion[c.field]}
+                isEditing={isEditing} onChange={v => upd(c.field, c.field === "CodigoP" ? v.replace(/\D/g, "") : v)}
+                placeholder={c.placeholder} inputMode={c.inputMode} maxLength={c.maxLength} error={errores[c.field]} />
+            );
+            return c.span ? <div key={c.field} className="field-span-2">{campo}</div> : campo;
+          })}
         </div>
         <div className="dir-mapa">
           <MapaDomicilio direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} mode="popup" />
@@ -306,8 +346,8 @@ function useEditorLista(items, onSave, vacio) {
     if (editor.indice === null) lista.unshift(editor.draft); else lista[editor.indice] = editor.draft;
     return persistir(lista);
   };
-  const eliminar = (i, nombre) => {
-    if (!window.confirm(`¿Quitar ${nombre || "este registro"}?`)) return;
+  const eliminar = async (i, nombre) => {
+    if (!(await confirmar(`¿Quitar ${nombre || "este registro"}?`))) return;
     persistir(items.filter((_, idx) => idx !== i));
   };
   return { editor, abrir, cerrar, setCampo, guardar, eliminar, guardando, error };
@@ -862,11 +902,34 @@ const MoneyValue = ({ label, value, nota }) => (
   </div>
 );
 
+// Periodicidad de pago de cada empleado y los días que cubre cada periodo.
+export const PERIODICIDADES = [
+  { id: "semanal",    label: "Semanal",    dias: 7 },
+  { id: "catorcenal", label: "Catorcenal", dias: 14 },
+  { id: "quincenal",  label: "Quincenal",  dias: DIAS_MES / 2 },
+  { id: "mensual",    label: "Mensual",    dias: DIAS_MES },
+];
+
+// Banco que corresponde a la CLABE capturada (lo dice el backend).
+function useBancoDeClabe(clabe) {
+  const [info, setInfo] = useState(null);
+  useEffect(() => {
+    if (!/^\d{18}$/.test(clabe || "")) { setInfo(null); return undefined; }
+    let vivo = true;
+    apiFetch(`/bancos?clabe=${clabe}`).then(r => vivo && setInfo(r)).catch(() => vivo && setInfo(null));
+    return () => { vivo = false; };
+  }, [clabe]);
+  return info;
+}
+
 export const CompensacionRenderer = ({ isEditing, puedeEditar, esPropio, RH, handleRHChange, errores = {}, empleadoId, mostrarPrestamos }) => {
   const esHonorarios = RH?.TipoRelacionLaboral === "prestador_servicios";
   const anios = calcularAntiguedad(RH?.FechaIngreso)?.anios ?? 0;
   const mensualCalc = Number(RH?.SalarioDiario) > 0 ? (Number(RH.SalarioDiario) * DIAS_MES).toFixed(2) : "";
   const sugerido = sdiSugerido(RH?.SalarioDiario, anios);
+  const periodicidad = PERIODICIDADES.find(p => p.id === (RH?.PeriodicidadPago || "quincenal")) || PERIODICIDADES[2];
+  const sdiManual = !!RH?.SDI_manual;
+  const bancoClabe = useBancoDeClabe(RH?.CLABE);
 
   const cambiarDiario = (v) => {
     const limpio = v.replace(/[^\d.]/g, "");
@@ -890,33 +953,53 @@ export const CompensacionRenderer = ({ isEditing, puedeEditar, esPropio, RH, han
               hint="Base de cálculo. El mensual se calcula solo." />
             <MoneyValue label="Salario mensual" value={mensualCalc || RH?.Salario} nota="Diario × 30.4" />
             <div className="field-row">
-              <span className="field-label">Salario diario integrado (SDI)</span>
-              <input id="campo-sdi" aria-label="Salario diario integrado" className="field-input field-input--num" inputMode="decimal" value={RH?.SalarioDiarioIntegrado || ""} placeholder={sugerido || "0.00"}
-                onChange={e => handleRHChange("SalarioDiarioIntegrado", e.target.value.replace(/[^\d.]/g, ""))} />
-              {sugerido && (
-                <span className="field-hint">
-                  Mínimo de ley {anios < 1 ? "en su primer año" : `con ${anios} ${anios === 1 ? "año" : "años"} de antigüedad`}: ${sugerido}.{" "}
-                  {String(RH?.SalarioDiarioIntegrado || "") !== sugerido && (
-                    <IconButton accion="confirmar" size="sm" label="Usar este valor" tooltipPos="right" style={{ verticalAlign: "middle" }} onClick={() => handleRHChange("SalarioDiarioIntegrado", sugerido)} />
-                  )}
-                </span>
-              )}
+              <label className="field-label" htmlFor="campo-periodicidad">Periodicidad de pago</label>
+              <select id="campo-periodicidad" className="field-input" value={periodicidad.id} onChange={e => handleRHChange("PeriodicidadPago", e.target.value)}>
+                {PERIODICIDADES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+              {errores.PeriodicidadPago && <span className="field-error">{errores.PeriodicidadPago}</span>}
             </div>
+            <div className="field-row">
+              <span className="field-label">Salario diario integrado (SDI)</span>
+              {sdiManual ? (
+                <input id="campo-sdi" aria-label="Salario diario integrado" className="field-input field-input--num" inputMode="decimal" value={RH?.SalarioDiarioIntegrado || ""} placeholder={sugerido || "0.00"}
+                  onChange={e => handleRHChange("SalarioDiarioIntegrado", e.target.value.replace(/[^\d.]/g, ""))} />
+              ) : (
+                <span className="field-value field-value--num">{dinero(RH?.SalarioDiarioIntegrado) || (sugerido ? `≈ $${sugerido}` : <em className="field-empty">Captura el salario diario</em>)}</span>
+              )}
+              <span className="field-hint">
+                {sdiManual ? "Fijado a mano." : "Se calcula al guardar: diario × factor de integración (aguinaldo, vacaciones por antigüedad y prima vacacional de la empresa)."}
+              </span>
+              {errores.SalarioDiarioIntegrado && <span className="field-error">{errores.SalarioDiarioIntegrado}</span>}
+              <label className="nom-check">
+                <input type="checkbox" checked={sdiManual} onChange={e => handleRHChange("SDI_manual", e.target.checked)} />
+                Fijar el SDI a mano (prestaciones superiores a la ley)
+              </label>
+            </div>
+            {sdiManual && (
+              <Field label="Motivo del SDI manual" value={RH?.SDI_motivo} isEditing onChange={v => handleRHChange("SDI_motivo", v)}
+                placeholder="Ej. 30 días de aguinaldo por contrato" error={errores.SDI_motivo} />
+            )}
           </>
         ) : (
           <>
             <MoneyValue label="Salario diario" value={RH?.SalarioDiario} />
             <MoneyValue label="Salario mensual" value={RH?.Salario} />
-            <MoneyValue label="Salario quincenal" value={Number(RH?.Salario) / 2} />
-            <MoneyValue label="Salario diario integrado (SDI)" value={RH?.SalarioDiarioIntegrado} />
+            <MoneyValue label={`Salario ${periodicidad.label.toLowerCase()} (periodicidad de pago)`}
+              value={Number(RH?.SalarioDiario) > 0 ? Number(RH.SalarioDiario) * periodicidad.dias : Number(RH?.Salario) * periodicidad.dias / DIAS_MES} />
+            <MoneyValue label="Salario diario integrado (SDI)" value={RH?.SalarioDiarioIntegrado}
+              nota={RH?.SDI_manual ? `Fijado a mano: ${RH.SDI_motivo || "sin motivo"}` : RH?.SDI_factor ? `Factor de integración ${RH.SDI_factor}` : undefined} />
           </>
         )}
       </FieldGroup>
 
       <FieldGroup titulo="Datos bancarios">
-        <Field label="Banco" value={RH?.Banco} isEditing={isEditing} onChange={v => handleRHChange("Banco", v)} placeholder="Ej. BBVA" />
-        <Field label="CLABE" value={RH?.CLABE} isEditing={isEditing} onChange={v => handleRHChange("CLABE", v.replace(/\D/g, ""))} placeholder="18 dígitos" maxLength={18} inputMode="numeric" error={errores.CLABE} mono />
-        <Field label="Número de cuenta" value={RH?.CuentaBancaria} isEditing={isEditing} onChange={v => handleRHChange("CuentaBancaria", v.replace(/\D/g, ""))} maxLength={20} inputMode="numeric" mono />
+        <Field label="Banco" value={RH?.Banco} isEditing={isEditing} onChange={v => handleRHChange("Banco", v)} placeholder="Ej. BBVA" error={errores.Banco}
+          hint={isEditing && bancoClabe?.banco && !RH?.Banco ? `Según la CLABE: ${bancoClabe.banco}` : undefined} />
+        <Field label="CLABE" value={RH?.CLABE} isEditing={isEditing} onChange={v => handleRHChange("CLABE", v.replace(/\D/g, ""))} placeholder="18 dígitos" maxLength={18} inputMode="numeric"
+          error={errores.CLABE || (isEditing ? bancoClabe?.error : undefined)}
+          hint={isEditing && bancoClabe && !bancoClabe.error ? (bancoClabe.banco ? `CLABE válida de ${bancoClabe.banco}` : "CLABE válida") : undefined} mono />
+        <Field label="Número de cuenta" value={RH?.CuentaBancaria} isEditing={isEditing} onChange={v => handleRHChange("CuentaBancaria", v.replace(/\D/g, ""))} maxLength={18} inputMode="numeric" error={errores.CuentaBancaria} mono />
       </FieldGroup>
 
       {mostrarPrestamos && (
@@ -1163,7 +1246,7 @@ export const FinancialSectionRenderer = ({ empleadoId, tipoRelacionLaboral, isOw
     catch (e) { setError(e.message || "No se pudo actualizar el estado."); }
   };
   const eliminar = async (d) => {
-    if (!window.confirm(`¿Eliminar el documento de ${formatPeriodoLargo(d.periodo)}?`)) return;
+    if (!(await confirmar(`¿Eliminar el documento de ${formatPeriodoLargo(d.periodo)}?`))) return;
     try { await documentosFinancierosService.delete(d._id); cargar(); }
     catch (e) { setError(e.message || "No se pudo eliminar el documento."); }
   };

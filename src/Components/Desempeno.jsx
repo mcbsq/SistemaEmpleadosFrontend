@@ -2,6 +2,7 @@
 // Evaluaciones de desempeño: ciclos + autoevaluación + evaluación de jefe.
 // Vista dual: ADMIN/SUPER_ADMIN gestionan ciclos y califican; cualquier
 // empleado ve y llena su propia evaluación del ciclo activo.
+import { confirmar } from "../services/dialogo";
 import React, { useState, useEffect, useCallback } from "react";
 import Modal from "./Modal";
 import { RecordCard } from "./RecordCard";
@@ -202,7 +203,7 @@ function VistaAdmin() {
   };
 
   const handleCerrarCiclo = async (ciclo) => {
-    if (!window.confirm(`¿Cerrar el ciclo "${ciclo.nombre}"?`)) return;
+    if (!(await confirmar(`¿Cerrar el ciclo "${ciclo.nombre}"?`))) return;
     await apiFetch(`/desempeno/ciclos/${ciclo._id}/cerrar`, { method: "PATCH" });
     cargarCiclos();
     if (cicloActivo?._id === ciclo._id) setCicloActivo({ ...ciclo, estado: "cerrado" });

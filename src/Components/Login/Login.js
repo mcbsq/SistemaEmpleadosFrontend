@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
+import { API_URL } from "../../services/apiConfig";
 import { useOrg } from "../../context/OrgContext";
 import "./Login.css";
 
@@ -13,6 +14,28 @@ function Login({ setIsAuthenticated, setUserRole }) {
   const [message,      setMessage]      = useState("");
   const [loading,      setLoading]      = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
+  const [recId,        setRecId]        = useState("");
+  const [recEstado,    setRecEstado]    = useState(null); // {ok, texto}
+  const [recEnviando,  setRecEnviando]  = useState(false);
+  // Aviso de por qué se volvió al login (sesión expirada o por inactividad).
+  const [aviso] = useState(() => {
+    try { const a = sessionStorage.getItem("aviso_login"); sessionStorage.removeItem("aviso_login"); return a; } catch { return null; }
+  });
+
+  const solicitarRecuperacion = async (e) => {
+    e.preventDefault();
+    if (recId.trim().length < 3) { setRecEstado({ ok: false, texto: "Escribe tu usuario o tu correo." }); return; }
+    setRecEnviando(true); setRecEstado(null);
+    try {
+      const res = await fetch(`${API_URL}/recuperar-contrasena`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identificador: recId.trim(), org_id: sessionStorage.getItem("entry_org_slug") || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setRecEstado({ ok: res.ok, texto: data.message || data.error || "No se pudo enviar la solicitud." });
+    } catch { setRecEstado({ ok: false, texto: "No se pudo conectar. Revisa tu internet." }); }
+    finally { setRecEnviando(false); }
+  };
 
   // Contraseña temporal (Aegis): el backend manda must_change_password=true
   // y obligamos a definir una nueva antes de entrar al sistema.
@@ -75,11 +98,15 @@ function Login({ setIsAuthenticated, setUserRole }) {
         {/* Marca */}
         <header className="login-brand">
           <div className="login-brand-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="10" fill="var(--hr-accent)" fillOpacity="0.15"/>
-              <path d="M8 24V10l8-4 8 4v14l-8 4-8-4Z" stroke="var(--hr-accent)" strokeWidth="1.5" strokeLinejoin="round" fill="none"/>
-              <circle cx="16" cy="16" r="3" fill="var(--hr-accent-2)"/>
-            </svg>
+            {orgConfig?.logo ? (
+              <img src={orgConfig.logo} alt="" style={{ width: 40, height: 40, objectFit: "contain", borderRadius: 10 }} />
+            ) : (
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <rect width="32" height="32" rx="10" fill="var(--hr-accent)" fillOpacity="0.15"/>
+                <path d="M8 24V10l8-4 8 4v14l-8 4-8-4Z" stroke="var(--hr-accent)" strokeWidth="1.5" strokeLinejoin="round" fill="none"/>
+                <circle cx="16" cy="16" r="3" fill="var(--hr-accent-2)"/>
+              </svg>
+            )}
           </div>
           <div>
             <h1 className="login-brand-title">{orgName}</h1>
@@ -247,6 +274,12 @@ function Login({ setIsAuthenticated, setUserRole }) {
               </div>
             </div>
 
+            {aviso && !message && (
+              <div className="login-recovery-info" role="status">
+                <span>{aviso}</span>
+              </div>
+            )}
+
             {/* Error */}
             {message && (
               <div className="login-error" role="alert">
@@ -273,17 +306,25 @@ function Login({ setIsAuthenticated, setUserRole }) {
           </button>
 
           {showRecovery && (
-            <div className="login-recovery-info">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{flexShrink:0, marginTop:2}}>
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              <span>
-                La recuperación de contraseña está gestionada por el sistema de identidad corporativo.
-                Contacta a tu administrador de TI o accede al portal de autoservicio de tu organización.
-              </span>
-            </div>
+            <form className="login-recovery-form" onSubmit={solicitarRecuperacion}>
+              <p className="login-recovery-text">
+                Escribe tu usuario o correo. Avisaremos al administrador de tu empresa para que te asigne una contraseña temporal.
+              </p>
+              <div className="login-input-wrap">
+                <input className="login-input" aria-label="Usuario o correo" placeholder="Usuario o correo" value={recId}
+                  onChange={e => setRecId(e.target.value)} autoComplete="username" disabled={recEnviando || recEstado?.ok} />
+              </div>
+              {recEstado && (
+                <div className={recEstado.ok ? "login-recovery-info" : "login-error"} role={recEstado.ok ? "status" : "alert"}>
+                  <span>{recEstado.texto}</span>
+                </div>
+              )}
+              {!recEstado?.ok && (
+                <button type="submit" className="login-btn-primary" disabled={recEnviando}>
+                  {recEnviando ? "Enviando…" : "Pedir nueva contraseña"}
+                </button>
+              )}
+            </form>
           )}
           </>
           )}

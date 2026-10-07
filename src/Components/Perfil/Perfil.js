@@ -140,6 +140,8 @@ function Perfil() {
   const [isEditing,     setIsEditing]     = useState(false);
   const [saveStatus,    setSaveStatus]    = useState(null);
   const [rhErrores,     setRhErrores]     = useState({});
+  const [contactoErrores, setContactoErrores] = useState({});
+  const [dirErrores,    setDirErrores]    = useState({});
   const [deleteModal,   setDeleteModal]   = useState(false);
   const [bajaModal,     setBajaModal]     = useState(false);
   const [reingresoModal, setReingresoModal] = useState(false);
@@ -350,9 +352,12 @@ function Perfil() {
         setAutoSaveStatus(s => ({ ...s, [key]: "guardando" }));
         try {
           await saveFn(value);
+          if (key === "contacto") setContactoErrores({});
           setAutoSaveStatus(s => ({ ...s, [key]: "guardado" }));
           setTimeout(() => setAutoSaveStatus(s => (s[key] === "guardado" ? { ...s, [key]: null } : s)), 2000);
-        } catch {
+        } catch (err) {
+          // Errores por campo (p. ej. fijo igual al celular) se marcan en el campo.
+          if (key === "contacto") setContactoErrores(err?.campos || {});
           setAutoSaveStatus(s => ({ ...s, [key]: "error" }));
         }
       }, 900);
@@ -400,7 +405,11 @@ function Perfil() {
         }));
       }
       if (editar.clinico)  saves.push(clinicoService.update(empleadoId, { ...expediente }));
-      if (editar.contacto) saves.push(direccionService.update(empleadoId, direccion));
+      if (editar.contacto) saves.push(direccionService.update(empleadoId, direccion).then(r => { setDirErrores({}); return r; }).catch(err => {
+        setDirErrores(err.campos || {});
+        if (err.campos) irATab("personal");
+        throw err;
+      }));
 
       if (editar.laboral || editar.compensacion) {
         // RH primero y por separado: si trae CURP/RFC/CLABE inválidos hay que
@@ -412,7 +421,7 @@ function Perfil() {
         } catch (err) {
           if (err.campos) {
             setRhErrores(err.campos);
-            const enCompensacion = Object.keys(err.campos).some(k => ["CLABE", "CuentaBancaria"].includes(k));
+            const enCompensacion = Object.keys(err.campos).some(k => ["CLABE", "CuentaBancaria", "Banco", "SalarioDiarioIntegrado", "SDI_motivo", "PeriodicidadPago"].includes(k));
             irATab(enCompensacion ? "compensacion" : "laboral");
             // Llevar el foco al primer campo marcado: el usuario ve qué arreglar sin buscarlo.
             setTimeout(() => {
@@ -456,7 +465,7 @@ function Perfil() {
     }
   };
 
-  const cancelarEdicion = () => { setIsEditing(false); setRhErrores({}); cargarPerfil(); };
+  const cancelarEdicion = () => { setIsEditing(false); setRhErrores({}); setDirErrores({}); setContactoErrores({}); cargarPerfil(); };
 
   const handleDeleteConfirm = async () => {
     setDeleteLoading(true);
@@ -675,7 +684,7 @@ function Perfil() {
             {ver.contacto && (
               <div className="section-card">
                 <AutoSaveBadge status={autoSaveStatus.contacto} />
-                <InfoPersonalRenderer isEditing={edita("contacto")} datoscontacto={datosContacto} handleInputChangedatoscontacto={(f,v)=>setDatosContacto(p=>({...p,[f]:v}))}/>
+                <InfoPersonalRenderer isEditing={edita("contacto")} errores={contactoErrores} datoscontacto={datosContacto} handleInputChangedatoscontacto={(f,v)=>setDatosContacto(p=>({...p,[f]:v}))}/>
               </div>
             )}
             {ver.emergencia && (
@@ -685,7 +694,7 @@ function Perfil() {
             )}
             {ver.contacto && (
               <div className="section-card perfil-cols-full">
-                <DireccionRenderer isEditing={edita("contacto")} direccion={direccion} onDireccionChange={(f,v)=>setDireccion(p=>({...p,[f]:v}))} lat={direccion.lat} lng={direccion.lng} onCoordsChange={(lat,lng)=>setDireccion(p=>({...p,lat,lng}))}/>
+                <DireccionRenderer isEditing={edita("contacto")} errores={dirErrores} reglas={orgConfig?.campos_direccion} direccion={direccion} onDireccionChange={(f,v)=>setDireccion(p=>({...p,[f]:v, ...(["Calle","NumExterior","Colonia","Municipio","Ciudad","CodigoP"].includes(f) ? { lat: null, lng: null } : {})}))} lat={direccion.lat} lng={direccion.lng} onCoordsChange={(lat,lng)=>setDireccion(p=>({...p,lat,lng}))}/>
               </div>
             )}
             {ver.contacto && isModuleActive("redes_sociales") && (

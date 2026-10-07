@@ -274,3 +274,34 @@
 .orgs-puesto button:hover { color: #fff; background: var(--hr-danger); }
 .orgs-puesto-nuevo { display: flex; gap: 8px; align-items: center; }
 .orgs-puesto-nuevo .orgs-input { flex: 1; min-width: 0; }
+
+/* Logo de la empresa */
+.orgs-logo-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.orgs-logo-preview {
+  width: 64px; height: 64px; border-radius: 14px; display: grid; place-items: center; overflow: hidden;
+  border: 1px solid var(--hr-border); background: rgba(255, 255, 255, 0.04); font-weight: 800; font-size: 1.4rem; color: var(--hr-muted);
+}
+.orgs-logo-preview img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+
+/* Áreas: guía de alta y árbol */
+.orgs-guia { margin: 0 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--hr-text-2, var(--hr-muted)); font-size: 0.88rem; line-height: 1.5; }
+.orgs-guia strong { color: var(--hr-text); }
+.orgs-arbol { display: flex; flex-direction: column; gap: 10px; }
+.orgs-arbol-nodo { margin-left: calc(var(--nivel, 0) * 28px); position: relative; }
+.orgs-arbol-nodo::before {
+  content: ""; position: absolute; left: -16px; top: 0; bottom: 50%; width: 12px;
+  border-left: 1px solid var(--hr-border); border-bottom: 1px solid var(--hr-border); border-bottom-left-radius: 8px;
+  display: var(--rama, none);
+}
+.orgs-arbol-nodo[style*="--nivel: 1"]::before, .orgs-arbol-nodo[style*="--nivel: 2"]::before,
+.orgs-arbol-nodo[style*="--nivel: 3"]::before, .orgs-arbol-nodo[style*="--nivel: 4"]::before { display: block; }
+@media (max-width: 600px) { .orgs-arbol-nodo { margin-left: calc(var(--nivel, 0) * 14px); } }
+
+/* Expediente: obligatorio / opcional / oculto */
+.orgs-campos { display: flex; flex-direction: column; }
+.orgs-campo { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--hr-border); flex-wrap: wrap; }
+.orgs-campo:last-child { border-bottom: none; }
+.orgs-seg { display: inline-flex; border: 1px solid var(--hr-border); border-radius: 10px; overflow: hidden; }
+.orgs-seg button { border: none; background: transparent; color: var(--hr-muted); padding: 6px 12px; font: inherit; font-size: 0.82rem; cursor: pointer; }
+.orgs-seg button + button { border-left: 1px solid var(--hr-border); }
+.orgs-seg button.is-on { background: var(--hr-accent); color: #fff; font-weight: 600; }

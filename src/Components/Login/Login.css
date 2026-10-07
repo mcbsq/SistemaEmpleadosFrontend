@@ -716,3 +716,7 @@
 .login-input      { padding: 13px 44px 13px 14px; }
 .login-input--password { padding-right: 44px; padding-left: 14px; }
 .login-input-wrap:has(.login-eye-btn) .login-input-icon { display: none; }
+
+/* Solicitud de nueva contraseña */
+.login-recovery-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.login-recovery-text { margin: 0; font-size: 0.84rem; line-height: 1.5; color: var(--login-muted, rgba(255,255,255,0.65)); }

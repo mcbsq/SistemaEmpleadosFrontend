@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { avisar } from "../services/dialogo";
 import "./Empleados.css";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import IconButton from "./IconButton";
-import { Modal, ModalHeader, ModalBody } from "reactstrap";
+import { Modal, ModalBody } from "reactstrap";
+import SysModal from "./Modal";
 import {
   CiFacebook, CiLinkedin, CiYoutube,
   CiUser, CiSearch, CiFileOn, CiBoxList, CiFolderOn
@@ -78,7 +80,24 @@ const TIPOS_SANGRE = ["A+","A-","B+","B-","AB+","AB-","O+","O-"];
 
 const EMP_INIT  = { _id:"", Nombre:"", ApelPaterno:"", ApelMaterno:"", FecNacimiento:"" };
 const USER_INIT = { user:"", password:"", email:"" };
-const DIR_INIT  = { Calle:"", NumExterior:"", NumInterior:"", Manzana:"", Lote:"", Municipio:"", Ciudad:"", CodigoP:"", Pais:"México" };
+const DIR_INIT  = { Calle:"", NumExterior:"", NumInterior:"", Colonia:"", Manzana:"", Lote:"", Municipio:"", Ciudad:"", CodigoP:"", Pais:"México" };
+// Orden y etiquetas del domicilio; qué es obligatorio lo decide cada empresa
+// (Configuración → Expediente). Default igual que el backend.
+const CAMPOS_DIRECCION = [
+  {label:"Calle",field:"Calle",span:true},
+  {label:"Núm. exterior",field:"NumExterior"},
+  {label:"Núm. interior",field:"NumInterior"},
+  {label:"Colonia",field:"Colonia"},
+  {label:"Código postal",field:"CodigoP"},
+  {label:"Manzana",field:"Manzana"},
+  {label:"Lote",field:"Lote"},
+  {label:"Municipio / alcaldía",field:"Municipio"},
+  {label:"Estado",field:"Ciudad"},
+];
+export const REGLAS_DIRECCION_DEFAULT = {
+  Calle:"obligatorio", NumExterior:"obligatorio", NumInterior:"opcional", Colonia:"obligatorio",
+  Manzana:"opcional", Lote:"opcional", Municipio:"obligatorio", Ciudad:"obligatorio", CodigoP:"obligatorio",
+};
 const DC_INIT   = { TelFijo:"", TelCelular:"", IdWhatsApp:"", IdTelegram:"", ListaCorreos:"" };
 
 const getId = (item) => item?._id?.$oid || item?._id || "";
@@ -271,7 +290,7 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
   const seccionCompleta = {
     rh:          !!rhItem,
     clinico:     !!clinItem,
-    familia:     !!pcItem,
+    familia:     !!pcItem?.Contactos?.length,
     experiencia: !!(edItem?.Experiencia?.length),
     educacion:   !!(edItem?.Educacion?.length),
     skills:      !!(edItem?.Habilidades?.Programacion?.length),
@@ -370,14 +389,16 @@ function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }
 
         {tab === "familia" && (
           <div className="exp-section" role="tabpanel" aria-label="Contacto de emergencia">
-            {!pcItem ? <EmptySection texto="Sin contacto de emergencia registrado." /> :
-              <div className="exp-grid-3">
-                <Field label="Nombre"      value={pcItem?.nombreContacto} />
-                <Field label="Parentesco"  value={pcItem?.parenstesco} />
-                <Field label="Teléfono"    value={pcItem?.telefonoContacto} />
-                <Field label="Correo"      value={pcItem?.correoContacto} />
-                <Field label="Dirección"   value={pcItem?.direccionContacto} />
-              </div>}
+            {!pcItem?.Contactos?.length ? <EmptySection texto="Sin contacto de emergencia registrado." /> :
+              pcItem.Contactos.map((c, i) => (
+                <div key={i} className="exp-grid-3" style={i ? { marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--hr-border)" } : undefined}>
+                  <Field label="Nombre"      value={c.nombreContacto} />
+                  <Field label="Parentesco"  value={c.parenstesco} />
+                  <Field label="Teléfono"    value={c.telefonoContacto || c.whatsappContacto} />
+                  <Field label="Correo"      value={c.correoContacto} />
+                  <Field label="Dirección"   value={c.direccionContacto} />
+                </div>
+              ))}
           </div>
         )}
 
@@ -482,6 +503,9 @@ function Empleados() {
   const [formEmp,  setFormEmp]  = useState(EMP_INIT);
   const [formUser, setFormUser] = useState(USER_INIT);
   const [formDir,  setFormDir]  = useState(DIR_INIT);
+  const [altaError, setAltaError] = useState("");
+  const [altaCampos, setAltaCampos] = useState({});
+  const [waIgual, setWaIgual] = useState(true);
   const [formDC,   setFormDC]   = useState(DC_INIT);
 
   const { openFilePicker, filesContent } = useFilePicker({ readAs:"DataURL", accept:"image/*", multiple:true });
@@ -512,9 +536,10 @@ function Empleados() {
   useEffect(()=>{ cargarTodo(); }, [cargarTodo]);
 
   // ─── Lookups ──────────────────────────────────────────────────────────────
-  // datoscontacto guarda el vínculo como `EmpleadoId`; el resto usa `empleado_id`.
+  // datoscontacto guarda el vínculo como `EmpleadoId`, personascontacto como
+  // `empleadoid`; el resto usa `empleado_id`.
   const byEmpId = (arr, id) => arr.find(x => {
-    const raw = x.empleado_id ?? x.EmpleadoId;
+    const raw = x.empleado_id ?? x.EmpleadoId ?? x.empleadoid;
     return (raw?.$oid || raw || "") === id;
   });
 
@@ -619,18 +644,31 @@ function Empleados() {
   // ─── Registro 3 pasos ─────────────────────────────────────────────────────
   // Orden pedido por el cliente: credenciales al final, ya que todo lo
   // demás del empleado esté capturado (2026-09-23).
+  const reglaDir = (campo) => ({ ...REGLAS_DIRECCION_DEFAULT, ...(orgConfig?.campos_direccion || {}) })[campo] || "opcional";
+
   const paso1 = async () => {
-    if (!formEmp.Nombre||!formEmp.ApelPaterno) return;
-    setGuardando(true);
+    if (!formEmp.Nombre?.trim()||!formEmp.ApelPaterno?.trim()) { setAltaError("Escribe nombre y apellido paterno."); return; }
+    setGuardando(true); setAltaError("");
     try {
-      const res = await empleadoService.create({...formEmp, Fotografias:filesContent.map(f=>f.content), depto_id:"Sin Asignar", Cargo:"Personal"});
-      setFormEmp(p=>({...p,_id:getId(res)}));
-      setModal("direccion");
-    } finally { setGuardando(false); }
+      // Si ya se creó en un intento anterior (volvió del paso 2), no duplicar.
+      if (!formEmp._id) {
+        const res = await empleadoService.create({...formEmp, Fotografias:filesContent.map(f=>f.content), depto_id:"Sin Asignar", Cargo:"Personal"});
+        setFormEmp(p=>({...p,_id:getId(res)}));
+      }
+      setAltaCampos({}); setModal("direccion");
+    } catch (e) { setAltaError(e.message || "No se pudo guardar. Intenta de nuevo."); }
+    finally { setGuardando(false); }
   };
 
   const paso2 = async () => {
-    setGuardando(true);
+    // Validación en el cliente con las reglas de la empresa (el backend repite la validación).
+    const faltan = {};
+    CAMPOS_DIRECCION.forEach(({label, field}) => {
+      if (reglaDir(field) === "obligatorio" && !String(formDir[field]||"").trim()) faltan[field] = `Falta ${label.toLowerCase()}.`;
+    });
+    if (formDir.CodigoP && !/^\d{5}$/.test(formDir.CodigoP)) faltan.CodigoP = "El código postal tiene 5 dígitos.";
+    if (Object.keys(faltan).length) { setAltaCampos(faltan); setAltaError("Completa los campos marcados."); return; }
+    setGuardando(true); setAltaError(""); setAltaCampos({});
     try {
       await Promise.all([
         direccionService.create({...formDir, empleado_id:formEmp._id}),
@@ -643,29 +681,36 @@ function Empleados() {
           ListaCorreos: formDC.ListaCorreos ? [{ email: formDC.ListaCorreos, principal: true }] : [],
         }),
       ]);
+      // Paso 3 con lo ya capturado: correo de trabajo y un usuario sugerido.
+      const correo = (formDC.ListaCorreos || "").trim();
+      const sugerido = correo.includes("@") ? correo.split("@")[0]
+        : `${(formEmp.Nombre||"")[0]||""}${formEmp.ApelPaterno||""}`.normalize("NFD").replace(/[^a-zA-Z0-9]/g, "");
+      setFormUser(p => ({ ...p, email: p.email || correo, user: p.user || sugerido.toLowerCase() }));
       setModal("usuario");
+    } catch (e) {
+      setAltaCampos(e.campos || {});
+      setAltaError(e.campos ? "Revisa los campos marcados." : (e.message || "No se pudo guardar. Intenta de nuevo."));
     } finally { setGuardando(false); }
   };
 
   const paso3 = async () => {
-    if (!formUser.user||!formUser.password||!formUser.email) return;
-    setGuardando(true);
+    if (!formUser.user||!formUser.email) return;
+    setGuardando(true); setAltaError("");
     try {
-      const res = await usuarioService.create({...formUser, role:"USER", empleado_id:formEmp._id});
+      const res = await usuarioService.create({...formUser, role:"EMPLOYEE", empleado_id:formEmp._id});
+      setModal(null); setFormEmp(EMP_INIT); cargarTodo();
       if (res?.email_sent) {
-        window.alert(
-          `La contraseña temporal se envió por correo a ${formUser.email}.\n` +
-          "El empleado deberá cambiarla en su primer inicio de sesión."
-        );
+        await avisar({ titulo: "Empleado dado de alta",
+          mensaje: `La contraseña temporal se envió por correo a ${formUser.email}. El empleado deberá cambiarla en su primer inicio de sesión.` });
       } else if (res?.temp_password) {
         // Sin SMTP configurado: la contraseña la genera el sistema de identidad
         // y se muestra una sola vez para entregarla en mano.
-        window.alert(
-          `Contraseña temporal para ${formUser.user}:\n\n${res.temp_password}\n\n` +
-          "Entrégala al empleado. Deberá cambiarla en su primer inicio de sesión."
-        );
+        await avisar({ titulo: "Empleado dado de alta", copiable: res.temp_password,
+          mensaje: `Contraseña temporal de ${formUser.user}. Entrégala al empleado: solo se muestra esta vez y deberá cambiarla en su primer inicio de sesión.` });
       }
-      setModal(null); setFormEmp(EMP_INIT); cargarTodo();
+      setFormUser(USER_INIT); setFormDir(DIR_INIT); setFormDC(DC_INIT); setWaIgual(true);
+    } catch (e) {
+      setAltaError(e.message || "No se pudo crear el acceso. Revisa el usuario y el correo.");
     } finally { setGuardando(false); }
   };
 
@@ -776,7 +821,7 @@ function Empleados() {
         {/* Toolbar */}
         <div className="emp-toolbar">
           {isPrivileged && (
-            <button className="btn-emp btn-emp--primary" onClick={()=>{setFormEmp(EMP_INIT);setModal("empleado");}}>
+            <button className="btn-emp btn-emp--primary" onClick={()=>{setFormEmp(EMP_INIT);setFormDir(DIR_INIT);setFormDC(DC_INIT);setFormUser(USER_INIT);setWaIgual(true);setAltaError("");setAltaCampos({});setModal("empleado");}}>
               <FaPlus />
             </button>
           )}
@@ -976,110 +1021,100 @@ function Empleados() {
 
       </div>
 
-      {/* ── Modales de registro ── */}
-      <Modal isOpen={modal==="empleado"} toggle={()=>setModal(null)} size="lg" centered>
-        <ModalHeader>
-          Nuevo empleado <span className="modal-step-badge">Paso 1 de 3</span>
-          <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
-        </ModalHeader>
-        <ModalBody>
-          <div className="row g-3">
-            {[
-              {label:"Nombre",field:"Nombre",col:"col-md-4"},
-              {label:"Apellido paterno",field:"ApelPaterno",col:"col-md-4"},
-              {label:"Apellido materno",field:"ApelMaterno",col:"col-md-4"},
-              {label:"Fecha nacimiento",field:"FecNacimiento",col:"col-md-6",type:"date"},
-            ].map(({label,field,col,type="text"})=>(
-              <div key={field} className={col}>
-                <label className="form-label">{label}</label>
-                <input className="form-control" type={type} value={formEmp[field]||""}
-                  onChange={e=>setFormEmp(p=>({...p,[field]:e.target.value}))}/>
-              </div>
-            ))}
-            <div className="col-md-6">
-              <label className="form-label">Fotografía</label>
-              <button className="btn btn-outline-info w-100" onClick={openFilePicker}>
-                <CiFileOn style={{marginRight:6}}/>
-                {filesContent.length>0?`${filesContent.length} imagen(es)`:"Seleccionar imagen"}
-              </button>
-              {filesContent[0]&&<img src={filesContent[0].content} alt="preview" className="emp-foto-preview mt-2"/>}
+      {/* ── Alta de empleado en 3 pasos (pop-up del sistema: se desplaza
+          dentro si la ventana es chica y muestra los errores por campo) ── */}
+      <SysModal abierto={modal==="empleado"} onClose={()=>setModal(null)} ancho={720}
+        titulo="Nuevo empleado" subtitulo="Paso 1 de 3 · Datos personales"
+        onGuardar={paso1} guardando={guardando} error={altaError}
+        labelGuardar="Siguiente: ubicación y contacto" iconGuardar={FiArrowRight}
+        puedeGuardar={!!(formEmp.Nombre?.trim() && formEmp.ApelPaterno?.trim())}>
+        <div className="field-grid">
+          {[
+            {label:"Nombre",field:"Nombre"},
+            {label:"Apellido paterno",field:"ApelPaterno"},
+            {label:"Apellido materno",field:"ApelMaterno"},
+            {label:"Fecha de nacimiento",field:"FecNacimiento",type:"date"},
+          ].map(({label,field,type="text"})=>(
+            <div key={field} className="field-row">
+              <label className="field-label" htmlFor={`alta-${field}`}>{label}</label>
+              <input id={`alta-${field}`} className="field-input" type={type} value={formEmp[field]||""}
+                onChange={e=>setFormEmp(p=>({...p,[field]:e.target.value}))}/>
             </div>
+          ))}
+          <div className="field-row field-span-2">
+            <span className="field-label">Fotografía</span>
+            <button type="button" className="perfil-baja-btn" onClick={openFilePicker}>
+              <CiFileOn aria-hidden="true"/>{filesContent.length>0?`${filesContent.length} imagen(es)`:"Seleccionar imagen"}
+            </button>
+            {filesContent[0]&&<img src={filesContent[0].content} alt="Vista previa" className="emp-foto-preview mt-2"/>}
           </div>
-        </ModalBody>
-        <div className="modal-footer border-0 pt-4 emp-modal-footer">
-          <IconButton accion="siguiente" size="lg" label="Siguiente: ubicación y contacto" tooltipPos="left"
-            onClick={paso1} busy={guardando} disabled={!formEmp.Nombre} />
         </div>
-      </Modal>
+      </SysModal>
 
-      <Modal isOpen={modal==="direccion"} size="lg" centered>
-        <ModalHeader>
-          Ubicación y contacto <span className="modal-step-badge">Paso 2 de 3</span>
-          <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
-        </ModalHeader>
-        <ModalBody>
-          <div className="row g-3">
-            {[
-              {label:"Calle",col:"col-8",field:"Calle"},
-              {label:"Núm. ext.",col:"col-2",field:"NumExterior"},
-              {label:"Núm. int.",col:"col-2",field:"NumInterior"},
-              {label:"Manzana",col:"col-3",field:"Manzana"},
-              {label:"Lote",col:"col-3",field:"Lote"},
-              {label:"Municipio",col:"col-6",field:"Municipio"},
-              {label:"Ciudad / Estado",col:"col-6",field:"Ciudad"},
-              {label:"Código postal",col:"col-3",field:"CodigoP"},
-              {label:"País",col:"col-3",field:"Pais"},
-            ].map(({label,col,field})=>(
-              <div key={field} className={col}>
-                <label className="form-label">{label}</label>
-                <input className="form-control" value={formDir[field]||""} onChange={e=>setFormDir(p=>({...p,[field]:e.target.value}))}/>
-              </div>
-            ))}
-            <div className="col-md-6">
-              <label className="form-label">Celular</label>
-              <input className="form-control" type="tel" placeholder="55 1234 5678" maxLength={12}
-                value={formDC.TelCelular||""} onChange={e=>setFormDC(p=>({...p,TelCelular:formatTel(e.target.value)}))}/>
+      <SysModal abierto={modal==="direccion"} onClose={()=>setModal(null)} ancho={720}
+        titulo="Ubicación y contacto" subtitulo="Paso 2 de 3 · Los campos con * son obligatorios para tu empresa."
+        onGuardar={paso2} guardando={guardando} error={altaError}
+        labelGuardar="Siguiente: credenciales" iconGuardar={FiArrowRight}>
+        <div className="field-grid">
+          {CAMPOS_DIRECCION.filter(c => reglaDir(c.field) !== "oculto").map(({label,field,span})=>(
+            <div key={field} className={`field-row${span ? " field-span-2" : ""}${altaCampos[field] ? " field-row--error" : ""}`}>
+              <label className="field-label" htmlFor={`alta-${field}`}>{label}{reglaDir(field)==="obligatorio" ? " *" : ""}</label>
+              <input id={`alta-${field}`} className="field-input" value={formDir[field]||""}
+                placeholder={field==="NumExterior" ? "Número o S/N" : undefined} inputMode={field==="CodigoP" ? "numeric" : undefined}
+                maxLength={field==="CodigoP" ? 5 : undefined}
+                onChange={e=>{ setFormDir(p=>({...p,[field]:e.target.value})); setAltaCampos(c=>({...c,[field]:undefined})); }}/>
+              {altaCampos[field] && <span className="field-error">{altaCampos[field]}</span>}
             </div>
-            <div className="col-md-6">
-              <label className="form-label">Correo</label>
-              <input className="form-control" type="email" value={formDC.ListaCorreos||""}
-                onChange={e=>setFormDC(p=>({...p,ListaCorreos:e.target.value}))}/>
-            </div>
+          ))}
+          <div className={`field-row${altaCampos.TelCelular ? " field-row--error" : ""}`}>
+            <label className="field-label" htmlFor="alta-cel">Celular</label>
+            <input id="alta-cel" className="field-input" type="tel" placeholder="55 1234 5678" maxLength={12}
+              value={formDC.TelCelular||""} onChange={e=>{ const v=formatTel(e.target.value); setFormDC(p=>({...p,TelCelular:v, ...(waIgual ? {IdWhatsApp:v} : {})})); }}/>
+            {altaCampos.TelCelular && <span className="field-error">{altaCampos.TelCelular}</span>}
           </div>
-        </ModalBody>
-        <div className="modal-footer border-0 pt-4 emp-modal-footer">
-          <IconButton accion="siguiente" size="lg" label="Siguiente: credenciales" tooltipPos="left"
-            onClick={paso2} busy={guardando} />
+          <div className={`field-row${altaCampos.TelFijo ? " field-row--error" : ""}`}>
+            <label className="field-label" htmlFor="alta-fijo">Teléfono fijo (opcional)</label>
+            <input id="alta-fijo" className="field-input" type="tel" maxLength={12}
+              value={formDC.TelFijo||""} onChange={e=>setFormDC(p=>({...p,TelFijo:formatTel(e.target.value)}))}/>
+            {altaCampos.TelFijo && <span className="field-error">{altaCampos.TelFijo}</span>}
+          </div>
+          <div className="field-row">
+            <label className="field-label" htmlFor="alta-wa">WhatsApp</label>
+            <input id="alta-wa" className="field-input" type="tel" maxLength={12} disabled={waIgual}
+              value={formDC.IdWhatsApp||""} onChange={e=>setFormDC(p=>({...p,IdWhatsApp:formatTel(e.target.value)}))}/>
+            <label className="nom-check" style={{ marginTop: 6 }}>
+              <input type="checkbox" checked={waIgual} onChange={e=>{ setWaIgual(e.target.checked); if (e.target.checked) setFormDC(p=>({...p,IdWhatsApp:p.TelCelular})); }}/>
+              Es el mismo que el celular
+            </label>
+          </div>
+          <div className="field-row">
+            <label className="field-label" htmlFor="alta-correo">Correo de trabajo</label>
+            <input id="alta-correo" className="field-input" type="email" placeholder="nombre@empresa.com" value={formDC.ListaCorreos||""}
+              onChange={e=>setFormDC(p=>({...p,ListaCorreos:e.target.value}))}/>
+            <span className="field-hint">Con este correo entrará al sistema.</span>
+          </div>
         </div>
-      </Modal>
+      </SysModal>
 
-      <Modal isOpen={modal==="usuario"} centered>
-        <ModalHeader>
-          Credenciales <span className="modal-step-badge">Paso 3 de 3</span>
-          <button className="modal-close-btn" onClick={()=>setModal(null)} aria-label="Cerrar"><FiX/></button>
-        </ModalHeader>
-        <ModalBody>
-          <div className="mb-3">
-            <label className="form-label">Nombre de usuario</label>
-            <input className="form-control" placeholder="nombre.usuario" value={formUser.user}
-              onChange={e=>setFormUser(p=>({...p,user:e.target.value}))}/>
+      <SysModal abierto={modal==="usuario"} onClose={()=>setModal(null)} ancho={520}
+        titulo="Acceso al sistema" subtitulo="Paso 3 de 3 · El sistema genera una contraseña temporal que el empleado cambia al entrar."
+        onGuardar={paso3} guardando={guardando} error={altaError}
+        labelGuardar="Completar registro" iconGuardar={FiCheck}
+        puedeGuardar={!!(formUser.user && formUser.email)}>
+        <div className="field-grid">
+          <div className="field-row field-span-2">
+            <label className="field-label" htmlFor="alta-user">Nombre de usuario</label>
+            <input id="alta-user" className="field-input" placeholder="nombre.usuario" value={formUser.user}
+              onChange={e=>setFormUser(p=>({...p,user:e.target.value.trim().toLowerCase()}))}/>
           </div>
-          <div className="mb-3">
-            <label className="form-label">Correo electrónico</label>
-            <input className="form-control" type="email" placeholder="nombre@empresa.com" value={formUser.email}
-              onChange={e=>setFormUser(p=>({...p,email:e.target.value}))}/>
+          <div className="field-row field-span-2">
+            <label className="field-label" htmlFor="alta-email">Correo electrónico</label>
+            <input id="alta-email" className="field-input" type="email" placeholder="nombre@empresa.com" value={formUser.email}
+              onChange={e=>setFormUser(p=>({...p,email:e.target.value.trim()}))}/>
+            {formUser.email && formUser.email === formDC.ListaCorreos && <span className="field-hint">Tomado del paso anterior.</span>}
           </div>
-          <div>
-            <label className="form-label">Contraseña temporal</label>
-            <input className="form-control" type="password" value={formUser.password}
-              onChange={e=>setFormUser(p=>({...p,password:e.target.value}))}/>
-          </div>
-        </ModalBody>
-        <div className="modal-footer border-0 pt-4 emp-modal-footer">
-          <IconButton accion="confirmar" size="lg" label="Completar registro" tooltipPos="left"
-            onClick={paso3} busy={guardando} disabled={!formUser.user||!formUser.email} />
         </div>
-      </Modal>
+      </SysModal>
 
     </section>
   );

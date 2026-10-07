@@ -202,6 +202,8 @@ function NominaConfig({ embebido = false }) {
           <select className="orgs-input" style={{ maxWidth: 140 }} value={periodo} onChange={e => setPeriodo(e.target.value)}>
             <option value="mensual">Mensual</option>
             <option value="quincenal">Quincenal</option>
+            <option value="catorcenal">Catorcenal</option>
+            <option value="semanal">Semanal</option>
           </select>
           {periodo === "mensual" && (
             <input type="month" aria-label="Mes" className="orgs-input" style={{ maxWidth: 170 }} value={mes} onChange={e => setMes(e.target.value)} />

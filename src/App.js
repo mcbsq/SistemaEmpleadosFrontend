@@ -18,6 +18,8 @@ import ConexionesExternas from "./Components/ConexionesExternas";
 import Tenants            from "./Components/Tenants";
 import Spotlight         from "./Components/Spotlight";
 import NotificationBell  from "./Components/NotificationBell";
+import SesionGuard       from "./Components/SesionGuard";
+import DialogoHost       from "./Components/DialogoHost";
 import OrgSettings       from "./Components/OrgSettings";
 import NominaPage        from "./Components/NominaPage";
 import Reclutamiento     from "./Components/Reclutamiento";
@@ -387,11 +389,15 @@ function AppInner() {
       <div className="ambient-glow" ref={glowRef} />
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
+      {isAuthenticated && <SesionGuard />}
+      <DialogoHost />
       {isAuthenticated && (
         <aside className={`app-sidebar ${sidebarOpen ? "app-sidebar--open" : ""}`}>
           <div className="sb-header" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
             <div className="sb-logo-block" data-tour="logo">
-              <span className="sb-logo-mono">{(orgName || "?")[0]}</span>
+              {orgConfig?.logo
+                ? <img className="sb-logo-img" src={orgConfig.logo} alt="" />
+                : <span className="sb-logo-mono">{(orgName || "?")[0]}</span>}
               <Link to="/Dashboard" className="sb-logo-link" onClick={() => setSidebarOpen(false)}>{orgName}</Link>
               <span className="sb-logo-sub">Sistemas</span>
             </div>

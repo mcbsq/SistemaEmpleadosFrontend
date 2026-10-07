@@ -97,8 +97,10 @@ export async function apiFetch(endpoint, options = {}) {
       !cleanEndpoint.startsWith("/login") &&
       !cleanEndpoint.startsWith("/change-password")
     ) {
+      const slug = sessionStorage.getItem("entry_org_slug");
       sessionStorage.clear();
-      window.location.href = "/Login";
+      try { sessionStorage.setItem("aviso_login", "Tu sesión expiró. Vuelve a entrar; si estabas capturando algo, revisa que se haya guardado."); } catch { /* sin storage */ }
+      window.location.href = slug ? `/${slug}` : "/Login";
       throw new Error("Sesión expirada. Inicia sesión de nuevo.");
     }
 

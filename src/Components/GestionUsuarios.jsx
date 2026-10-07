@@ -4,6 +4,7 @@
 // posible es RESTABLECER (genera una temporal nueva) y mostrarla una sola
 // vez, igual que al dar de alta un empleado. Cada reseteo queda en la
 // auditoría (quién y cuándo, nunca el valor).
+import { confirmar, avisar } from "../services/dialogo";
 import React, { useState, useEffect, useCallback } from "react";
 import { FiUsers, FiRefreshCw, FiCopy, FiX, FiAlertTriangle, FiSmartphone } from "react-icons/fi";
 import { usuarioService } from "../services/usuarioService";
@@ -77,11 +78,11 @@ function GestionUsuarios() {
   // Si alguien pierde su teléfono: sus celulares dejan de entrar a la app con
   // Face ID / huella y tendrán que volver a escribir la contraseña.
   const desvincular = async (u) => {
-    if (!window.confirm(`¿Desvincular los celulares de "${u.user}"? Tendrá que volver a escribir su contraseña en la app.`)) return;
+    if (!(await confirmar(`¿Desvincular los celulares de "${u.user}"? Tendrá que volver a escribir su contraseña en la app.`))) return;
     setError("");
     try {
       const r = await apiFetch(`/usuario/${getId(u)}/dispositivos`, { method: "DELETE" });
-      window.alert(r.desvinculados ? `Se desvincularon ${r.desvinculados} celular(es).` : "Esta cuenta no tenía celulares vinculados.");
+      await avisar({ titulo: "Celulares desvinculados", mensaje: r.desvinculados ? `Se desvincularon ${r.desvinculados} celular(es).` : "Esta cuenta no tenía celulares vinculados." });
     } catch (e) {
       setError(e.message || "No se pudieron desvincular los celulares.");
     }
@@ -89,7 +90,7 @@ function GestionUsuarios() {
 
   const restablecer = async (u) => {
     const id = getId(u);
-    if (!window.confirm(`¿Restablecer la contraseña de "${u.user}"? Se generará una nueva contraseña temporal.`)) return;
+    if (!(await confirmar(`¿Restablecer la contraseña de "${u.user}"? Se generará una nueva contraseña temporal.`))) return;
     setReseteando(id);
     setError("");
     try {

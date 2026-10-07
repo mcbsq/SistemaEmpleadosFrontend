@@ -8,7 +8,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { roleLabel } from "../utils/roleLabels";
 import IconButton from "./IconButton";
-import { FiCheck, FiX, FiUserPlus, FiSliders } from "react-icons/fi";
+import { FiCheck, FiX, FiUserPlus, FiSliders, FiEyeOff, FiEye, FiBriefcase } from "react-icons/fi";
+import { useOrg } from "../context/OrgContext";
 import "./RoleManager.css";
 import { usuarioService }  from "../services/usuarioService";
 import { empleadoService } from "../services/empleadoService";
@@ -73,6 +74,18 @@ const DESCRIPCION_ROL = {
 };
 
 const ROLES_SISTEMA = ["EMPLOYEE","JEFE_AREA","CONTADOR","PROJECT_MANAGER","MEDICO","RH","ADMIN","SUPER_ADMIN"];
+// Los de administración siempre existen; el resto cada empresa decide si los usa.
+const ROLES_NO_OCULTABLES = ["SUPER_ADMIN", "ADMIN", "RH", "EMPLOYEE"];
+
+// Plantilla para la dirección general: ve indicadores, analítica, organigrama
+// y el directorio, sin poder editar personas.
+const PLANTILLA_DIRECCION = {
+  nombre: "DIRECCION",
+  descripcion: "Dirección general: ve indicadores, analítica (rotación, plantilla, nómina), el organigrama y el directorio. No edita.",
+  color: "purple", nivel: 4,
+  permisos: ["ver_empleados", "ver_organigrama", "ver_dashboard", "ver_carrusel", "ver_perfil_propio"],
+  modulos: ["dashboard_admin", "home_carousel", "organigrama"],
+};
 
 // Roles a los que se les puede otorgar/quitar reportes de Analítica —
 // ADMIN y SUPER_ADMIN siempre ven todos, así que no aplica editarlos aquí.
@@ -133,6 +146,9 @@ const guardarRolBackend = async (roles) => {
 
 // ════════════════════════════════════════════════════════════════════════════════
 function RoleManager() {
+  const { orgConfig, updateOrgConfig } = useOrg();
+  const ocultos = orgConfig?.roles_ocultos || [];
+  const [verOcultos, setVerOcultos] = useState(false);
   const [usuarios,    setUsuarios]    = useState([]);
   const [empleados,   setEmpleados]   = useState([]);
   const [rolesCustom, setRolesCustom] = useState([]);
@@ -217,6 +233,31 @@ function RoleManager() {
       usuarios: usuarios.filter(u => u.role === r.nombre).length,
     })),
   ];
+
+  const rolesVisibles = todosRoles.filter(r => !ocultos.includes(r.nombre));
+  const rolesOcultos  = todosRoles.filter(r => ocultos.includes(r.nombre));
+
+  const ocultarRol = async (rol, ocultar) => {
+    if (ocultar && rol.usuarios > 0) {
+      showToast(`No se puede ocultar: ${rol.usuarios} cuenta(s) tienen este rol`, "error");
+      return;
+    }
+    const next = ocultar ? [...new Set([...ocultos, rol.nombre])] : ocultos.filter(r => r !== rol.nombre);
+    await updateOrgConfig({ roles_ocultos: next }).catch(() => null);
+    showToast(ocultar ? `${roleLabel(rol.nombre)} ya no se ofrecerá al asignar roles` : `${roleLabel(rol.nombre)} visible de nuevo`);
+  };
+
+  const yaHayDireccion = rolesCustom.some(r => r.nombre === PLANTILLA_DIRECCION.nombre);
+  const crearDireccion = async () => {
+    const rol = { id: `custom_${Date.now()}`, ...PLANTILLA_DIRECCION };
+    await saveRolesCustom([...rolesCustom, rol]);
+    // Todos los reportes de Analítica para la dirección.
+    const todos = catalogoReportes.map(r => r.id);
+    const actualizado = { ...permisosAnalitica, [rol.nombre]: todos };
+    setPermisosAnalitica(actualizado);
+    await apiFetch("/analitica/permisos", { method: "PUT", body: JSON.stringify({ permisos: actualizado }) }).catch(() => null);
+    showToast("Rol Dirección creado: asígnalo a la cuenta del director");
+  };
 
   // ─── Abrir crear ──────────────────────────────────────────────────────────
   const abrirCrear = () => {
@@ -419,24 +460,36 @@ function RoleManager() {
       <div className="rm-header">
         <div>
           <h2 className="rm-title">Gestión de roles</h2>
-          <p className="rm-sub">{todosRoles.length} roles · {usuarios.length} usuarios</p>
+          <p className="rm-sub">{rolesVisibles.length} roles en uso · {usuarios.length} usuarios</p>
         </div>
+        {!yaHayDireccion && (
+          <IconButton icon={FiBriefcase} size="lg" label="Crear rol de Dirección (solo lectura de indicadores)" tooltipPos="left" onClick={crearDireccion} />
+        )}
         <IconButton accion="agregar" size="lg" label="Nuevo rol" tooltipPos="left" onClick={abrirCrear} />
+      </div>
+
+      <div className="rm-guia">
+        <strong>¿Por dónde empezar?</strong> Cada persona tiene un rol según lo que necesita hacer:
+        tú eres <em>Administrador general</em>; quien lleva el personal, <em>Recursos Humanos</em>; el resto, <em>Empleado</em>.
+        Los jefes que aprueban vacaciones de su equipo son <em>Jefe de área</em>. Para el director usa el rol de
+        <em> Dirección</em>. Oculta con el ojo los roles que tu empresa no usa (Médico, Project Manager…): no se borran,
+        solo dejan de ofrecerse.
       </div>
 
       {/* ─── Grid de roles ─────────────────────────────────────────── */}
       <div className="rm-roles-grid">
-        {todosRoles.map(rol => {
+        {(verOcultos ? [...rolesVisibles, ...rolesOcultos] : rolesVisibles).map(rol => {
+          const oculto = ocultos.includes(rol.nombre);
           const { bg, fg } = colorById(rol.color);
           const isSuperAdmin = rol.nombre === "SUPER_ADMIN";
           return (
             <div key={rol.id || rol.nombre}
-              className={`rm-rol-card ${rol.sistema ? "rm-rol-card--sistema" : ""}`}>
+              className={`rm-rol-card ${rol.sistema ? "rm-rol-card--sistema" : ""}`} style={oculto ? { opacity: 0.55 } : undefined}>
               <div className="rm-rol-card-top">
                 <span className="rm-rol-badge" style={{ background: bg, color: fg }} title={rol.nombre}>
                   {rol.sistema ? roleLabel(rol.nombre) : rol.nombre}
                 </span>
-                {rol.sistema && <span className="rm-rol-sistema-tag">Sistema</span>}
+                {rol.sistema && <span className="rm-rol-sistema-tag">{oculto ? "Oculto" : "Sistema"}</span>}
               </div>
 
               {rol.descripcion && <p className="rm-rol-desc">{rol.descripcion}</p>}
@@ -470,6 +523,10 @@ function RoleManager() {
                   {rol.sistema && !isSuperAdmin && (
                     <IconButton icon={FiSliders} size="sm" label="Editar permisos de este rol" onClick={() => abrirEditarSistema(rol)} />
                   )}
+                  {rol.sistema && !ROLES_NO_OCULTABLES.includes(rol.nombre) && (
+                    <IconButton icon={oculto ? FiEye : FiEyeOff} size="sm" tooltipPos="left"
+                      label={oculto ? "Volver a usar este rol" : "Ocultar: mi empresa no usa este rol"} onClick={() => ocultarRol(rol, !oculto)} />
+                  )}
                   {!rol.sistema && (
                     <>
                       <IconButton accion="editar" size="sm" label={`Editar ${rol.nombre}`} onClick={() => abrirEditar(rol)} />
@@ -482,6 +539,13 @@ function RoleManager() {
           );
         })}
       </div>
+
+      {rolesOcultos.length > 0 && (
+        <button type="button" className="rm-ver-ocultos" onClick={() => setVerOcultos(v => !v)}>
+          {verOcultos ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
+          {verOcultos ? "Esconder roles ocultos" : `Ver roles ocultos (${rolesOcultos.length})`}
+        </button>
+      )}
 
       {/* ─── Modal crear / editar rol custom ─────────────────────── */}
       {(modal === "crear" || modal === "editar") && (

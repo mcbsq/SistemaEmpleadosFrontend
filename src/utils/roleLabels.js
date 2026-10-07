@@ -11,6 +11,7 @@ export const ROLE_LABELS = {
   JEFE_AREA: "Jefe de área",
   MEDICO: "Médico",
   RH: "Recursos Humanos",
+  DIRECCION: "Dirección",
 };
 
 export const roleLabel = (role) => ROLE_LABELS[role] || role;
