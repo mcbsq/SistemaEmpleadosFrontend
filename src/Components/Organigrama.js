@@ -281,6 +281,14 @@ function Organigrama() {
     const todosLosNombres = new Set([...nombresConGente, ...Object.keys(padrePorNombre)]);
     todosLosNombres.forEach(n => { if (!(n in padrePorNombre)) padrePorNombre[n] = null; });
 
+    // Las áreas del catálogo se configuraron a propósito: se dibujan aunque
+    // todavía no tengan personas (pruebas TST: "6 áreas y el organigrama no
+    // sale completo"). Solo con la vista completa de la empresa; quien ve su
+    // propia área no necesita las cajas vacías de las demás.
+    const vistaCompleta = isSuperAdmin || !miEmpleadoId;
+    const visible = nodo => nodo.empleados.length > 0 || nodo.hijos.length > 0
+      || (vistaCompleta && nodo.nombre in padrePorNombre && areasCatalogo.some(a => a.NombreDepto === nodo.nombre));
+
     const hijosPorPadre = {};
     todosLosNombres.forEach(n => {
       const p = padrePorNombre[n];
@@ -299,16 +307,14 @@ function Organigrama() {
         hijos: hijosNombres
           .map(h => construirNodo(h, siguienteRuta, profundidad + 1))
           .filter(Boolean)
-          // Áreas sin gente y sin hijos con gente no aportan nada al árbol —
-          // no mostrar cajas vacías que nadie configuró a propósito.
-          .filter(nodo => nodo.empleados.length > 0 || nodo.hijos.length > 0),
+          .filter(visible),
       };
     };
 
     const raices = (hijosPorPadre[null] || [])
       .map(n => construirNodo(n, new Set(), 0))
       .filter(Boolean)
-      .filter(nodo => nodo.empleados.length > 0 || nodo.hijos.length > 0)
+      .filter(visible)
       .sort((a, b) => (b.empleados.length + b.hijos.length) - (a.empleados.length + a.hijos.length));
 
     return raices;

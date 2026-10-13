@@ -275,8 +275,22 @@ function DireccionCell({ empleadoId }) {
 }
 
 // ─── ExpedienteModal — solo lectura con tabs ──────────────────────────────────
-function ExpedienteModal({ empleado, rhItem, clinItem, pcItem, edItem, onClose }) {
+function ExpedienteModal({ empleado, rhItem, clinItem, pcItem: pcLista, edItem, onClose }) {
   const [tab, setTab] = useState("rh");
+  // Contactos de emergencia: se consultan de la persona al abrir, con la
+  // misma fuente que su perfil — la lista general cargada al entrar a la
+  // página podía estar vieja o fallar y entonces "en un lado aparece y en
+  // otro no" (pruebas TST).
+  const [pcFresco, setPcFresco] = useState(null);
+  const empId = empleado ? getId(empleado) : "";
+  useEffect(() => {
+    if (!empId) return undefined;
+    let vivo = true;
+    setPcFresco(null);
+    contactoService.getPersonasByEmpleado(empId).then(d => { if (vivo) setPcFresco(d || { Contactos: [] }); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [empId]);
+  const pcItem = pcFresco || pcLista;
   if (!empleado) return null;
 
   const id    = getId(empleado);
