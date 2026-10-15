@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
+import SolicitarAcceso from "./SolicitarAcceso";
 import { API_URL } from "../../services/apiConfig";
 import { useOrg } from "../../context/OrgContext";
 import "./Login.css";
@@ -24,11 +25,15 @@ function Login({ setIsAuthenticated, setUserRole }) {
 
   const solicitarRecuperacion = async (e) => {
     e.preventDefault();
-    if (recId.trim().length < 3) { setRecEstado({ ok: false, texto: "Escribe tu usuario o tu correo." }); return; }
+    if (!recId.includes("@")) { setRecEstado({ ok: false, texto: "Escribe el correo completo de la cuenta." }); return; }
+    if (!sessionStorage.getItem("entry_org_slug")) {
+      setRecEstado({ ok: false, texto: "Abre la página de tu empresa y solicita la recuperación desde ahí." });
+      return;
+    }
     setRecEnviando(true); setRecEstado(null);
     try {
       const res = await fetch(`${API_URL}/recuperar-contrasena`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identificador: recId.trim(), org_id: sessionStorage.getItem("entry_org_slug") || undefined }),
       });
       const data = await res.json().catch(() => ({}));
@@ -42,7 +47,6 @@ function Login({ setIsAuthenticated, setUserRole }) {
   const [mustChange,   setMustChange]   = useState(false);
   const [newPass,      setNewPass]      = useState("");
   const [newPass2,     setNewPass2]     = useState("");
-  const [pendingRole,  setPendingRole]  = useState(null);
 
   const navigate = useNavigate();
 
@@ -60,7 +64,6 @@ function Login({ setIsAuthenticated, setUserRole }) {
     try {
       const data = await authService.login({ user, password });
       if (data.must_change_password) {
-        setPendingRole(data.role);
         setMustChange(true);
         return;
       }
@@ -75,12 +78,21 @@ function Login({ setIsAuthenticated, setUserRole }) {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setMessage("");
-    if (newPass.length < 12) { setMessage("La nueva contraseña debe tener al menos 12 caracteres."); return; }
+    if (newPass.length < 12 || newPass.length > 256) { setMessage("La nueva contraseña debe tener entre 12 y 256 caracteres."); return; }
+    if (!/[A-Z]/.test(newPass) || !/[a-z]/.test(newPass) || !/[0-9]/.test(newPass) || !/[^A-Za-z0-9]/.test(newPass)) {
+      setMessage("Incluye mayúscula, minúscula, número y símbolo."); return;
+    }
     if (newPass !== newPass2) { setMessage("Las contraseñas no coinciden."); return; }
     setLoading(true);
     try {
       await authService.changePassword(password, newPass);
-      enterApp(pendingRole);
+      sessionStorage.removeItem("sesion_activa");
+      sessionStorage.removeItem("access_token");
+      setMustChange(false);
+      setPassword("");
+      setNewPass("");
+      setNewPass2("");
+      setMessage("Contraseña actualizada. Vuelve a iniciar sesión.");
     } catch (error) {
       setMessage(error.message || "No se pudo cambiar la contraseña.");
     } finally {
@@ -296,6 +308,8 @@ function Login({ setIsAuthenticated, setUserRole }) {
             </button>
           </form>
 
+          <SolicitarAcceso />
+
           {/* Recuperar contraseña */}
           <button
             type="button"
@@ -308,10 +322,11 @@ function Login({ setIsAuthenticated, setUserRole }) {
           {showRecovery && (
             <form className="login-recovery-form" onSubmit={solicitarRecuperacion}>
               <p className="login-recovery-text">
-                Escribe tu usuario o correo. Avisaremos al administrador de tu empresa para que te asigne una contraseña temporal.
+                Abre esta página desde el enlace de tu empresa y escribe el correo completo.
+                La contraseña nueva se elige en la página del enlace, no aquí.
               </p>
               <div className="login-input-wrap">
-                <input className="login-input" aria-label="Usuario o correo" placeholder="Usuario o correo" value={recId}
+                <input className="login-input" aria-label="Correo completo" type="email" placeholder="correo@empresa.com" value={recId}
                   onChange={e => setRecId(e.target.value)} autoComplete="username" disabled={recEnviando || recEstado?.ok} />
               </div>
               {recEstado && (

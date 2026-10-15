@@ -49,20 +49,49 @@ export const defaultHeaders = {
  * empresas. Usar siempre este helper (o apiFetch), nunca armar el
  * Authorization a mano.
  */
-export function sessionHeaders() {
-  const token = sessionStorage.getItem("access_token");
+let csrfEnMemoria = "";
+
+export function guardarCsrf(token) {
+  csrfEnMemoria = token || "";
+}
+
+export function leerCsrf() {
+  return csrfEnMemoria;
+}
+
+export function sessionHeaders(method = "GET") {
   const universo = sessionStorage.getItem("universo");
+  const mutacion = !["GET", "HEAD", "OPTIONS"].includes(String(method || "GET").toUpperCase());
+  const csrf = mutacion ? leerCsrf() : "";
   return {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(csrf ? { "X-CSRF-Token": csrf } : {}),
     ...(universo ? { "X-Universo": universo } : {}),
   };
+}
+
+// Toda llamada al API lleva la cookie de sesión. El token no se guarda en JS.
+if (typeof window !== "undefined" && !window.__empleadosFetch) {
+  const fetchOriginal = window.fetch.bind(window);
+  window.fetch = (url, options = {}) => {
+    const destino = typeof url === "string" ? url : "";
+    if (API_URL && destino.startsWith(API_URL)) {
+      const method = options.method || "GET";
+      options = {
+        ...options,
+        credentials: "include",
+        headers: { ...sessionHeaders(method), ...(options.headers || {}) },
+      };
+    }
+    return fetchOriginal(url, options);
+  };
+  window.__empleadosFetch = true;
 }
 
 /**
  * Helper con manejo de errores, token automático y limpieza de rutas.
  */
 export async function apiFetch(endpoint, options = {}) {
-  const token = sessionStorage.getItem("access_token");
+  const sesionActiva = sessionStorage.getItem("sesion_activa") === "1";
 
   // Nos aseguramos de que el endpoint empiece con /
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
@@ -73,13 +102,14 @@ export async function apiFetch(endpoint, options = {}) {
   try {
     const response = await fetch(finalUrl, {
       ...options,
+      credentials: "include",
       // Refuerzo del lado del cliente al Cache-Control: no-store que ya
       // manda el backend (app.py) — así el navegador nunca usa una copia
       // en caché aunque algún proxy intermedio ignore el header del server.
       cache: "no-store",
       headers: {
         ...defaultHeaders,
-        ...sessionHeaders(),
+        ...sessionHeaders(options.method),
         ...options.headers,
       },
     });
@@ -93,9 +123,11 @@ export async function apiFetch(endpoint, options = {}) {
     // parte del flujo normal.
     if (
       response.status === 401 &&
-      token &&
+      sesionActiva &&
       !cleanEndpoint.startsWith("/login") &&
-      !cleanEndpoint.startsWith("/change-password")
+      !cleanEndpoint.startsWith("/change-password") &&
+      !cleanEndpoint.startsWith("/logout") &&
+      !cleanEndpoint.startsWith("/session")
     ) {
       const slug = sessionStorage.getItem("entry_org_slug");
       sessionStorage.clear();

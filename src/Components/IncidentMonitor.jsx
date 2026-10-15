@@ -113,9 +113,9 @@ function IncidentMonitor() {
 
     let remotos = [];
     try {
-      const token = sessionStorage.getItem("access_token");
+      const sesion = sessionStorage.getItem("sesion_activa") === "1";
       const base  = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
-      if (token && base) {
+      if (sesion && base) {
         const r = await fetch(`${base}/monitor/incidents`, {
           headers: sessionHeaders(),
         });

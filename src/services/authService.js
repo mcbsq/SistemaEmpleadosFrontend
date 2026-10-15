@@ -1,5 +1,5 @@
 // src/services/authService.js
-import { apiFetch } from "./apiConfig";
+import { apiFetch, guardarCsrf } from "./apiConfig";
 
 // ─── Mapa de permisos por rol — fallback si el backend no los devuelve ────────
 // Estos son los permisos DEFAULT. El Super Admin puede modificarlos desde /roles.
@@ -44,8 +44,11 @@ export const authService = {
         }),
       });
 
-      if (data.access_token) {
-        sessionStorage.setItem("access_token", data.access_token);
+      if (data.role) {
+        sessionStorage.removeItem("access_token");
+        sessionStorage.setItem("sesion_activa", "1");
+        if (data.session_expires_at) sessionStorage.setItem("sesion_expira", data.session_expires_at);
+        if (data.csrf_token) guardarCsrf(data.csrf_token);
         sessionStorage.setItem("user_role",    data.role);
         sessionStorage.setItem("empleado_id",  data.empleado_id  ?? "");
         sessionStorage.setItem("depto_id",     data.depto_id     ?? "");
@@ -87,13 +90,20 @@ export const authService = {
   },
 
   // ─── Logout ───────────────────────────────────────────────────────────────
-  logout() {
+  async logout() {
     // Si esta sesión entró por el link de una empresa (/<org_id>), regresar
     // ahí en vez de a /Login genérico — así vuelve a ver su propia marca sin
     // tener que volver a pedir el link. No es parte de la autenticación en
     // sí, solo UX: entry_org_slug se guarda en OrgGate.js al validar la URL.
     const entrySlug = sessionStorage.getItem("entry_org_slug");
+    try {
+      await apiFetch("/logout", { method: "POST" });
+    } catch {
+      return false;
+    }
     sessionStorage.removeItem("access_token");
+    sessionStorage.removeItem("sesion_activa");
+    sessionStorage.removeItem("sesion_expira");
     sessionStorage.removeItem("plataforma");
     sessionStorage.removeItem("universo");
     sessionStorage.removeItem("universo_nombre");
@@ -105,15 +115,28 @@ export const authService = {
     sessionStorage.removeItem("user_modulos");
     sessionStorage.removeItem("org_id");
     window.location.href = entrySlug ? `/${entrySlug}` : "/";
+    return true;
   },
 
   // ─── Getters básicos — NO CAMBIAN, compatibilidad total ──────────────────
-  getToken()      { return sessionStorage.getItem("access_token"); },
+  getToken()      { return ""; },
   getRole()       { return sessionStorage.getItem("user_role"); },
   getEmpleadoId() { return sessionStorage.getItem("empleado_id"); },
   getDeptoId()    { return sessionStorage.getItem("depto_id"); },
   getOrgId()      { return sessionStorage.getItem("org_id") || "default"; },
-  isAuthenticated() { return !!sessionStorage.getItem("access_token"); },
+  isAuthenticated() { return sessionStorage.getItem("sesion_activa") === "1"; },
+
+  async restaurar() {
+    if (!this.isAuthenticated()) return false;
+    try {
+      const data = await apiFetch("/session");
+      if (data && data.csrf_token) guardarCsrf(data.csrf_token);
+      if (data && data.session_expires_at) sessionStorage.setItem("sesion_expira", data.session_expires_at);
+      return true;
+    } catch {
+      return false;
+    }
+  },
 
   // ─── Checks de rol — NO CAMBIAN ───────────────────────────────────────────
   isSuperAdmin() { return sessionStorage.getItem("user_role") === "SUPER_ADMIN"; },
@@ -205,7 +228,6 @@ export const authService = {
   },
 
   getAuthHeaders() {
-    const token = this.getToken();
-    return token ? { "Authorization": `Bearer ${token}` } : {};
+    return {};
   },
 };
