@@ -12,7 +12,11 @@ rawUrl = rawUrl.replace(/[\[\]]/g, "");
 
 // 2. FORZAR PROTOCOLO: Si no empieza con http, el navegador la trata como ruta relativa.
 // Esto evita el error: frontend.com/https:/backend.com
-if (rawUrl && !rawUrl.startsWith("http")) {
+// Excepción: "/api" (empieza con una sola "/") es a propósito una ruta del
+// mismo sitio — vercel.json la reenvía al backend, así la cookie de sesión
+// es del mismo sitio en todos los navegadores (Safari bloquea las de terceros).
+const esRutaPropia = /^\/[^/]/.test(rawUrl);
+if (rawUrl && !esRutaPropia && !rawUrl.startsWith("http")) {
   // Quitamos barras iniciales sobrantes y ponemos https://
   const cleanPath = rawUrl.replace(/^\/+/, "");
   rawUrl = `https://${cleanPath}`;
