@@ -4,7 +4,6 @@ services:
       context: .
       args:
         REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
-        REACT_APP_GOOGLE_MAPS_API_KEY: ${REACT_APP_GOOGLE_MAPS_API_KEY:-}
     ports:
       - "${FRONTEND_PORT:-3000}:80"
     healthcheck:

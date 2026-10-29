@@ -281,7 +281,7 @@ export const DireccionRenderer = ({ isEditing, direccion = {}, onDireccionChange
           })}
         </div>
         <div className="dir-mapa">
-          <MapaDomicilio direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} />
+          <MapaDomicilio direccion={direccion} lat={lat} lng={lng} />
         </div>
       </div>
     </div>

@@ -1242,15 +1242,10 @@ select {
   display: block; width: 100%; border-radius: 14px; overflow: hidden;
   border: 1px solid var(--hr-border); background: rgba(127,127,127,0.08);
 }
-.mapa-vivo-cargando {
-  position: absolute; inset: 0 0 34px; display: flex; align-items: center; justify-content: center; gap: 8px;
-  font-size: 0.8rem; color: var(--hr-muted);
-}
 .mapa-vivo-nivel {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 2px 0;
   font-size: 0.76rem; color: var(--hr-muted); line-height: 1.4; min-height: 26px;
 }
-.mapa-vivo-hint { color: var(--hr-hint, var(--hr-muted)); }
 .mapa-vivo-barras { display: inline-flex; gap: 2px; align-items: flex-end; }
 .mapa-vivo-barras i { width: 4px; border-radius: 2px; background: var(--hr-border); }
 .mapa-vivo-barras i:nth-child(1) { height: 6px; }  .mapa-vivo-barras i:nth-child(2) { height: 8px; }
