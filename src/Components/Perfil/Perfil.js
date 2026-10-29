@@ -25,6 +25,7 @@ import { catalogoService, FALLBACK } from "../../services/catalogoService";
 import {
   FiAlertTriangle, FiCheck, FiX, FiMail, FiUser, FiHome,
   FiBriefcase, FiDollarSign, FiSun, FiHeart, FiFileText, FiEyeOff, FiLoader, FiCamera, FiSettings, FiMessageSquare, FiUserX,
+  FiPhone, FiMapPin, FiGift, FiSmartphone,
 } from "react-icons/fi";
 
 import {
@@ -65,6 +66,13 @@ const AVATAR_FALLBACK =
 
 const CONTACTO_INIT = { telefonoF:"", telefonoC:"", IDwhatsapp:"", IDtelegram:"", correos:[] };
 const DIR_INIT      = { Calle:"", NumExterior:"", NumInterior:"", Municipio:"", Ciudad:"", CodigoP:"", lat:null, lng:null };
+// "MM-DD" → "14 de marzo"
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const fechaDiaMes = (mmdd = "") => {
+  const [m, d] = String(mmdd).split("-").map(Number);
+  return m && d ? `${d} de ${MESES[m - 1]}` : "";
+};
+
 const RH_INIT       = { Puesto:"", JefeInmediato:"", JefeInmediato_id:"", HorarioLaboral:{ HoraEntrada:"", HoraSalida:"", TiempoComida:"", DiasTrabajados:"" }, ExpedienteDigitalPDF:null };
 const EXP_INIT      = { tipoSangre:"", Padecimientos:"", NumeroSeguroSocial:"", Datossegurodegastos:"", PDFSegurodegastosmedicos:null };
 
@@ -266,6 +274,9 @@ function Perfil() {
         tipo_contrato:        rhData?.tipo_contrato    || "",
         FechaIngreso:         rhData?.FechaIngreso     || "",
         NumeroEmpleado:       rhData?.NumeroEmpleado   || "",
+        Extension:            rhData?.Extension        || pub.Extension || "",
+        TelefonoOficina:      rhData?.TelefonoOficina  || pub.TelefonoOficina || "",
+        UbicacionOficina:     rhData?.UbicacionOficina || pub.UbicacionOficina || "",
         CURP:                 rhData?.CURP             || "",
         RFC:                  rhData?.RFC              || "",
         NSS:                  rhData?.NSS              || "",
@@ -560,7 +571,7 @@ function Perfil() {
               ? <p className="perfil-titular">{empleado.Titular}</p>
               : esPropio && <button type="button" className="perfil-titular perfil-titular--vacio" onClick={() => abrirAjustes("perfil")}>Agrega una frase sobre ti</button>}
             <dl className="perfil-meta">
-              <div><dt>Puesto</dt><dd title={empleado.Puesto}>{empleado.Puesto || "Sin puesto asignado"}</dd></div>
+              {"Puesto" in empleado && (<div><dt>Puesto</dt><dd title={empleado.Puesto}>{empleado.Puesto || "Sin puesto asignado"}</dd></div>)}
               {empleado.Departamento && (<div><dt>Área</dt><dd title={empleado.Departamento}>{empleado.Departamento}</dd></div>)}
               {empleado.JefeInmediato && (
                 <div>
@@ -575,7 +586,35 @@ function Perfil() {
               {empleado.CorreoLaboral && (
                 <div><dt>Correo</dt><dd><a href={`mailto:${empleado.CorreoLaboral}`} title={empleado.CorreoLaboral}><FiMail aria-hidden="true"/>{empleado.CorreoLaboral}</a></dd></div>
               )}
+              {/* Directorio: lo que el rol de quien mira tiene permitido ver
+                  (Gestión de roles → Directorio); el backend ya lo recorta. */}
+              {(empleado.Extension || empleado.TelefonoOficina) && (
+                <div><dt>Oficina</dt><dd>
+                  <a href={`tel:${String(empleado.TelefonoOficina || "").replace(/[^\d+]/g, "")}${empleado.Extension ? `,${empleado.Extension}` : ""}`}>
+                    <FiPhone aria-hidden="true"/>{[empleado.TelefonoOficina, empleado.Extension && `ext. ${empleado.Extension}`].filter(Boolean).join(" · ")}
+                  </a>
+                </dd></div>
+              )}
+              {empleado.UbicacionOficina && (
+                <div><dt>Ubicación</dt><dd title={empleado.UbicacionOficina}><FiMapPin aria-hidden="true"/>{empleado.UbicacionOficina}</dd></div>
+              )}
+              {empleado.TelCelular && !esPropio && (
+                <div><dt>Celular</dt><dd><a href={`tel:${String(empleado.TelCelular).replace(/[^\d+]/g, "")}`}><FiSmartphone aria-hidden="true"/>{empleado.TelCelular}</a></dd></div>
+              )}
+              {empleado.CorreoPersonal && !esPropio && (
+                <div><dt>Correo personal</dt><dd><a href={`mailto:${empleado.CorreoPersonal}`} title={empleado.CorreoPersonal}><FiMail aria-hidden="true"/>{empleado.CorreoPersonal}</a></dd></div>
+              )}
+              {empleado.Cumpleanos && (
+                <div><dt>Cumpleaños</dt><dd><FiGift aria-hidden="true"/>{fechaDiaMes(empleado.Cumpleanos)}</dd></div>
+              )}
             </dl>
+            {empleado.visible?.includes("dir_estado") && (empleado.estado === "vacaciones" || empleado.estado === "activo") && (
+              <span className={`perfil-estado perfil-estado--${empleado.estado}`} role="status">
+                {empleado.estado === "vacaciones"
+                  ? `De vacaciones${empleado.hasta ? ` · regresa después del ${fechaDiaMes(empleado.hasta.slice(5))}` : ""}`
+                  : "Activo"}
+              </span>
+            )}
             {ver.laboral && rh.tipo_contrato && (
               <span className={`perfil-contrato perfil-contrato--${rh.contrato_firmado ? "ok" : "no"}`}>
                 {rh.contrato_firmado ? (rh.tipo_contrato === "digital" ? "Contrato firmado digitalmente" : "Contrato firmado en papel") : "Contrato pendiente de firma"}

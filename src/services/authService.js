@@ -44,29 +44,14 @@ export const authService = {
         }),
       });
 
+      // Contraseña temporal: el token solo sirve para cambiarla, así que no
+      // se guarda como sesión (recargar la página no debe dejar entrar).
+      if (data.access_token && data.must_change_password) {
+        sessionStorage.setItem("pending_access_token", data.access_token);
+        return data;
+      }
       if (data.access_token) {
-        sessionStorage.setItem("access_token", data.access_token);
-        sessionStorage.setItem("user_role",    data.role);
-        sessionStorage.setItem("empleado_id",  data.empleado_id  ?? "");
-        sessionStorage.setItem("depto_id",     data.depto_id     ?? "");
-        sessionStorage.setItem("org_id",       data.org_id       ?? "cibercom");
-        if (data.user) sessionStorage.setItem("user_name", data.user);
-        // Cuenta suprema de la plataforma (dueño de la app), no solo admin de una empresa.
-        sessionStorage.setItem("plataforma", data.plataforma ? "1" : "");
-        sessionStorage.removeItem("universo");
-
-        // Guardar permisos: primero los que devuelve el backend,
-        // si no, usar los defaults según el rol
-        const permisos = data.permisos
-          || PERMISOS_DEFAULT[data.role]
-          || PERMISOS_DEFAULT["EMPLOYEE"];
-        sessionStorage.setItem("user_permisos", JSON.stringify(permisos));
-
-        // Guardar módulos del dashboard activos para este rol
-        const modulos = data.modulos
-          || DASHBOARD_MODULOS[data.role]
-          || DASHBOARD_MODULOS["EMPLOYEE"];
-        sessionStorage.setItem("user_modulos", JSON.stringify(modulos));
+        this.guardarSesion(data);
       }
 
       return data;
@@ -75,15 +60,47 @@ export const authService = {
     }
   },
 
+  guardarSesion(data) {
+    sessionStorage.removeItem("pending_access_token");
+    sessionStorage.setItem("access_token", data.access_token);
+    sessionStorage.setItem("user_role",    data.role);
+    sessionStorage.setItem("empleado_id",  data.empleado_id  ?? "");
+    sessionStorage.setItem("depto_id",     data.depto_id     ?? "");
+    sessionStorage.setItem("org_id",       data.org_id       ?? "cibercom");
+    if (data.user) sessionStorage.setItem("user_name", data.user);
+    // Cuenta suprema de la plataforma (dueño de la app), no solo admin de una empresa.
+    sessionStorage.setItem("plataforma", data.plataforma ? "1" : "");
+    sessionStorage.removeItem("universo");
+
+    // Guardar permisos: primero los que devuelve el backend,
+    // si no, usar los defaults según el rol
+    const permisos = data.permisos
+      || PERMISOS_DEFAULT[data.role]
+      || PERMISOS_DEFAULT["EMPLOYEE"];
+    sessionStorage.setItem("user_permisos", JSON.stringify(permisos));
+
+    // Guardar módulos del dashboard activos para este rol
+    const modulos = data.modulos
+      || DASHBOARD_MODULOS[data.role]
+      || DASHBOARD_MODULOS["EMPLOYEE"];
+    sessionStorage.setItem("user_modulos", JSON.stringify(modulos));
+  },
+
   // ─── Cambio de contraseña (Aegis: obligatorio si la actual es temporal) ──
+  // Con la sesión de contraseña temporal, el backend responde con una
+  // sesión normal que aquí se guarda para entrar directo al sistema.
   async changePassword(currentPassword, newPassword) {
-    return apiFetch("/change-password", {
+    const pendiente = sessionStorage.getItem("pending_access_token");
+    const data = await apiFetch("/change-password", {
       method: "POST",
+      ...(pendiente ? { headers: { Authorization: `Bearer ${pendiente}` } } : {}),
       body: JSON.stringify({
         current_password: currentPassword,
         new_password:     newPassword,
       }),
     });
+    if (data?.access_token) this.guardarSesion(data);
+    return data;
   },
 
   // ─── Logout ───────────────────────────────────────────────────────────────

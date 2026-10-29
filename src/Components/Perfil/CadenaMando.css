@@ -1,0 +1,48 @@
+/* Mini organigrama (cadena de mando) del perfil */
+.cm-cargando { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 28px 0; color: var(--hr-muted); font-size: 0.85rem; }
+.cm-arbol { display: flex; flex-direction: column; align-items: center; padding: 4px 0 8px; }
+.cm-vacio { color: var(--hr-muted); font-size: 0.85rem; margin: 0 0 12px; }
+.cm-mas { color: var(--hr-muted); font-size: 1.1rem; line-height: 1; margin-bottom: 6px; }
+
+/* Cada nivel lleva un conector vertical hacia el siguiente */
+.cm-nivel { position: relative; display: flex; justify-content: center; width: 100%; padding-bottom: 22px; }
+.cm-nivel::after {
+  content: ""; position: absolute; left: 50%; bottom: 0; width: 2px; height: 22px;
+  transform: translateX(-1px); background: var(--hr-border);
+}
+.cm-nivel:last-of-type::after { display: none; }
+.cm-arbol:has(.cm-directos) .cm-nivel:last-of-type::after { display: block; }
+
+.cm-nodo {
+  display: flex; align-items: center; gap: 10px; width: min(100%, 320px); min-width: 0;
+  padding: 10px 12px; border-radius: 14px; border: 1px solid var(--hr-border);
+  background: rgba(127, 127, 127, 0.06); color: var(--hr-text); text-decoration: none;
+  transition: border-color var(--mo-base, 0.2s) ease, transform var(--mo-base, 0.2s) ease;
+}
+.cm-nodo--link:hover, .cm-nodo--link:focus-visible { border-color: rgba(var(--hr-accent-rgb), 0.55); transform: translateY(-1px); color: var(--hr-text); }
+.cm-nodo--actual { border-color: rgba(var(--hr-accent-rgb), 0.7); background: rgba(var(--hr-accent-rgb), 0.12); box-shadow: 0 0 0 3px rgba(var(--hr-accent-rgb), 0.12); }
+
+.cm-avatar {
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center; font-size: 0.78rem; font-weight: 700;
+  background: rgba(var(--hr-accent-rgb), 0.18); color: var(--hr-accent);
+}
+.cm-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.cm-texto { display: flex; flex-direction: column; min-width: 0; }
+.cm-nombre { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-puesto { font-size: 0.75rem; color: var(--hr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cm-directos { width: 100%; border-top: 1px dashed var(--hr-border); padding-top: 12px; }
+.cm-directos-titulo { display: flex; align-items: center; gap: 6px; justify-content: center; margin: 0 0 10px; font-size: 0.78rem; color: var(--hr-muted); }
+.cm-directos-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 240px; overflow-y: auto; }
+.cm-directos-lista .cm-nodo { width: 100%; padding: 8px 10px; }
+.cm-directos-lista .cm-avatar { width: 30px; height: 30px; font-size: 0.7rem; }
+
+.field-jefe { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.field-jefe .field-value { flex: 1; min-width: 0; }
+.btn-jerarquia {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--hr-border); background: transparent; color: var(--hr-accent-2, var(--hr-accent));
+  font: inherit; font-size: 0.74rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.btn-jerarquia:hover, .btn-jerarquia:focus-visible { border-color: currentColor; background: rgba(var(--hr-accent-rgb), 0.08); }

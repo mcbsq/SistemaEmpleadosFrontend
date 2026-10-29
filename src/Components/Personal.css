@@ -253,6 +253,7 @@ select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234ECAAC' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: right 14px center !important;
+  background-size: 12px 12px !important;
   padding-right: 36px !important;
   cursor: pointer;
 }
@@ -521,6 +522,11 @@ select {
 [data-theme="light"] .blur-overlay { background: rgba(240,240,245,0.6); }
 [data-theme="light"] select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%230F6E56' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+  /* El "background: … !important" de arriba reinicia repeat/position: sin
+     esto la flecha se repetía en mosaico por todo el select. */
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 12px 12px !important;
 }
 
 /* ── Responsive ──────────────────────────────────────────────── */
@@ -1226,8 +1232,33 @@ select {
 .ec-edit-title { font-weight: 600; color: var(--hr-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .dir-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
-.dir-mapa { min-width: 0; }
-@media (max-width: 900px) { .dir-layout { grid-template-columns: 1fr; } }
+.dir-mapa { min-width: 0; position: sticky; top: 90px; }
+
+/* Mapa del domicilio en vivo (Google Maps) */
+.mapa-vivo-wrap { position: relative; }
+.mapa-vivo-acciones { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; gap: 6px; }
+.mapa-vivo { position: relative; height: 100%; }
+.mapa-vivo-canvas {
+  display: block; width: 100%; border-radius: 14px; overflow: hidden;
+  border: 1px solid var(--hr-border); background: rgba(127,127,127,0.08);
+}
+.mapa-vivo-cargando {
+  position: absolute; inset: 0 0 34px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 0.8rem; color: var(--hr-muted);
+}
+.mapa-vivo-nivel {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 8px 2px 0;
+  font-size: 0.76rem; color: var(--hr-muted); line-height: 1.4; min-height: 26px;
+}
+.mapa-vivo-hint { color: var(--hr-hint, var(--hr-muted)); }
+.mapa-vivo-barras { display: inline-flex; gap: 2px; align-items: flex-end; }
+.mapa-vivo-barras i { width: 4px; border-radius: 2px; background: var(--hr-border); }
+.mapa-vivo-barras i:nth-child(1) { height: 6px; }  .mapa-vivo-barras i:nth-child(2) { height: 8px; }
+.mapa-vivo-barras i:nth-child(3) { height: 10px; } .mapa-vivo-barras i:nth-child(4) { height: 12px; }
+.mapa-vivo-barras i:nth-child(5) { height: 14px; }
+.mapa-vivo-barras i.on { background: var(--hr-accent-2, #4ECAAC); }
+.mapa-fs-body .mapa-vivo { height: 100%; }
+@media (max-width: 900px) { .dir-layout { grid-template-columns: 1fr; } .dir-mapa { position: static; } }
 @media (max-width: 520px) { .field-grid { grid-template-columns: 1fr; } }
 
 /* Textos largos con la misma tipografía que el resto (no monoespaciada) */
@@ -1273,3 +1304,24 @@ select {
   border: 1px solid var(--hr-border); background: transparent; color: var(--hr-text); font: inherit; font-weight: 600; cursor: pointer;
 }
 .perfil-baja-btn:hover { border-color: var(--hr-accent); color: var(--hr-accent); }
+
+/* Una sola flecha en el select, en cualquier tema y estado: los
+   "background: … !important" de foco/tema claro reinician repeat y posición. */
+select, select:focus {
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 12px 12px !important;
+}
+:root:not([data-theme="light"]) select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234ECAAC' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+/* Estado del compañero (directorio) */
+.perfil-estado {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0 8px 8px 0; padding: 3px 10px;
+  border-radius: 999px; font-size: 0.76rem; font-weight: 600; border: 1px solid transparent;
+}
+.perfil-estado::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.perfil-estado--activo { color: #10b981; background: rgba(16, 185, 129, 0.12); }
+.perfil-estado--vacaciones { color: #d97706; background: rgba(245, 158, 11, 0.14); }
+.perfil-meta dd > svg { flex-shrink: 0; color: var(--hr-muted); margin-right: 6px; vertical-align: -2px; }

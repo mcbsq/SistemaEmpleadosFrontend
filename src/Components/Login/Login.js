@@ -120,8 +120,8 @@ function Login({ setIsAuthenticated, setUserRole }) {
             <>
               <h2 className="login-card-heading">Define tu nueva contraseña</h2>
               <p style={{ fontSize: "0.85rem", color: "var(--hr-muted, #86868b)", marginBottom: 16 }}>
-                La contraseña con la que acabas de entrar es la que el sistema te dio por default —
-                ahora tienes que reemplazarla por una definitiva que cumpla las siguientes reglas.
+                Entraste con una contraseña temporal. Para continuar, reemplázala por una
+                definitiva que cumpla las siguientes reglas.
               </p>
               <form onSubmit={handleChangePassword} noValidate>
                 <div className="login-field">
@@ -308,7 +308,7 @@ function Login({ setIsAuthenticated, setUserRole }) {
           {showRecovery && (
             <form className="login-recovery-form" onSubmit={solicitarRecuperacion}>
               <p className="login-recovery-text">
-                Escribe tu usuario o correo. Avisaremos al administrador de tu empresa para que te asigne una contraseña temporal.
+                Escribe tu usuario o correo. Te enviaremos una contraseña temporal a tu correo registrado; al entrar con ella te pediremos definir una nueva.
               </p>
               <div className="login-input-wrap">
                 <input className="login-input" aria-label="Usuario o correo" placeholder="Usuario o correo" value={recId}
@@ -321,7 +321,7 @@ function Login({ setIsAuthenticated, setUserRole }) {
               )}
               {!recEstado?.ok && (
                 <button type="submit" className="login-btn-primary" disabled={recEnviando}>
-                  {recEnviando ? "Enviando…" : "Pedir nueva contraseña"}
+                  {recEnviando ? "Enviando…" : "Enviarme una contraseña temporal"}
                 </button>
               )}
             </form>

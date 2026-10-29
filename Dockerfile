@@ -6,7 +6,9 @@ WORKDIR /app
 # como build arg, no como env var en runtime (ya compilado, no sirve de nada
 # cambiarlas después). Default apunta al backend dockerizado en la misma red.
 ARG REACT_APP_API_URL=http://localhost:8000
-ENV REACT_APP_API_URL=$REACT_APP_API_URL
+ARG REACT_APP_GOOGLE_MAPS_API_KEY=
+ENV REACT_APP_API_URL=$REACT_APP_API_URL \
+    REACT_APP_GOOGLE_MAPS_API_KEY=$REACT_APP_GOOGLE_MAPS_API_KEY
 
 COPY package.json package-lock.json ./
 RUN npm ci
