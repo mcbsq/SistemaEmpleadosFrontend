@@ -76,14 +76,14 @@ const MODULOS_POR_ROL = {
 
 // Qué hace cada rol de sistema, en una línea que entiende cualquiera.
 const DESCRIPCION_ROL = {
-  EMPLOYEE:        "Ve y actualiza su propio perfil, pide vacaciones y escribe a RH.",
-  JEFE_AREA:       "Ve a su equipo directo (horarios, vacaciones) y aprueba sus solicitudes.",
+  EMPLOYEE:        "Consulta y actualiza su perfil, solicita vacaciones y envía solicitudes a Recursos Humanos.",
+  JEFE_AREA:       "Consulta la información de su equipo directo y autoriza sus solicitudes de vacaciones.",
   CONTADOR:        "Consulta sueldos, nómina y recibos de toda la empresa.",
-  PROJECT_MANAGER: "Ve la capacidad y las habilidades del equipo de proyectos.",
-  MEDICO:          "Consulta los expedientes clínicos.",
-  RH:              "Administra a todas las personas: expedientes, sueldos, vacaciones, carga masiva y solicitudes.",
-  ADMIN:           "Administra a las personas de las áreas que se le asignen.",
-  SUPER_ADMIN:     "Control total: configuración, roles, cuentas e integraciones.",
+  PROJECT_MANAGER: "Consulta la capacidad y las habilidades del equipo de proyectos.",
+  MEDICO:          "Consulta los expedientes clínicos del personal.",
+  RH:              "Administra al personal: expedientes, sueldos, vacaciones, carga masiva y solicitudes.",
+  ADMIN:           "Administra al personal de las áreas que tenga asignadas.",
+  SUPER_ADMIN:     "Control total del sistema: configuración, roles, cuentas e integraciones.",
 };
 
 const ROLES_SISTEMA = ["EMPLOYEE","JEFE_AREA","CONTADOR","PROJECT_MANAGER","MEDICO","RH","ADMIN","SUPER_ADMIN"];
@@ -94,7 +94,7 @@ const ROLES_NO_OCULTABLES = ["SUPER_ADMIN", "ADMIN", "RH", "EMPLOYEE"];
 // y el directorio, sin poder editar personas.
 const PLANTILLA_DIRECCION = {
   nombre: "DIRECCION",
-  descripcion: "Dirección general: ve indicadores, analítica (rotación, plantilla, nómina), el organigrama y el directorio. No edita.",
+  descripcion: "Dirección general: consulta indicadores, analítica (rotación, plantilla y nómina), el organigrama y el directorio, sin permisos de edición.",
   color: "purple", nivel: 4,
   permisos: ["ver_empleados", "ver_organigrama", "ver_dashboard", "ver_carrusel", "ver_perfil_propio"],
   modulos: ["dashboard_admin", "home_carousel", "organigrama"],
@@ -501,11 +501,12 @@ function RoleManager() {
       </div>
 
       <div className="rm-guia">
-        <strong>¿Por dónde empezar?</strong> Cada persona tiene un rol según lo que necesita hacer:
-        tú eres <em>Administrador general</em>; quien lleva el personal, <em>Recursos Humanos</em>; el resto, <em>Empleado</em>.
-        Los jefes que aprueban vacaciones de su equipo son <em>Jefe de área</em>. Para el director usa el rol de
-        <em> Dirección</em>. Oculta con el ojo los roles que tu empresa no usa, o elimínalos con el bote: un rol eliminado
-        se vuelve a crear de cero con <em>Nuevo rol</em>. En <em>Directorio</em> decides qué ve cada rol de sus compañeros.
+        <strong>¿Por dónde empezar?</strong> Cada persona recibe el rol que corresponde a sus funciones: la cuenta
+        principal es <em>Administrador general</em>; el personal de Recursos Humanos, <em>Recursos Humanos</em>, y el
+        resto del personal, <em>Empleado</em>. Los responsables que autorizan las vacaciones de su equipo tienen el rol
+        <em> Jefe de área</em>, y la dirección general utiliza el rol <em>Dirección</em>. Los roles que la empresa no
+        utilice pueden ocultarse con el ícono del ojo o eliminarse con el bote; un rol eliminado se vuelve a crear de
+        cero con <em>Nuevo rol</em>. En el grupo <em>Directorio</em> se decide qué ve cada rol de sus compañeros.
       </div>
 
       {/* ─── Grid de roles ─────────────────────────────────────────── */}

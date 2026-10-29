@@ -11,14 +11,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FiClock } from "react-icons/fi";
 import Modal from "./Modal";
-import { API_URL, sessionHeaders } from "../services/apiConfig";
+import { API_URL, sessionHeaders, guardarCsrf } from "../services/apiConfig";
 
 const AVISO_SEG = 120;
 const EVENTOS = ["mousedown", "keydown", "touchstart", "scroll", "mousemove"];
-
-function payload(token) {
-  try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch { return null; }
-}
 
 export function cerrarPorInactividad(texto = "Tu sesión se cerró por inactividad. Vuelve a entrar.") {
   const slug = sessionStorage.getItem("entry_org_slug");
@@ -36,11 +32,16 @@ export default function SesionGuard() {
     if (renovando.current) return;
     renovando.current = true;
     try {
-      const res = await fetch(`${API_URL}/refresh`, { method: "POST", headers: { "Content-Type": "application/json", ...sessionHeaders() } });
+      const res = await fetch(`${API_URL}/refresh`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", ...sessionHeaders("POST") },
+      });
       if (res.status === 401) { cerrarPorInactividad("Tu sesión ya no es válida. Vuelve a entrar."); return; }
       if (res.ok) {
         const data = await res.json();
-        if (data.access_token) sessionStorage.setItem("access_token", data.access_token);
+        sessionStorage.removeItem("access_token");
+        if (data.csrf_token) guardarCsrf(data.csrf_token);
+        if (data.session_expires_at) sessionStorage.setItem("sesion_expira", data.session_expires_at);
         setRestante(null);
       }
     } catch { /* sin red: se reintenta en el siguiente ciclo */ }
@@ -51,12 +52,13 @@ export default function SesionGuard() {
     const marcar = () => { ultimaActividad.current = Date.now(); };
     EVENTOS.forEach(e => window.addEventListener(e, marcar, { passive: true }));
     const revisar = () => {
-      const token = sessionStorage.getItem("access_token");
-      const p = token && payload(token);
-      if (!p?.exp) return;
+      if (sessionStorage.getItem("sesion_activa") !== "1") return;
+      const expira = Date.parse(sessionStorage.getItem("sesion_expira") || "");
+      if (!expira) return;
       const ahora = Date.now() / 1000;
-      const quedan = p.exp - ahora;
-      const vida = p.iat ? p.exp - p.iat : 1800;
+      const exp = expira / 1000;
+      const quedan = exp - ahora;
+      const vida = 1800;
       if (quedan <= 0) { cerrarPorInactividad(); return; }
       const activo = Date.now() - ultimaActividad.current < Math.min(vida / 2, 300) * 1000;
       if (activo && quedan < Math.min(vida / 2, 300)) { renovar(); return; }

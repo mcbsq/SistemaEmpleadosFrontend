@@ -9,6 +9,7 @@ import { rhService }        from "../services/rhService";
 import { clinicoService }   from "../services/clinicoService";
 import { educacionService } from "../services/educacionService";
 import { contactoService }  from "../services/contactoService";
+import { catalogodeptoService } from "../services/catalogodeptoService";
 import { useOrg } from "../context/OrgContext";
 import { ReportesCard } from "./Analitica";
 import { apiFetch } from "../services/apiConfig";
@@ -162,6 +163,7 @@ function AdminDashboard() {
   const [clinico,   setClinico]   = useState([]);
   const [educacion, setEducacion] = useState([]);
   const [contactos, setContactos] = useState([]);
+  const [areasCat,  setAreasCat]  = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reintento, setReintento] = useState(0);
@@ -188,13 +190,15 @@ function AdminDashboard() {
       clinicoService.getAll().catch(() => []),
       educacionService.getAll().catch(() => []),
       contactoService.getDatos().catch(() => []),
-    ]).then(([emps, rh, clin, edu, cont]) => {
+      catalogodeptoService.getAll().catch(() => []),
+    ]).then(([emps, rh, clin, edu, cont, cat]) => {
       if (emps === null) { setLoadError(true); return; }
       setEmpleados(Array.isArray(emps) ? emps  : []);
       setRhData(   Array.isArray(rh)   ? rh    : []);
       setClinico(  Array.isArray(clin) ? clin  : []);
       setEducacion(Array.isArray(edu)  ? edu   : []);
       setContactos(Array.isArray(cont) ? cont  : []);
+      setAreasCat( Array.isArray(cat)  ? cat   : []);
     }).finally(() => setLoading(false));
   }, [reintento]);
 
@@ -220,9 +224,14 @@ function AdminDashboard() {
       const p = raw.trim().toLowerCase() === "sin asignar" ? "Sin asignar" : raw;
       puestoMap[p] = (puestoMap[p] || 0) + 1;
     });
+    // Las áreas del catálogo (Configuración → Áreas) cuentan aunque todavía
+    // no tengan personas: "Áreas registradas" son las que la empresa dio de
+    // alta, no solo las que ya tienen gente (pruebas TST).
+    areasCat.forEach(a => { if (a.NombreDepto && !(a.NombreDepto in puestoMap)) puestoMap[a.NombreDepto] = 0; });
     const puestoData = Object.entries(puestoMap)
       .map(([label, value]) => ({ label, value }))
-      .sort((a, b) => b.value - a.value).slice(0, 7);
+      .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label)).slice(0, 10);
+    const areasRegistradas = areasCat.length || Object.keys(puestoMap).filter(k => k !== "Sin asignar").length;
 
     // Completitud
     const conClinico  = empleados.filter(e => clinIds.has(getId(e))).length;
@@ -275,7 +284,7 @@ function AdminDashboard() {
       cumplesMes:   empleados.filter(e => cumpleEsteMes(e.FecNacimiento)).length,
       sinClinico:   total - conClinico,
       sinPuesto:    empleados.filter(e => !rhIds.has(getId(e))).length,
-      areaCount:    puestoData.length,
+      areaCount:    areasRegistradas,
       puestoData,
       maxPuesto:    Math.max(...puestoData.map(p => p.value), 1),
       alertas:      alertas.slice(0, 8),
@@ -283,7 +292,7 @@ function AdminDashboard() {
       empRecientes,
       cumpleProx:   alertas.filter(a => a.tipo === "cumple").length,
     };
-  }, [empleados, rhData, clinico, educacion, contactos]);
+  }, [areasCat, empleados, rhData, clinico, educacion, contactos]);
 
   if (loading) {
     return (

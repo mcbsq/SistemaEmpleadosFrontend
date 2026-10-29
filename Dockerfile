@@ -4,8 +4,8 @@ WORKDIR /app
 
 # CRA incrusta las variables REACT_APP_* en el build estático — deben venir
 # como build arg, no como env var en runtime (ya compilado, no sirve de nada
-# cambiarlas después). Default apunta al backend dockerizado en la misma red.
-ARG REACT_APP_API_URL=http://localhost:8000
+# cambiarlas después). Default /api: nginx lo reenvía al backend (como Vercel).
+ARG REACT_APP_API_URL=/api
 ARG REACT_APP_GOOGLE_MAPS_API_KEY=
 ENV REACT_APP_API_URL=$REACT_APP_API_URL \
     REACT_APP_GOOGLE_MAPS_API_KEY=$REACT_APP_GOOGLE_MAPS_API_KEY

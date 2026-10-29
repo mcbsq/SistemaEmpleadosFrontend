@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FiBriefcase, FiExternalLink, FiEye, FiUsers, FiKey, FiInbox, FiSend } from "react-icons/fi";
 import { tenantsService } from "../services/tenantsService";
+import SolicitudesAcceso from "./SolicitudesAcceso";
 import { authService } from "../services/authService";
 import IconButton from "./IconButton";
 import Modal from "./Modal";
@@ -159,6 +160,8 @@ function Tenants() {
           })}
         </div>
       )}
+
+      <SolicitudesAcceso />
 
       <Modal abierto={abierto} onClose={() => setAbierto(false)} ancho={600}
         titulo={paso2 ? "Empresa preparada" : "Nueva empresa"}

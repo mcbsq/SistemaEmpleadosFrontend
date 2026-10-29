@@ -243,6 +243,7 @@ function AppInner() {
 
   // Re-leer rol del sessionStorage al montar — fix para producción (Vercel)
   useEffect(() => {
+    authService.restaurar();
     const role = authService.getRole();
     if (role) setUserRole(role);
     setRoleReady(true);
@@ -250,9 +251,8 @@ function AppInner() {
 
   useEffect(() => {
     if (isMonitorPage) return;
-    const token = authService.getToken();
-    const role  = authService.getRole();
-    if (!token) {
+    const role = authService.getRole();
+    if (!authService.isAuthenticated()) {
       setIsAuthenticated(false); setUserRole(null);
       if (!isLoginPage) navigate("/Login", { replace: true });
     } else {
@@ -263,9 +263,11 @@ function AppInner() {
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   const handleLogout = useCallback(() => {
-    authService.logout();
-    setIsAuthenticated(false); setUserRole(null);
-    navigate("/Login", { replace: true });
+    authService.logout().then((ok) => {
+      if (ok === false) return;
+      setIsAuthenticated(false); setUserRole(null);
+      navigate("/Login", { replace: true });
+    });
   }, [navigate]);
 
   const scrollTo = useCallback((id) => {
