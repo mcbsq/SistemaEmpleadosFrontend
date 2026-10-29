@@ -1,0 +1,82 @@
+/* Árbol de personas (Organigrama y "Ver jerarquía" del perfil) */
+.arb-wrap {
+  position: relative;
+  overflow-x: auto; overflow-y: visible;
+  padding: 12px 8px 24px;
+  scrollbar-width: thin;
+}
+.arb-contenido {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+  width: max-content; min-width: 100%; margin: 0 auto;
+}
+.arb-lineas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 0; }
+.arb-linea {
+  fill: none; stroke: rgba(145, 165, 210, 0.5); stroke-width: 1.5; stroke-linecap: round;
+  stroke-dasharray: 600; stroke-dashoffset: 600; animation: arb-trazo 0.55s ease forwards;
+}
+@keyframes arb-trazo { to { stroke-dashoffset: 0; } }
+
+.arb-cabecera { position: relative; z-index: 1; }
+.arb-rama { display: flex; flex-direction: column; align-items: center; }
+.arb-hijos {
+  display: flex; flex-wrap: nowrap; align-items: flex-start; justify-content: center;
+  gap: 20px 24px; margin-top: 44px;
+}
+.arb-hijos--sin-cabecera { margin-top: 0; }
+
+.arb-tarjeta {
+  --arb-color: #5B8AF0;
+  position: relative; z-index: 1;
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  width: 230px; min-width: 0; padding: 10px 12px;
+  border-radius: 16px; border: 1px solid var(--hr-border);
+  border-top: 3px solid var(--arb-color);
+  background: var(--hr-surface, rgba(127, 127, 127, 0.06));
+  backdrop-filter: var(--hr-blur); -webkit-backdrop-filter: var(--hr-blur);
+  box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.5);
+  color: var(--hr-text); font: inherit;
+  animation: arb-entrada 0.35s var(--mo-ease, ease) both;
+}
+@keyframes arb-entrada { from { opacity: 0; transform: translateY(6px); } }
+.arb-tarjeta--link { cursor: pointer; transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease; }
+.arb-tarjeta--link:hover, .arb-tarjeta--link:focus-visible {
+  transform: translateY(-2px); border-color: var(--arb-color);
+  box-shadow: 0 16px 30px -18px var(--arb-color);
+}
+.arb-tarjeta--link:focus-visible { outline: 2px solid var(--hr-accent); outline-offset: 2px; }
+.arb-tarjeta--actual {
+  border-color: rgba(var(--hr-accent-rgb), 0.8);
+  background: rgba(var(--hr-accent-rgb), 0.14);
+  box-shadow: 0 0 0 3px rgba(var(--hr-accent-rgb), 0.18);
+}
+
+.arb-avatar {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center; color: #fff; font-size: 0.8rem; font-weight: 700;
+}
+.arb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.arb-texto { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.arb-nombre { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arb-puesto { font-size: 0.75rem; color: var(--hr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.arb-area {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 2px;
+  font-size: 0.7rem; color: var(--hr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.arb-area i { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.arb-equipo {
+  flex-shrink: 0; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
+  display: grid; place-items: center; font-size: 0.7rem; font-weight: 700;
+  background: rgba(127, 127, 127, 0.14); color: var(--hr-muted);
+}
+
+/* Versión del pop-up del perfil */
+.arb-wrap--compacto { padding: 4px 4px 12px; max-height: 62vh; overflow: auto; }
+.arb-wrap--compacto .arb-tarjeta { width: 200px; padding: 8px 10px; }
+.arb-wrap--compacto .arb-avatar { width: 34px; height: 34px; font-size: 0.72rem; }
+.arb-wrap--compacto .arb-hijos { margin-top: 32px; gap: 14px 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .arb-linea { animation: none; stroke-dashoffset: 0; }
+  .arb-tarjeta { animation: none; }
+}

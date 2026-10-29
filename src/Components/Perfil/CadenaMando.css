@@ -1,0 +1,13 @@
+/* Mini organigrama (cadena de mando) del perfil — el árbol es ArbolPersonas */
+.cm-cargando { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 28px 0; color: var(--hr-muted); font-size: 0.85rem; }
+.cm-vacio { color: var(--hr-muted); font-size: 0.85rem; margin: 0 0 12px; text-align: center; }
+.cm-mas { color: var(--hr-muted); font-size: 1.1rem; line-height: 1; margin-bottom: 6px; }
+
+.field-jefe { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.field-jefe .field-value { flex: 1; min-width: 0; }
+.btn-jerarquia {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--hr-border); background: transparent; color: var(--hr-accent-2, var(--hr-accent));
+  font: inherit; font-size: 0.74rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.btn-jerarquia:hover, .btn-jerarquia:focus-visible { border-color: currentColor; background: rgba(var(--hr-accent-rgb), 0.08); }

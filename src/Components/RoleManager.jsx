@@ -2,10 +2,13 @@
 // Mejoras respecto al original:
 // 1. Los roles custom se guardan en el backend (con fallback a localStorage)
 // 2. Permisos granulares por módulo con etiquetas CRUD
-// 3. El Super Admin puede editar permisos de roles del sistema (no eliminarlos)
+// 3. El Super Admin puede editar permisos de cualquier rol y eliminar cualquiera
+//    salvo el Administrador general; un rol eliminado se recrea "de cero".
 // 4. Vista previa del dashboard que verá el rol
 
 import React, { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { confirmar } from "../services/dialogo";
 import { roleLabel } from "../utils/roleLabels";
 import IconButton from "./IconButton";
 import { FiCheck, FiX, FiUserPlus, FiSliders, FiEyeOff, FiEye, FiBriefcase } from "react-icons/fi";
@@ -35,12 +38,22 @@ const PERMISOS_DEF = [
   { key: "ver_habilidades",      label: "Ver habilidades del equipo",      grupo: "Proyectos", crud: "R" },
   // Restricciones
   { key: "solo_equipo_directo",  label: "Solo ver su equipo directo",      grupo: "Restricciones", crud: "-" },
+  // Directorio: qué ve este rol de sus COMPAÑEROS (perfil y directorio)
+  { key: "dir_contacto",          label: "Contacto laboral: correo de trabajo, teléfono de oficina y extensión", grupo: "Directorio", crud: "R" },
+  { key: "dir_estado",            label: "Estado: activo, de vacaciones (y cuándo regresa)", grupo: "Directorio", crud: "R" },
+  { key: "dir_puesto",            label: "Puesto, área y jefe inmediato",    grupo: "Directorio", crud: "R" },
+  { key: "dir_profesional",       label: "Perfil profesional: educación, experiencia, habilidades", grupo: "Directorio", crud: "R" },
+  { key: "dir_cumpleanos",        label: "Cumpleaños (día y mes, sin el año)", grupo: "Directorio", crud: "R" },
+  { key: "dir_contacto_personal", label: "Contacto personal: celular y correo personal", grupo: "Directorio", crud: "R" },
   // Sistema
   { key: "gestionar_roles",      label: "Gestionar roles y permisos",      grupo: "Sistema",   crud: "CRUD" },
   { key: "monitor_incidencias",  label: "Acceder al monitor de errores",   grupo: "Sistema",   crud: "R" },
 ];
 
-const GRUPOS_ORDEN = ["Dashboard","Empleados","Perfil","Proyectos","Confidencial","Restricciones","Sistema"];
+const GRUPOS_ORDEN = ["Dashboard","Empleados","Perfil","Directorio","Proyectos","Confidencial","Restricciones","Sistema"];
+const DESC_GRUPO = {
+  Directorio: "Qué puede ver este rol de sus compañeros. Su propio perfil, RH y su jefe directo siempre ven todo.",
+};
 
 const gruposPermisos = GRUPOS_ORDEN.reduce((acc, g) => {
   const perms = PERMISOS_DEF.filter(p => p.grupo === g);
@@ -94,14 +107,16 @@ const PLANTILLA_DIRECCION = {
 // moverlo aquí, junto con los demás permisos del rol, uno por tarjeta.
 const ROLES_ANALITICA = ["EMPLOYEE", "JEFE_AREA", "CONTADOR", "PROJECT_MANAGER", "MEDICO"];
 
+// Espejo de core/permissions.py::PERMISOS_DEFAULT (permisos de fábrica).
+const DIRECTORIO_BASE = ["dir_contacto","dir_estado","dir_puesto","dir_profesional","dir_cumpleanos"];
 const PERMISOS_SISTEMA = {
-  EMPLOYEE:        ["ver_organigrama","ver_carrusel","ver_perfil_propio"],
-  JEFE_AREA:       ["ver_empleados","ver_organigrama","ver_proyectos","ver_habilidades","solo_equipo_directo","ver_carrusel","ver_dashboard"],
-  CONTADOR:        ["ver_empleados","ver_rh","ver_organigrama","ver_dashboard","ver_carrusel"],
-  PROJECT_MANAGER: ["ver_empleados","ver_proyectos","ver_habilidades","ver_organigrama","ver_dashboard","ver_carrusel"],
-  MEDICO:          ["ver_empleados","ver_expediente","ver_organigrama","ver_dashboard","ver_carrusel"],
-  ADMIN:           ["ver_empleados","crud_empleados","ver_expediente","ver_rh","ver_proyectos","ver_organigrama","ver_habilidades","ver_dashboard","ver_carrusel","ver_perfil_propio","ver_perfil_equipo"],
-  RH:              ["ver_empleados","crud_empleados","ver_expediente","ver_rh","ver_proyectos","ver_organigrama","ver_habilidades","ver_dashboard","ver_carrusel","ver_perfil_equipo"],
+  EMPLOYEE:        ["ver_organigrama","ver_carrusel","ver_perfil_propio",...DIRECTORIO_BASE],
+  JEFE_AREA:       ["ver_empleados","ver_organigrama","ver_proyectos","ver_habilidades","solo_equipo_directo","ver_carrusel","ver_dashboard",...DIRECTORIO_BASE],
+  CONTADOR:        ["ver_empleados","ver_rh","ver_organigrama","ver_dashboard","ver_carrusel",...DIRECTORIO_BASE],
+  PROJECT_MANAGER: ["ver_empleados","ver_proyectos","ver_habilidades","ver_organigrama","ver_dashboard","ver_carrusel",...DIRECTORIO_BASE],
+  MEDICO:          ["ver_empleados","ver_expediente","ver_organigrama","ver_dashboard","ver_carrusel",...DIRECTORIO_BASE],
+  ADMIN:           ["ver_empleados","crud_empleados","ver_expediente","ver_rh","ver_proyectos","ver_organigrama","ver_habilidades","ver_dashboard","ver_carrusel","gestionar_roles","monitor_incidencias","ver_perfil_equipo",...DIRECTORIO_BASE,"dir_contacto_personal"],
+  RH:              ["ver_empleados","crud_empleados","ver_expediente","ver_rh","ver_proyectos","ver_organigrama","ver_habilidades","ver_dashboard","ver_carrusel","ver_perfil_equipo",...DIRECTORIO_BASE,"dir_contacto_personal"],
   SUPER_ADMIN:     ["*"],
 };
 
@@ -118,31 +133,28 @@ const COLORES_BADGE = [
 const colorById = (id) => COLORES_BADGE.find(c => c.id === id) || COLORES_BADGE[0];
 const getId     = (item) => item?._id?.$oid || item?._id || "";
 
-const FORM_INIT = { nombre:"", descripcion:"", color:"blue", nivel:2, permisos:[] };
+const FORM_INIT = { nombre:"", descripcion:"", color:"blue", nivel:2, permisos:["ver_perfil_propio","ver_organigrama","ver_carrusel",...DIRECTORIO_BASE] };
+const normalizarNombre = (n) => (n || "").trim().toUpperCase().replace(/\s+/g, "_");
+
+// Los modales van al <body>: dentro de la página quedaban atrapados por
+// contenedores con transform/blur y no se podían desplazar.
+const Portal = ({ children }) => createPortal(children, document.body);
 
 // ─── Guardar/cargar roles custom (backend con fallback localStorage) ──────────
-const cargarRolesCustomBackend = async () => {
+const cargarConfigRoles = async () => {
   try {
-    const data = await apiFetch("/roles/custom");
-    return Array.isArray(data) ? data : [];
+    const data = await apiFetch("/roles/config");
+    return {
+      custom: Array.isArray(data?.custom) ? data.custom : [],
+      sistema_eliminados: Array.isArray(data?.sistema_eliminados) ? data.sistema_eliminados : [],
+      permisos_sistema: data?.permisos_sistema || {},
+    };
   } catch {
-    // Fallback: localStorage si el endpoint no existe aún
-    try { return JSON.parse(localStorage.getItem("cibercom_roles_custom") || "[]"); }
-    catch { return []; }
+    return { custom: [], sistema_eliminados: [], permisos_sistema: {} };
   }
 };
 
-const guardarRolBackend = async (roles) => {
-  try {
-    await apiFetch("/roles/custom", {
-      method: "POST",
-      body: JSON.stringify(roles),
-    });
-  } catch {
-    // Fallback silencioso a localStorage
-  }
-  localStorage.setItem("cibercom_roles_custom", JSON.stringify(roles));
-};
+const guardarRolBackend = (roles) => apiFetch("/roles/custom", { method: "POST", body: JSON.stringify(roles) });
 
 // ════════════════════════════════════════════════════════════════════════════════
 function RoleManager() {
@@ -152,6 +164,7 @@ function RoleManager() {
   const [usuarios,    setUsuarios]    = useState([]);
   const [empleados,   setEmpleados]   = useState([]);
   const [rolesCustom, setRolesCustom] = useState([]);
+  const [sistemaEliminados, setSistemaEliminados] = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [modal,       setModal]       = useState(null);
   const [paso,        setPaso]        = useState(1);
@@ -174,9 +187,10 @@ function RoleManager() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Si el backend rechaza (nombre repetido, sin permiso…), no se toca el estado.
   const saveRolesCustom = async (roles) => {
-    setRolesCustom(roles);
     await guardarRolBackend(roles);
+    setRolesCustom(roles);
   };
 
   const cargar = useCallback(async () => {
@@ -185,21 +199,17 @@ function RoleManager() {
       const [users, emps, rolesC, cat, perms] = await Promise.all([
         usuarioService.getAll().catch(() => []),
         empleadoService.getAll().catch(() => []),
-        cargarRolesCustomBackend(),
+        cargarConfigRoles(),
         apiFetch("/analitica/catalogo").catch(() => []),
         apiFetch("/analitica/permisos").catch(() => ({ permisos: {} })),
       ]);
       setUsuarios(Array.isArray(users) ? users : []);
       setEmpleados(Array.isArray(emps)  ? emps  : []);
-      setRolesCustom(Array.isArray(rolesC) ? rolesC : []);
+      setRolesCustom(rolesC.custom);
+      setSistemaEliminados(rolesC.sistema_eliminados);
+      setPermsSistema(rolesC.permisos_sistema);
       setCatalogoReportes(Array.isArray(cat) ? cat : []);
       setPermisosAnalitica(perms?.permisos || {});
-
-      // Cargar overrides de permisos de sistema desde localStorage
-      try {
-        const stored = JSON.parse(localStorage.getItem("cibercom_perms_sistema") || "{}");
-        setPermsSistema(stored);
-      } catch { /* ignorar */ }
     } finally {
       setLoading(false);
     }
@@ -212,16 +222,17 @@ function RoleManager() {
     return permsSistema[rolNombre] || PERMISOS_SISTEMA[rolNombre] || [];
   };
 
-  const savePermsSistema = (rolNombre, perms) => {
-    const updated = { ...permsSistema, [rolNombre]: perms };
-    setPermsSistema(updated);
-    localStorage.setItem("cibercom_perms_sistema", JSON.stringify(updated));
-    showToast(`Permisos de ${rolNombre} actualizados`);
+  const savePermsSistema = async (rolNombre, perms) => {
+    await apiFetch(`/roles/sistema/${encodeURIComponent(rolNombre)}/permisos`, {
+      method: "PUT", body: JSON.stringify({ permisos: perms }),
+    });
+    setPermsSistema(p => ({ ...p, [rolNombre]: perms }));
+    showToast(`Permisos de ${roleLabel(rolNombre)} actualizados`);
   };
 
   // ─── Todos los roles ──────────────────────────────────────────────────────
   const todosRoles = [
-    ...ROLES_SISTEMA.map(r => ({
+    ...ROLES_SISTEMA.filter(r => !sistemaEliminados.includes(r)).map(r => ({
       id: r, nombre: r, descripcion: DESCRIPCION_ROL[r] || "", sistema: true,
       color:    r === "SUPER_ADMIN" ? "blue" : r === "ADMIN" ? "green" :
                 r === "EMPLOYEE" ? "gray" : "amber",
@@ -299,10 +310,13 @@ function RoleManager() {
   // ─── Guardar rol custom ───────────────────────────────────────────────────
   const guardarRol = async () => {
     if (!form.nombre.trim()) return;
+    const nombre = normalizarNombre(form.nombre);
+    const choca = todosRoles.some(r => r.nombre === nombre && (r.sistema || r.id !== editingRol?.id));
+    if (choca) { showToast(`Ya existe un rol llamado ${nombre}`, "error"); return; }
     setSaving(true);
     const nuevoRol = {
       id:          editingRol?.id || `custom_${Date.now()}`,
-      nombre:      form.nombre.trim().toUpperCase().replace(/\s+/g,"_"),
+      nombre,
       descripcion: form.descripcion,
       color:       form.color,
       nivel:       form.nivel,
@@ -310,23 +324,25 @@ function RoleManager() {
       modulos:     MODULOS_POR_ROL[form.nombre.toUpperCase().replace(/\s+/g,"_")] || ["home_carousel","organigrama"],
     };
 
-    let updated;
-    if (modal === "editar" && editingRol) {
-      updated = rolesCustom.map(r => r.id === editingRol.id ? nuevoRol : r);
-      showToast(`Rol "${nuevoRol.nombre}" actualizado`);
-    } else {
-      updated = [...rolesCustom, nuevoRol];
-      showToast(`Rol "${nuevoRol.nombre}" creado`);
+    const updated = modal === "editar" && editingRol
+      ? rolesCustom.map(r => r.id === editingRol.id ? nuevoRol : r)
+      : [...rolesCustom, nuevoRol];
+    try {
+      await saveRolesCustom(updated);
+      showToast(modal === "editar" ? `Rol "${nombre}" actualizado` : `Rol "${nombre}" creado`);
+      setModal(null);
+    } catch (e) {
+      showToast(e.message || "No se pudo guardar el rol", "error");
+    } finally {
+      setSaving(false);
     }
-    await saveRolesCustom(updated);
-    setSaving(false);
-    setModal(null);
   };
 
   // ─── Guardar permisos de rol sistema ─────────────────────────────────────
   const guardarPermsSistema = async () => {
     if (!editSistema) return;
-    savePermsSistema(editSistema.nombre, form.permisos);
+    try { await savePermsSistema(editSistema.nombre, form.permisos); }
+    catch (e) { showToast(e.message || "No se pudieron guardar los permisos", "error"); return; }
     if (ROLES_ANALITICA.includes(editSistema.nombre)) {
       const actualizado = { ...permisosAnalitica, [editSistema.nombre]: formReportes };
       setPermisosAnalitica(actualizado);
@@ -335,14 +351,27 @@ function RoleManager() {
     setModal(null);
   };
 
-  // ─── Eliminar rol custom ──────────────────────────────────────────────────
+  // ─── Eliminar rol (personalizado o de sistema) ─────────────────────────
+  // Para volver a tenerlo se crea de cero con "Nuevo rol" (puede usar el
+  // mismo nombre). Nunca se elimina un rol que alguien tiene asignado.
   const eliminarRol = async (rol) => {
     if (rol.usuarios > 0) {
-      showToast(`No se puede eliminar: ${rol.usuarios} usuario(s) con este rol`, "error");
+      showToast(`No se puede eliminar: ${rol.usuarios} cuenta(s) tienen este rol. Asígnales otro primero.`, "error");
       return;
     }
-    await saveRolesCustom(rolesCustom.filter(r => r.id !== rol.id));
-    showToast(`Rol "${rol.nombre}" eliminado`);
+    const nombre = rol.sistema ? roleLabel(rol.nombre) : rol.nombre;
+    const ok = await confirmar(rol.sistema
+      ? `¿Eliminar el rol ${nombre}? Dejará de existir en tu empresa. Si después lo necesitas, créalo de cero con "Nuevo rol".`
+      : `¿Eliminar el rol ${nombre}?`);
+    if (!ok) return;
+    try {
+      await apiFetch(`/roles/${encodeURIComponent(rol.nombre)}`, { method: "DELETE" });
+      if (rol.sistema) setSistemaEliminados(p => [...p, rol.nombre]);
+      else setRolesCustom(p => p.filter(r => r.nombre !== rol.nombre));
+      showToast(`Rol ${nombre} eliminado`);
+    } catch (e) {
+      showToast(e.message || "No se pudo eliminar el rol", "error");
+    }
   };
 
   // ─── Asignar rol a usuario ────────────────────────────────────────────────
@@ -401,7 +430,9 @@ function RoleManager() {
   const colorActual = colorById(form.color);
 
   // ─── Panel de permisos reutilizable ──────────────────────────────────────
-  const PanelPermisos = ({ conReportes = false }) => (
+  // Función (no componente): como componente se re-montaba en cada casilla
+  // marcada y el panel saltaba al inicio, perdiendo el scroll.
+  const panelPermisos = (conReportes = false) => (
     <div className="rm-modal-body">
       <p className="rm-paso-desc">
         Activa los módulos y acciones permitidas para este rol.
@@ -410,6 +441,7 @@ function RoleManager() {
       {Object.entries(gruposPermisos).map(([grupo, perms]) => (
         <div key={grupo} className="rm-permiso-grupo">
           <div className="rm-permiso-grupo-title">{grupo}</div>
+          {DESC_GRUPO[grupo] && <p className="rm-paso-desc" style={{ margin: "-4px 0 8px" }}>{DESC_GRUPO[grupo]}</p>}
           {perms.map(p => (
             <label key={p.key} className="rm-permiso-row">
               <input
@@ -473,8 +505,8 @@ function RoleManager() {
         principal es <em>Administrador general</em>; el personal de Recursos Humanos, <em>Recursos Humanos</em>, y el
         resto del personal, <em>Empleado</em>. Los responsables que autorizan las vacaciones de su equipo tienen el rol
         <em> Jefe de área</em>, y la dirección general utiliza el rol <em>Dirección</em>. Los roles que la empresa no
-        utilice (por ejemplo, Médico o Project Manager) pueden ocultarse con el ícono del ojo: no se eliminan, solo dejan
-        de ofrecerse al asignar roles.
+        utilice pueden ocultarse con el ícono del ojo o eliminarse con el bote; un rol eliminado se vuelve a crear de
+        cero con <em>Nuevo rol</em>. En el grupo <em>Directorio</em> se decide qué ve cada rol de sus compañeros.
       </div>
 
       {/* ─── Grid de roles ─────────────────────────────────────────── */}
@@ -529,10 +561,12 @@ function RoleManager() {
                       label={oculto ? "Volver a usar este rol" : "Ocultar: mi empresa no usa este rol"} onClick={() => ocultarRol(rol, !oculto)} />
                   )}
                   {!rol.sistema && (
-                    <>
-                      <IconButton accion="editar" size="sm" label={`Editar ${rol.nombre}`} onClick={() => abrirEditar(rol)} />
-                      <IconButton accion="eliminar" size="sm" label={`Eliminar ${rol.nombre}`} onClick={() => eliminarRol(rol)} />
-                    </>
+                    <IconButton accion="editar" size="sm" label={`Editar ${rol.nombre}`} onClick={() => abrirEditar(rol)} />
+                  )}
+                  {!isSuperAdmin && (
+                    <IconButton accion="eliminar" size="sm" tooltipPos="left"
+                      label={rol.usuarios > 0 ? `No se puede eliminar: ${rol.usuarios} cuenta(s) lo tienen` : `Eliminar ${rol.sistema ? roleLabel(rol.nombre) : rol.nombre}`}
+                      onClick={() => eliminarRol(rol)} />
                   )}
                 </div>
               </div>
@@ -550,7 +584,7 @@ function RoleManager() {
 
       {/* ─── Modal crear / editar rol custom ─────────────────────── */}
       {(modal === "crear" || modal === "editar") && (
-        <div className="rm-overlay" onClick={cerrarModal}>
+        <Portal><div className="rm-overlay" onClick={cerrarModal}>
           <div className="rm-modal" onClick={e => e.stopPropagation()}>
             <div className="rm-modal-header">
               <div>
@@ -627,7 +661,7 @@ function RoleManager() {
               </div>
             )}
 
-            {paso === 2 && <PanelPermisos />}
+            {paso === 2 && panelPermisos()}
 
             {paso === 3 && (
               <div className="rm-modal-body">
@@ -677,12 +711,12 @@ function RoleManager() {
               }
             </div>
           </div>
-        </div>
+        </div></Portal>
       )}
 
       {/* ─── Modal editar permisos de rol sistema ────────────────── */}
       {modal === "editar_sistema" && editSistema && (
-        <div className="rm-overlay" onClick={cerrarModal}>
+        <Portal><div className="rm-overlay" onClick={cerrarModal}>
           <div className="rm-modal" onClick={e => e.stopPropagation()}>
             <div className="rm-modal-header">
               <div>
@@ -693,18 +727,18 @@ function RoleManager() {
               </div>
               <button className="rm-modal-close" onClick={cerrarModal}><FiX /></button>
             </div>
-            <PanelPermisos conReportes={ROLES_ANALITICA.includes(editSistema.nombre)} />
+            {panelPermisos(ROLES_ANALITICA.includes(editSistema.nombre))}
             <div className="rm-modal-footer">
               <div style={{flex:1}}/>
               <IconButton accion="guardar" label="Guardar permisos" onClick={guardarPermsSistema} tooltipPos="left" />
             </div>
           </div>
-        </div>
+        </div></Portal>
       )}
 
       {/* ─── Modal asignar rol ────────────────────────────────────── */}
       {modal === "asignar" && asignando && (
-        <div className="rm-overlay" onClick={cerrarModal}>
+        <Portal><div className="rm-overlay" onClick={cerrarModal}>
           <div className="rm-modal rm-modal--sm" onClick={e => e.stopPropagation()}>
             <div className="rm-modal-header">
               <div>
@@ -765,7 +799,7 @@ function RoleManager() {
               </div>
             </div>
           </div>
-        </div>
+        </div></Portal>
       )}
     </div>
   );

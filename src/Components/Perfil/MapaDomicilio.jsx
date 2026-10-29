@@ -1,259 +1,131 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+// Mapa del domicilio — mapa embebido de Google, siempre visible y en vivo.
+//
+// No usa la API de Google ni una llave: con la dirección capturada se arma
+// la búsqueda y se pasa al mapa embebido (el mismo de "Compartir → Insertar
+// mapa" en Google Maps). En cuanto hay código postal el mapa ya se centra en
+// esa zona; cada dato que se agrega (colonia, calle, número…) afina la
+// ubicación y el zoom.
+//
+// Si el domicilio tiene coordenadas guardadas (lat/lng), se muestran esas.
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FiX, FiMapPin, FiCrosshair } from "react-icons/fi";
+import { FiX, FiMaximize2, FiExternalLink } from "react-icons/fi";
 import IconButton from "../IconButton";
 
-let leafletLoaded = false;
+const ESPERA_MS = 600; // mientras se escribe, actualizar al hacer pausa
 
-function ensureLeaflet() {
-  if (window.L) return Promise.resolve(window.L);
-  if (leafletLoaded) {
-    return new Promise(res => {
-      const t = setInterval(() => { if (window.L) { clearInterval(t); res(window.L); } }, 50);
-    });
-  }
-  leafletLoaded = true;
-  return new Promise((resolve, reject) => {
-    const link  = document.createElement("link");
-    link.rel    = "stylesheet";
-    link.href   = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(link);
-    const script    = document.createElement("script");
-    script.src      = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.onload   = () => resolve(window.L);
-    script.onerror  = () => reject(new Error("No se pudo cargar Leaflet"));
-    document.head.appendChild(script);
-  });
+// ─── Qué tan precisa puede ser la ubicación con los datos capturados ─────
+const NIVELES = [
+  { nivel: 0, zoom: 5,  texto: "Agrega el código postal para ubicar el domicilio" },
+  { nivel: 1, zoom: 10, texto: "Ubicación aproximada por municipio / estado" },
+  { nivel: 2, zoom: 14, texto: "Ubicación aproximada por código postal" },
+  { nivel: 3, zoom: 15, texto: "Ubicación por colonia" },
+  { nivel: 4, zoom: 17, texto: "Ubicación por calle" },
+  { nivel: 5, zoom: 18, texto: "Ubicación por calle y número" },
+];
+
+const limpio = (v) => String(v ?? "").trim();
+const numeroValido = (n) => limpio(n) && !/^s\/?n$/i.test(limpio(n));
+
+export function consultaDireccion(d = {}) {
+  const cp = limpio(d.CodigoP).replace(/\D/g, "");
+  const cpCompleto = cp.length === 5;
+  const calle = limpio(d.Calle);
+  const colonia = limpio(d.Colonia);
+  const municipio = limpio(d.Municipio);
+  const estado = limpio(d.Ciudad);
+
+  let nivel = 0;
+  if (municipio || estado) nivel = 1;
+  if (cpCompleto) nivel = 2;
+  if (colonia && (cpCompleto || municipio)) nivel = 3;
+  if (calle && nivel >= 2) nivel = 4;
+  if (calle && numeroValido(d.NumExterior) && nivel >= 2) nivel = 5;
+
+  const partes = [
+    calle && `${calle}${numeroValido(d.NumExterior) ? ` ${limpio(d.NumExterior)}` : ""}`,
+    colonia, cpCompleto && `C.P. ${cp}`, municipio, estado, "México",
+  ].filter(Boolean);
+  return { ...NIVELES[nivel], query: nivel ? partes.join(", ") : "" };
 }
 
-async function geocodificar(direccion) {
-  const { Calle="", NumExterior="", Municipio="", Ciudad="" } = direccion;
-  const query = [Calle, NumExterior, Municipio, Ciudad, "México"].filter(Boolean).join(", ");
-  if (!query.trim()) return null;
-  try {
-    const url  = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
-    const res  = await fetch(url, { headers: { "Accept-Language":"es", "User-Agent":"CibercomHR/1.0" } });
-    const data = await res.json();
-    if (data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-    const fb  = [Municipio, Ciudad, "México"].filter(Boolean).join(", ");
-    const r2  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fb)}&format=json&limit=1`, { headers: { "Accept-Language":"es", "User-Agent":"CibercomHR/1.0" } });
-    const d2  = await r2.json();
-    return d2.length > 0 ? { lat: parseFloat(d2[0].lat), lng: parseFloat(d2[0].lon) } : null;
-  } catch { return null; }
+function useDebounce(valor, ms) {
+  const [v, setV] = useState(valor);
+  useEffect(() => { const t = setTimeout(() => setV(valor), ms); return () => clearTimeout(t); }, [valor, ms]);
+  return v;
 }
 
-// ─── Mapa inline (el que se renderiza dentro del popup) ───────────────────────
-// Fuera de edición el pin SIEMPRE marca la ubicación guardada (o la de la
-// dirección) y no se mueve. En edición, arrastrarlo solo PROPONE una
-// ubicación (onPendiente); se aplica con "Usar esta ubicación" y se puede
-// volver a la de la dirección. Cerrar sin aplicar no cambia nada.
-function MapaInline({ direccion, lat, lng, isEditing, onPendiente, recentrar = 0 }) {
-  const containerRef = useRef(null);
-  const mapRef       = useRef(null);
-  const [status, setStatus] = useState("idle");
-  const [coords, setCoords] = useState(lat && lng ? { lat, lng } : null);
+const tieneCoords = (lat, lng) => lat != null && lng != null && lat !== "" && lng !== "";
 
-  const label = [direccion?.Calle, direccion?.NumExterior, direccion?.Municipio]
-    .filter(Boolean).join(", ");
+// La búsqueda que recibe Google: coordenadas guardadas o la dirección.
+function busqueda(consulta, lat, lng) {
+  if (tieneCoords(lat, lng)) return { q: `${lat},${lng}`, zoom: 17 };
+  return { q: consulta.query || "México", zoom: consulta.zoom };
+}
 
-  const initMap = useCallback(async (clat, clng) => {
-    if (!containerRef.current) return;
-    const L = await ensureLeaflet();
-    if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-
-    const map = L.map(containerRef.current, {
-      zoomControl: true,
-      scrollWheelZoom: true,   // permitir scroll dentro del popup grande
-    }).setView([clat, clng], 16);
-    mapRef.current = map;
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(map);
-
-    const icon = L.divIcon({
-      html: `<div style="width:32px;height:32px;border-radius:50% 50% 50% 0;background:var(--hr-accent,#5B8AF0);border:3px solid #fff;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.35);"></div>`,
-      iconSize: [32, 32], iconAnchor: [16, 32], className: "",
-    });
-
-    const marker = L.marker([clat, clng], { icon, draggable: isEditing }).addTo(map);
-    if (label) marker.bindPopup(`<strong style="font-size:13px">${label}</strong>`).openPopup();
-
-    if (isEditing) {
-      marker.on("dragend", (e) => {
-        const { lat: newLat, lng: newLng } = e.target.getLatLng();
-        setCoords({ lat: newLat, lng: newLng });
-        onPendiente?.(newLat, newLng);
-      });
-    }
-
-    // Forzar resize después de montar — necesario cuando el contenedor
-    // cambia de tamaño al abrirse el modal
-    setTimeout(() => map.invalidateSize(), 100);
-  }, [isEditing, label, onPendiente]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setStatus("loading");
-      // recentrar > 0: "Volver a la dirección" — ignora lo guardado y geocodifica.
-      let clat = recentrar ? null : lat, clng = recentrar ? null : lng;
-      if (!clat || !clng) {
-        const geo = await geocodificar(direccion || {});
-        if (cancelled) return;
-        if (!geo) { setStatus("error"); return; }
-        clat = geo.lat; clng = geo.lng;
-        if (recentrar) onPendiente?.(clat, clng);
-      }
-      setCoords({ lat: clat, lng: clng });
-      await initMap(clat, clng);
-      if (!cancelled) setStatus("ok");
-    }
-    load();
-    return () => { cancelled = true; };
-  }, [recentrar]); // eslint-disable-line
-
-  useEffect(() => {
-    if (coords && status === "ok") initMap(coords.lat, coords.lng);
-  }, [isEditing]); // eslint-disable-line
-
-  const sinDir = !direccion?.Calle && !direccion?.Municipio && !direccion?.Ciudad;
-  if (sinDir && !lat && !lng) return (
-    <div className="mapa-empty">Sin dirección registrada</div>
-  );
-
+function Mapa({ consulta, lat, lng, alto }) {
+  const { q, zoom } = busqueda(consulta, lat, lng);
+  const src = `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=${zoom}&hl=es&output=embed`;
+  const nivel = tieneCoords(lat, lng) ? 5 : consulta.nivel;
   return (
-    <div style={{ position: "relative", height: "100%" }}>
-      {status === "loading" && (
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"var(--hr-glass-bg)", borderRadius:12, zIndex:10 }}>
-          <div className="mapa-loading">
-            <div className="mapa-loading-dot" />
-            Cargando mapa…
-          </div>
-        </div>
-      )}
-      {status === "error" && (
-        <div className="mapa-error">
-          No se pudo ubicar la dirección en el mapa.
-          {isEditing && <span style={{ color:"var(--hr-accent-2)", marginLeft:6 }}>Puedes arrastrar el pin manualmente.</span>}
-        </div>
-      )}
-      <div
-        ref={containerRef}
-        style={{
-          height: "100%",
-          borderRadius: 0,
-          overflow: "hidden",
-          opacity: status === "loading" ? 0 : 1,
-          transition: "opacity 0.3s",
-        }}
-      />
-      {isEditing && status === "ok" && (
-        <p className="mapa-drag-hint">Arrastra el pin y luego toca "Usar esta ubicación"</p>
-      )}
-      {coords && (
-        <p className="mapa-coords">{coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}</p>
-      )}
+    <div className="mapa-vivo">
+      <iframe key={src} title="Mapa del domicilio" className="mapa-vivo-canvas" style={{ height: alto, border: 0 }}
+        src={src} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+      <p className="mapa-vivo-nivel" role="status">
+        <span className="mapa-vivo-barras" aria-hidden="true">{[1, 2, 3, 4, 5].map(i => <i key={i} className={i <= nivel ? "on" : ""} />)}</span>
+        {tieneCoords(lat, lng) ? "Ubicación guardada" : consulta.texto}
+      </p>
     </div>
   );
 }
 
-// ─── Popup fullscreen montado en document.body via portal ─────────────────────
-function MapaPopupFullscreen({ direccion, lat, lng, isEditing, onCoordsChange, onClose }) {
-  const label = [direccion?.Calle, direccion?.NumExterior, direccion?.Municipio]
-    .filter(Boolean).join(", ");
-  const [pendiente, setPendiente] = useState(null);
-  const [recentrar, setRecentrar] = useState(0);
-  const proponer = useCallback((la, ln) => setPendiente({ lat: la, lng: ln }), []);
-
-  // Bloquear scroll del body mientras el popup está abierto
+// ─── Pantalla completa ────────────────────────────────────────────────────
+function MapaPantallaCompleta({ titulo, onClose, children }) {
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  // Cerrar con Escape
-  useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", h); };
   }, [onClose]);
-
   return createPortal(
-    <div
-      className="mapa-fs-overlay"
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
+    <div className="mapa-fs-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="mapa-fs-card">
-
-        {/* Header */}
         <div className="mapa-fs-header">
-          <div className="mapa-fs-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" style={{ flexShrink:0 }}>
-              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-            {label || "Domicilio del empleado"}
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {isEditing && (
-              <IconButton icon={FiCrosshair} label="Volver a la ubicación de la dirección" tooltipPos="left"
-                onClick={() => setRecentrar(n => n + 1)} />
-            )}
-            {isEditing && pendiente && (
-              <IconButton accion="confirmar" label="Usar esta ubicación" tooltipPos="left"
-                onClick={() => { onCoordsChange?.(pendiente.lat, pendiente.lng); onClose(); }} />
-            )}
-            <button className="mapa-fs-close" onClick={onClose} title="Cerrar (Esc)"><FiX /></button>
-          </div>
+          <div className="mapa-fs-title">{titulo}</div>
+          <button className="mapa-fs-close" onClick={onClose} title="Cerrar (Esc)" aria-label="Cerrar mapa"><FiX /></button>
         </div>
-
-        {/* Mapa ocupa todo el espacio restante */}
-        <div className="mapa-fs-body">
-          <MapaInline
-            key={recentrar}
-            direccion={direccion}
-            lat={lat}
-            lng={lng}
-            isEditing={isEditing}
-            onPendiente={proponer}
-            recentrar={recentrar}
-          />
-        </div>
-
+        <div className="mapa-fs-body">{children}</div>
       </div>
     </div>,
     document.body
   );
 }
 
-// ─── Botón que dispara el popup ───────────────────────────────────────────────
-function MapaPopup({ direccion, lat, lng, isEditing, onCoordsChange }) {
-  const [open, setOpen] = useState(false);
+// ─── Export: mapa siempre visible junto al formulario ─────────────────────
+export default function MapaDomicilio({ direccion, lat, lng }) {
+  // Lo que se escribe se refleja al hacer una pausa breve, no en cada tecla.
+  const consulta = consultaDireccion(useDebounce(direccion || {}, ESPERA_MS));
+  const [grande, setGrande] = useState(false);
+  const titulo = [direccion?.Calle, direccion?.NumExterior, direccion?.Colonia].filter(Boolean).join(", ") || "Domicilio";
+  const { q } = busqueda(consulta, lat, lng);
+
   return (
     <>
-      <IconButton icon={FiMapPin} label="Ver en mapa" onClick={() => setOpen(true)} />
-
-      {open && (
-        <MapaPopupFullscreen
-          direccion={direccion}
-          lat={lat}
-          lng={lng}
-          isEditing={isEditing}
-          onCoordsChange={onCoordsChange}
-          onClose={() => setOpen(false)}
-        />
+      <div className="mapa-vivo-wrap">
+        <div className="mapa-vivo-acciones">
+          {(consulta.query || tieneCoords(lat, lng)) && (
+            <IconButton icon={FiExternalLink} size="sm" label="Abrir en Google Maps" tooltipPos="left"
+              onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`, "_blank", "noopener")} />
+          )}
+          <IconButton icon={FiMaximize2} size="sm" label="Ver mapa en grande" tooltipPos="left" onClick={() => setGrande(true)} />
+        </div>
+        {!grande && <Mapa consulta={consulta} lat={lat} lng={lng} alto={280} />}
+      </div>
+      {grande && (
+        <MapaPantallaCompleta titulo={titulo} onClose={() => setGrande(false)}>
+          <Mapa consulta={consulta} lat={lat} lng={lng} alto="calc(100% - 34px)" />
+        </MapaPantallaCompleta>
       )}
     </>
   );
-}
-
-// ─── Export ───────────────────────────────────────────────────────────────────
-export default function MapaDomicilio({ direccion, lat, lng, isEditing=false, onCoordsChange, mode="popup" }) {
-  if (mode === "inline") {
-    return <MapaInline direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onPendiente={onCoordsChange} />;
-  }
-  return <MapaPopup direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} />;
 }

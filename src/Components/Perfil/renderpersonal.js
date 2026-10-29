@@ -9,7 +9,7 @@ import { useFilePicker } from "use-file-picker";
 import { FileAmountLimitValidator, FileSizeValidator } from "use-file-picker/validators";
 import { CiFacebook, CiLinkedin, CiYoutube } from "react-icons/ci";
 import { FaInstagram, FaTiktok, FaGithub } from "react-icons/fa";
-import { FiX, FiPaperclip, FiFileText, FiCalendar, FiGift, FiLock, FiAlertCircle, FiStar, FiHelpCircle, FiSend, FiCheck, FiPhone, FiMessageCircle, FiMail, FiMapPin, FiBookOpen, FiBriefcase, FiDollarSign } from "react-icons/fi";
+import { FiX, FiPaperclip, FiFileText, FiCalendar, FiGift, FiLock, FiAlertCircle, FiStar, FiHelpCircle, FiSend, FiCheck, FiPhone, FiMessageCircle, FiMail, FiMapPin, FiBookOpen, FiBriefcase, FiDollarSign, FiGitMerge } from "react-icons/fi";
 import { authService } from "../../services/authService";
 import { documentosFinancierosService } from "../../services/documentosFinancierosService";
 import { vacacionesService } from "../../services/vacacionesService";
@@ -17,6 +17,7 @@ import { prestamoService } from "../../services/prestamoService";
 import { conexionesExternasService } from "../../services/conexionesExternasService";
 import { PDFAttachment, PDFViewer, normalizePDF } from "./PDFAttachment";
 import MapaDomicilio from "./MapaDomicilio";
+import CadenaMando from "./CadenaMando";
 import { API_URL, sessionHeaders, apiFetch } from "../../services/apiConfig";
 import { catalogodeptoService } from "../../services/catalogodeptoService";
 
@@ -280,7 +281,7 @@ export const DireccionRenderer = ({ isEditing, direccion = {}, onDireccionChange
           })}
         </div>
         <div className="dir-mapa">
-          <MapaDomicilio direccion={direccion} lat={lat} lng={lng} isEditing={isEditing} onCoordsChange={onCoordsChange} mode="popup" />
+          <MapaDomicilio direccion={direccion} lat={lat} lng={lng} />
         </div>
       </div>
     </div>
@@ -780,6 +781,7 @@ export const LaboralRenderer = ({ isEditing, puedeEditar, esPropio, RH, handleRH
   const antiguedad = calcularAntiguedad(RH?.FechaIngreso);
   const contrato = TIPOS_CONTRATO.find(t => t.value === (RH?.tipo_contrato || "")) || TIPOS_CONTRATO[0];
   const upper = (campo) => (v) => handleRHChange(campo, v.toUpperCase());
+  const [verJerarquia, setVerJerarquia] = useState(false);
 
   return (
     <div className="section-inner">
@@ -809,7 +811,18 @@ export const LaboralRenderer = ({ isEditing, puedeEditar, esPropio, RH, handleRH
                 <option key={e._id} value={e._id}>{e.Nombre} {e.ApelPaterno}{e.Puesto ? ` · ${e.Puesto}` : ""}</option>
               ))}
             </select>
-          ) : <span className="field-value" title={nombreJefe}>{nombreJefe || <em className="field-empty">Sin asignar</em>}</span>}
+          ) : (
+            <div className="field-jefe">
+              <span className="field-value" title={nombreJefe}>{nombreJefe || <em className="field-empty">Sin asignar</em>}</span>
+              {empleadoEncontrado?._id && (
+                <button type="button" className="btn-jerarquia" onClick={() => setVerJerarquia(true)}
+                  aria-label="Ver jerarquía: jefes hacia arriba y equipo directo">
+                  <FiGitMerge aria-hidden="true" /> Ver jerarquía
+                </button>
+              )}
+            </div>
+          )}
+          <CadenaMando empleadoId={empleadoEncontrado?._id} abierto={verJerarquia} onClose={() => setVerJerarquia(false)} />
         </div>
         <Field label="Fecha de ingreso" value={RH?.FechaIngreso} isEditing={isEditing} onChange={v => handleRHChange("FechaIngreso", v)} type="date" />
         <div className="field-row">
@@ -835,6 +848,15 @@ export const LaboralRenderer = ({ isEditing, puedeEditar, esPropio, RH, handleRH
             </select>
           ) : <span className="field-value">{contrato.label}</span>}
         </div>
+      </FieldGroup>
+
+      <FieldGroup titulo="Contacto laboral">
+        <Field label="Extensión" value={RH?.Extension} isEditing={isEditing} onChange={v => handleRHChange("Extension", v.replace(/\D/g, ""))}
+          placeholder="Ej. 1234" maxLength={8} inputMode="numeric" mono />
+        <Field label="Teléfono de oficina" value={RH?.TelefonoOficina} isEditing={isEditing} onChange={v => handleRHChange("TelefonoOficina", v)}
+          type="tel" placeholder="Ej. 55 1234 5678" maxLength={20} />
+        <Field label="Oficina / ubicación" value={RH?.UbicacionOficina} isEditing={isEditing} onChange={v => handleRHChange("UbicacionOficina", v)}
+          placeholder="Ej. Piso 3, sala B" maxLength={80} hint="Lo ven sus compañeros en el directorio" />
       </FieldGroup>
 
       <FieldGroup titulo="Horario">
