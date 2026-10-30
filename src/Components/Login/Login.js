@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
 import SolicitarAcceso from "./SolicitarAcceso";
-import { API_URL } from "../../services/apiConfig";
+import RecuperarContrasena from "./RecuperarContrasena";
 import { useOrg } from "../../context/OrgContext";
 import "./Login.css";
 
@@ -15,32 +15,10 @@ function Login({ setIsAuthenticated, setUserRole }) {
   const [message,      setMessage]      = useState("");
   const [loading,      setLoading]      = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
-  const [recId,        setRecId]        = useState("");
-  const [recEstado,    setRecEstado]    = useState(null); // {ok, texto}
-  const [recEnviando,  setRecEnviando]  = useState(false);
   // Aviso de por qué se volvió al login (sesión expirada o por inactividad).
   const [aviso] = useState(() => {
     try { const a = sessionStorage.getItem("aviso_login"); sessionStorage.removeItem("aviso_login"); return a; } catch { return null; }
   });
-
-  const solicitarRecuperacion = async (e) => {
-    e.preventDefault();
-    if (!recId.includes("@")) { setRecEstado({ ok: false, texto: "Escribe el correo completo de la cuenta." }); return; }
-    if (!sessionStorage.getItem("entry_org_slug")) {
-      setRecEstado({ ok: false, texto: "Abre la página de tu empresa y solicita la recuperación desde ahí." });
-      return;
-    }
-    setRecEnviando(true); setRecEstado(null);
-    try {
-      const res = await fetch(`${API_URL}/recuperar-contrasena`, {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identificador: recId.trim(), org_id: sessionStorage.getItem("entry_org_slug") || undefined }),
-      });
-      const data = await res.json().catch(() => ({}));
-      setRecEstado({ ok: res.ok, texto: data.message || data.error || "No se pudo enviar la solicitud." });
-    } catch { setRecEstado({ ok: false, texto: "No se pudo conectar. Revisa tu internet." }); }
-    finally { setRecEnviando(false); }
-  };
 
   // Contraseña temporal (Aegis): el backend manda must_change_password=true
   // y obligamos a definir una nueva antes de entrar al sistema.
@@ -314,33 +292,13 @@ function Login({ setIsAuthenticated, setUserRole }) {
           <button
             type="button"
             className="login-btn-recovery"
-            onClick={() => setShowRecovery(v => !v)}
+            onClick={() => setShowRecovery(true)}
           >
             ¿Olvidaste tu contraseña?
           </button>
 
-          {showRecovery && (
-            <form className="login-recovery-form" onSubmit={solicitarRecuperacion}>
-              <p className="login-recovery-text">
-                Abre esta página desde el enlace de tu empresa y escribe el correo completo.
-                La contraseña nueva se elige en la página del enlace, no aquí.
-              </p>
-              <div className="login-input-wrap">
-                <input className="login-input" aria-label="Correo completo" type="email" placeholder="correo@empresa.com" value={recId}
-                  onChange={e => setRecId(e.target.value)} autoComplete="username" disabled={recEnviando || recEstado?.ok} />
-              </div>
-              {recEstado && (
-                <div className={recEstado.ok ? "login-recovery-info" : "login-error"} role={recEstado.ok ? "status" : "alert"}>
-                  <span>{recEstado.texto}</span>
-                </div>
-              )}
-              {!recEstado?.ok && (
-                <button type="submit" className="login-btn-primary" disabled={recEnviando}>
-                  {recEnviando ? "Enviando…" : "Pedir nueva contraseña"}
-                </button>
-              )}
-            </form>
-          )}
+          <RecuperarContrasena abierto={showRecovery} onClose={() => setShowRecovery(false)} correoInicial={user}
+            onListo={(identificador) => { setUser(identificador); setPassword(""); setMessage(""); }} />
           </>
           )}
         </div>

@@ -720,3 +720,14 @@
 /* Solicitud de nueva contraseña */
 .login-recovery-form { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 .login-recovery-text { margin: 0; font-size: 0.84rem; line-height: 1.5; color: var(--login-muted, rgba(255,255,255,0.65)); }
+
+/* Pop-up "Recuperar contraseña" */
+.rec-aviso { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; font-size: 0.86rem; color: var(--hr-muted); line-height: 1.5; }
+.rec-aviso strong { color: var(--hr-text); }
+.rec-aviso--ok { color: var(--hr-text); }
+.rec-aviso--ok svg { color: #10b981; }
+.rec-codigo { font-size: 1.4rem !important; letter-spacing: 0.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.rec-acciones { display: flex; justify-content: space-between; gap: 12px; margin-top: 4px; }
+.rec-link { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 0.82rem; color: var(--hr-accent); cursor: pointer; }
+.rec-link:disabled { color: var(--hr-muted); cursor: default; }
+.rec-link:not(:disabled):hover { text-decoration: underline; }
