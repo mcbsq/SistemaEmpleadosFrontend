@@ -713,14 +713,15 @@ function Empleados() {
     try {
       const res = await usuarioService.create({...formUser, role:"EMPLOYEE", empleado_id:formEmp._id});
       setModal(null); setFormEmp(EMP_INIT); cargarTodo();
-      if (res?.email_sent) {
+      // La temporal la genera Aegis y siempre se muestra a quien dio de alta;
+      // si se pierde, se vuelve a consultar en Cuentas hasta que la cambie.
+      if (res?.temp_password) {
+        await avisar({ titulo: "Empleado dado de alta", copiable: res.temp_password,
+          mensaje: `Contraseña temporal de ${formUser.user}${res.email_sent ? ` (también se envió a ${formUser.email})` : ""}. `
+            + "Deberá cambiarla en su primer inicio de sesión. Si se pierde, puedes volver a verla en Cuentas." });
+      } else if (res?.email_sent) {
         await avisar({ titulo: "Empleado dado de alta",
           mensaje: `La contraseña temporal se envió por correo a ${formUser.email}. El empleado deberá cambiarla en su primer inicio de sesión.` });
-      } else if (res?.temp_password) {
-        // Sin SMTP configurado: la contraseña la genera el sistema de identidad
-        // y se muestra una sola vez para entregarla en mano.
-        await avisar({ titulo: "Empleado dado de alta", copiable: res.temp_password,
-          mensaje: `Contraseña temporal de ${formUser.user}. Entrégala al empleado: solo se muestra esta vez y deberá cambiarla en su primer inicio de sesión.` });
       }
       setFormUser(USER_INIT); setFormDir(DIR_INIT); setFormDC(DC_INIT); setWaIgual(true);
     } catch (e) {

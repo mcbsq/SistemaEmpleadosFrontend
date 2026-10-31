@@ -1,12 +1,12 @@
 // src/Components/GestionUsuarios.jsx
-// SUPER_ADMIN — panel de cuentas del sistema. Aegis (el proveedor de
-// identidad) nunca expone contraseñas existentes en texto plano: lo único
-// posible es RESTABLECER (genera una temporal nueva) y mostrarla una sola
-// vez, igual que al dar de alta un empleado. Cada reseteo queda en la
+// SUPER_ADMIN — panel de cuentas del sistema. La contraseña definitiva de
+// una persona nunca es visible. La TEMPORAL (la que genera Aegis al dar de
+// alta o al restablecer) sí se puede volver a consultar mientras la persona
+// no la cambie, para entregársela; cada consulta y cada reseteo quedan en la
 // auditoría (quién y cuándo, nunca el valor).
 import { confirmar, avisar } from "../services/dialogo";
 import React, { useState, useEffect, useCallback } from "react";
-import { FiUsers, FiRefreshCw, FiCopy, FiX, FiAlertTriangle, FiSmartphone } from "react-icons/fi";
+import { FiUsers, FiRefreshCw, FiAlertTriangle, FiSmartphone, FiKey } from "react-icons/fi";
 import { usuarioService } from "../services/usuarioService";
 import { apiFetch } from "../services/apiConfig";
 import { roleLabel } from "../utils/roleLabels";
@@ -15,52 +15,11 @@ import IconButton from "./IconButton";
 
 function getId(item) { return item?._id?.$oid || item?._id || ""; }
 
-function TempPasswordModal({ resultado, onClose }) {
-  const [copiado, setCopiado] = useState(false);
-  const copiar = () => {
-    navigator.clipboard?.writeText(resultado.temp_password || "");
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 1500);
-  };
-  return (
-    <div className="nb-overlay" onClick={onClose}>
-      <div className="nb-panel" style={{ width: 420 }} onClick={e => e.stopPropagation()}>
-        <div className="nb-panel-header">
-          <span>Contraseña restablecida</span>
-          <button className="nb-close-btn" onClick={onClose} aria-label="Cerrar"><FiX /></button>
-        </div>
-        <div style={{ padding: 20 }}>
-          {resultado.email_sent ? (
-            <p className="orgs-desc">Se envió por correo a <strong>{resultado.user}</strong>. Deberá cambiarla en su próximo inicio de sesión.</p>
-          ) : (
-            <>
-              <p className="orgs-desc" style={{ marginBottom: 10 }}>
-                Sin SMTP configurado — entrega esta contraseña temporal a <strong>{resultado.user}</strong> en mano.
-                Solo se muestra una vez: ni el sistema ni Aegis la vuelven a exponer.
-              </p>
-              <div style={{
-                display: "flex", alignItems: "center", gap: 8,
-                background: "var(--hr-bg)", border: "1px solid var(--hr-border)",
-                borderRadius: 8, padding: "10px 12px", fontFamily: "monospace", fontSize: "0.9rem",
-              }}>
-                <span style={{ flex: 1, wordBreak: "break-all" }}>{resultado.temp_password}</span>
-                <button className="orgs-refresh-btn" onClick={copiar}>
-                  <FiCopy style={{ verticalAlign: "-2px", marginRight: 4 }} />{copiado ? "Copiada" : "Copiar"}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function GestionUsuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reseteando, setReseteando] = useState(null);
-  const [resultado, setResultado] = useState(null);
+  const [viendo, setViendo] = useState(null);
   const [error, setError] = useState("");
 
   const cargar = useCallback(async () => {
@@ -88,14 +47,34 @@ function GestionUsuarios() {
     }
   };
 
+  const mostrarTemporal = (titulo, user, temp, enviado) => avisar({
+    titulo, copiable: temp,
+    mensaje: `Contraseña temporal de ${user}${enviado ? " (también se envió a su correo)" : ""}. `
+      + "Deberá cambiarla en su primer inicio de sesión; mientras no lo haga, puedes volver a verla aquí.",
+  });
+
+  const verTemporal = async (u) => {
+    const id = getId(u);
+    setViendo(id); setError("");
+    try {
+      const r = await apiFetch(`/usuario/${id}/temporal`);
+      await mostrarTemporal("Contraseña temporal", u.user, r.temp_password, false);
+    } catch (e) {
+      setError(e.message || "No se pudo consultar la contraseña temporal.");
+    } finally {
+      setViendo(null);
+    }
+  };
+
   const restablecer = async (u) => {
     const id = getId(u);
-    if (!(await confirmar(`¿Restablecer la contraseña de "${u.user}"? Se generará una nueva contraseña temporal.`))) return;
+    if (!(await confirmar(`¿Restablecer la contraseña de "${u.user}"? Se generará una nueva contraseña temporal y la actual dejará de funcionar.`))) return;
     setReseteando(id);
     setError("");
     try {
       const res = await usuarioService.update(id, { password: "__reset__" });
-      setResultado({ ...res, user: u.user });
+      if (res?.temp_password) await mostrarTemporal("Contraseña restablecida", u.user, res.temp_password, res.email_sent);
+      else await avisar({ titulo: res?.recovery_email_sent ? "Enlace de recuperación enviado" : "Contraseña restablecida", mensaje: res?.message || "Listo." });
       cargar();
     } catch (e) {
       setError(e.message || "No se pudo restablecer la contraseña.");
@@ -106,14 +85,12 @@ function GestionUsuarios() {
 
   return (
     <div className="orgs-root">
-      {resultado && <TempPasswordModal resultado={resultado} onClose={() => setResultado(null)} />}
-
       <div className="hr-page-header">
         <div>
           <h2 className="hr-title"><FiUsers style={{ marginRight: 8, verticalAlign: "-3px" }} />Cuentas del sistema</h2>
           <p className="hr-subtitle">
-            Usuarios, rol y estado de la identidad en Aegis · SUPER_ADMIN. Las contraseñas nunca son visibles —
-            solo se pueden restablecer, y la nueva se muestra una única vez.
+            Usuarios, rol y estado de la identidad en Aegis · SUPER_ADMIN. Las contraseñas definitivas nunca son
+            visibles; la temporal se puede consultar hasta que la persona la cambie.
           </p>
         </div>
       </div>
@@ -146,6 +123,10 @@ function GestionUsuarios() {
                 badge={<span className={`rc-badge rc-badge--${tono}`}>{estado}</span>}
                 meta={<><span>{roleLabel(u.role)}</span>{u.email && <span className="rc-meta-trunc" title={u.email}>{u.email}</span>}</>}
                 acciones={<>
+                  {u.tiene_temporal && (
+                    <IconButton icon={FiKey} label="Ver contraseña temporal" tooltipPos="left"
+                      busy={viendo === id} disabled={viendo === id} onClick={() => verTemporal(u)} />
+                  )}
                   <IconButton icon={FiSmartphone} label="Desvincular celulares (Face ID / huella)" tooltipPos="left" onClick={() => desvincular(u)} />
                   <IconButton icon={FiRefreshCw} label="Restablecer contraseña" tooltipPos="left"
                     busy={reseteando === id} disabled={reseteando === id} onClick={() => restablecer(u)} />
